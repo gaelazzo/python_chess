@@ -1,0 +1,15 @@
+# This file specifies intentionally untracked files 
+
+# Temporary files including undo
+*~
+#
+/__pycache__
+/.idea/
+/.vs/
+/books/
+/data/
+/engines/
+/env/
+/old/
+*.pgi
+*.pgn

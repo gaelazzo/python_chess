@@ -1,0 +1,8 @@
+chess.com
+pygame
+python-chess
+berserk
+pygame-menu
+chess
+pyperclip
+pygame_gui
