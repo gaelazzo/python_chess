@@ -13,3 +13,6 @@
 /old/
 *.pgi
 *.pgn
+/chess_com/cache
+/game1.ini
+*.ini
