@@ -44,15 +44,16 @@
 # 	search exactly x mseconds
 # * infinite
 # 	search until the "stop" command. Do not exit the search without being told so in this mode!
-
-import glob
+from __future__ import annotations 
+from typing import Optional,List
 # from pickle import NONE
 import chess
 import chess.engine
 import atexit
+import Board
 
 #engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish_14.1_win_x64_popcnt.exe")
-engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
+engine:chess.engine.SimpleEngine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
 # D:\progetti\python\chess\engines\stockfish-17-avx2.exe
 # r"D:\python\chess\engines\stockfish_14.1_win_x64_popcnt.exe"
 # D:\python\chess\engines\lc0\lc0.exe
@@ -69,7 +70,7 @@ def engine_close():
 
 atexit.register(engine_close)
 
-def bestMove(board, validMoves=None, time=0.1, elo= None):
+def bestMove(board, validMoves:List[Board.Move]=None, time=0.1, elo= None)->Optional[chess.Move]:
     if elo is None:
         res = engine.play(board.board,
                           limit = chess.engine.Limit(time=time),

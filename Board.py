@@ -4,7 +4,7 @@ Determines valid moves
 Keeps a move log
 """
 from __future__ import annotations 
-from typing import Optional
+from typing import Optional,List
 import chess
 
 
@@ -14,28 +14,38 @@ class GameState:
 
     def __init__(self):
         # first char is the color, second char the piece, -- is empty
-        self.board = chess.Board()
-        self.moveLog = []
+        self.board:Optional[chess.Board] = chess.Board()
+        self.moveLog:Optional[List[Move]] = []
         self.header = []
         self.evaluation = None
 
     def setHeader(self, header):
         self.header = header
 
-    def setEvaluation(self, evaluation):
+    def setEvaluation(self, evaluation:float):
+        '''
+        sets the evaluation associated to current position
+        '''
         self.evaluation = evaluation
 
-    def getEvaluation(self):
+    def getEvaluation(self)->float:
+        '''
+        gets the evaluation associated to current position
+        '''
         return self.evaluation
 
     def getHeader(self):
         return self.header
 
+    
     def setFen(self, fen:str):
+        '''
+            Sets the board as stated by the fen str, resetting move log
+        '''
         self.moveLog = []
         self.board = chess.Board(fen)
 
-    def makeMove(self, move):
+    def makeMove(self, move:Move):
         """
         Takes a move and executes it. Does not work for special moves
         param move: Move
@@ -48,14 +58,17 @@ class GameState:
         self.moveLog.append(move)
 
     def undoMove(self):
+        '''
+        Rethreat last move
+        '''
         self.board.pop()
         if len(self.moveLog) > 0:
             del self.moveLog[-1]
 
-    def whiteToMove(self):
+    def whiteToMove(self)->chess.Color:
         return self.board.turn
 
-    def colorToMove(self):
+    def colorToMove(self)->str:
         return "w" if self.board.turn else "b"
 
     def colorAt(self, row:int, col:int)->str:
@@ -74,11 +87,11 @@ class GameState:
             return "w"
         return "b"
 
-    def getValidMoves(self):
+    def getValidMoves(self)->List[Move]:
         return [m for m in self.board.legal_moves]
 
 
-    def stdValidMoves(self):
+    def stdValidMoves(self)->List[Move]:
         dest = []
         for m in self.board.legal_moves:
             # if chess.square_rank(m.from_square) != fromRow:
@@ -93,7 +106,7 @@ class GameState:
         return dest
 
 
-    def piece_at(self, r:int, c:int):
+    def piece_at(self, r:int, c:int)->str:
         '''        
         Piece in a board position
 
@@ -102,7 +115,7 @@ class GameState:
             c: piece column
 
         Returns:
-            piece
+            piece code in a format like --, wB, bN etc
         '''
 
         moved = self.board.piece_at((7-r)*8+c)
@@ -113,13 +126,13 @@ class GameState:
         color = self.colorAt(r, c)
         return color + moved
 
-    def inCheck(self):
+    def inCheck(self)->bool:
        return self.board.is_check()
 
-    def checkMate(self):
+    def checkMate(self)->bool:
         return self.board.is_checkmate()
 
-    def staleMate(self):
+    def staleMate(self)->bool:
         return self.board.is_stalemate()
 
 class Move:
@@ -129,9 +142,9 @@ class Move:
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
 
-
-    def fromChessMove(m,board)->Move:
-        return Move([7-chess.square_rank(m.from_square),chess.square_file(m.from_square)],
+    @classmethod
+    def fromChessMove(cls, m:chess.Move,board:chess.Board)->Move:
+        return cls([7-chess.square_rank(m.from_square),chess.square_file(m.from_square)],
                     [7 - chess.square_rank(m.to_square), chess.square_file(m.to_square)],
                     board
                     )
@@ -145,28 +158,32 @@ class Move:
         self.stopRow = stopSq[0]
         self.stopCol = stopSq[1]
 
-        self.uci = self.getRankFile(startSq[0], startSq[1]) + \
+        self.uci:Optional[str] = self.getRankFile(startSq[0], startSq[1]) + \
               self.getRankFile(stopSq[0], stopSq[1])
         self.move:Optional[chess.Move] = chess.Move.from_uci(self.uci)
-        self.board = board
+        self.board:Optional[chess.Board] = board
         self.pieceMoved = board.piece_at(self.startRow, self.startCol)
         self.pieceCaptured = board.piece_at(self.stopRow, self.stopCol)
         self.prettyPrint = self.board.board.san(self.move)
         self.enPassant = self.board.board.is_en_passant(self.move)
 
 
-    def promoteToPiece(self, p):
+    def promoteToPiece(self, p:chess.PieceType)->chess.Move:
         self.move = chess.Move.from_uci(self.move.uci()+chess.piece_symbol(p))
         return self.move
 
-    def getChessNotation(self):
+    def getChessNotation(self)->str:
+        #uci move, example a7a8 or a7a8q
         return self.move.uci()
 
-    def prettyChessNotation(self):
+    def prettyChessNotation(self)->str:
         return self.prettyPrint
 
 
     def getRankFile(self, r, c):
+        '''
+        gives a string represantition of a board square
+        '''
         return self.colsToFiles[c] + self.rowsToRanks[r]
 
     def __eq__(self, other):

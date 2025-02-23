@@ -2,9 +2,10 @@
 Main driver file
 
 """
+from ast import Dict
 import random
-
-import Board
+from typing import Optional
+from Board import Move,GameState
 import pygame as p
 import UCIEngines
 import BoardScreen as BS
@@ -154,7 +155,7 @@ def playGame():
 
 def playAGame():
     global screen
-    gs = Board.GameState()
+    gs:Optional[GameState] = GameState()
     validMoves = gs.stdValidMoves()
     elo = playParameters["elo"]
     if playParameters["elomax"]:
@@ -193,10 +194,9 @@ def playAGame():
 
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
-            move = UCIEngines.bestMove(gs, validMoves, elo=elo)
-            if move is not None:
-                if not hasattr(move, "move"):
-                    move = Board.Move.fromChessMove(move, gs)
+            engine_move:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, elo=elo)  #validMoves is not used at the moment
+            if engine_move is not None:
+                move:Optional[Move] = Move.fromChessMove(engine_move, gs)
                 gs.makeMove(move)
                 moveMade = True
                 animate = True
@@ -223,7 +223,7 @@ def playAGame():
                         playerClicks.append(sqSelected)
 
                     if len(playerClicks) == 2:
-                        move = Board.Move(playerClicks[0], playerClicks[1], gs)
+                        move = Move(playerClicks[0], playerClicks[1], gs)
 
                         if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
                             validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
@@ -280,7 +280,7 @@ def playAGame():
                         animate = False
 
                     if e.key == p.K_r:
-                        gs = Board.GameState()
+                        gs = GameState()
                         sqSelected = ()
                         playerClicks = []
                         validMoves = gs.stdValidMoves()
@@ -377,7 +377,7 @@ def replayBadPositions(learningBase):
     moveMade = False
     animate = False
     gameOver = False
-    errorsMade = []
+    errorsMade= [] # tells how maby mnistakes for every position
     numberOfErrors = []
     maxErrorsToConsider = 10
     if len(ll)==0:
@@ -408,7 +408,7 @@ def replayBadPositions(learningBase):
 
 
         moves = pos["moves"].split()
-        gs = Board.GameState()
+        gs = GameState()
         gs.setHeader(header)
         #gs.setFen(pos["fen"])
         #BS.setWhiteUp(screen, not gs.whiteToMove())
@@ -433,8 +433,8 @@ def replayBadPositions(learningBase):
             if currentMove < len(moves):
                 ucimove = moves[currentMove]
                 currentMove += 1
-                chessMove = chess.Move.from_uci(ucimove)
-                move = Board.Move.fromChessMove(chessMove, gs)
+                chessMove:Optional[chess.Move] = chess.Move.from_uci(ucimove)
+                move:Optional[Move] = Move.fromChessMove(chessMove, gs)
                 # print(f"made a move from list:{move.getChessNotation()}")
                 gs.makeMove(move)
                 moveMade = True
@@ -442,10 +442,8 @@ def replayBadPositions(learningBase):
                 validMoves = gs.stdValidMoves()
 
             if engineMove > 0:
-                move = UCIEngines.bestMove(gs, validMoves, time=1.0)
-                if move is not None:
-                    if not hasattr(move, "move"):
-                        move = Board.Move.fromChessMove(move, gs)
+                chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, time=1.0)
+                move:Optional[Move] = Move.fromChessMove(chessmove, gs)
                 gs.makeMove(move)
                 # print(f"made a move from engine:{move.getChessNotation()}")
 
@@ -472,7 +470,7 @@ def replayBadPositions(learningBase):
                         playerClicks.append(sqSelected)
 
                     if len(playerClicks) == 2:
-                        move = Board.Move(playerClicks[0], playerClicks[1], gs)
+                        move = Move(playerClicks[0], playerClicks[1], gs)
 
                         if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
                             validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
@@ -486,7 +484,7 @@ def replayBadPositions(learningBase):
                                 move = move.promoteToPiece(piece)
 
                         # print(move.getChessNotation())
-                        validMove = next((m for m in validMoves if move == m), None)
+                        validMove:Optional[Move] = next((m for m in validMoves if move == m), None)
                         if validMove is not None:
                             # print(f"made a move from human:{move.getChessNotation()}")
                             gs.makeMove(validMove)
@@ -681,7 +679,7 @@ def playModelFiles(filename, humanColor):
                         playerClicks.append(sqSelected)
 
                     if len(playerClicks) == 2:
-                        move = Board.Move(playerClicks[0], playerClicks[1], gs)
+                        move = Move(playerClicks[0], playerClicks[1], gs)
 
                         if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
                             validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
@@ -707,7 +705,7 @@ def playModelFiles(filename, humanColor):
                                 errors += 1
                                 msg = "Not the right move"
                                 if errors >= 3:
-                                    rightMove = Board.Move.fromChessMove(gr.getNextMainMove(), gs)
+                                    rightMove = Move.fromChessMove(gr.getNextMainMove(), gs)
                                     msg = f"hint:{rightMove.uci[:2]}"
 
                                 BS.drawEndGameText(screen, msg)

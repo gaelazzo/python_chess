@@ -1,6 +1,8 @@
 import pygame as p
 import math
 import pygame_gui
+from Board import GameState
+import chess
 
 DIMENSION = 8
 MOVELOGFONT = None
@@ -92,7 +94,7 @@ def loadImages():
         IMAGES[piece] = p.transform.scale(p.image.load("images/" + piece + ".png"), (SQ_SIZE, SQ_SIZE))
 
 
-
+ 
 def drawBoard(screen):
     global colors
     for r in range(DIMENSION):
@@ -101,7 +103,7 @@ def drawBoard(screen):
             p.draw.rect(screen, color, p.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 
-def drawPieces(screen, board):
+def drawPieces(screen, board: GameState):
     for r in range(DIMENSION):
         for c in range(DIMENSION):
             piece = board.piece_at(r, c)

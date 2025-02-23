@@ -1,5 +1,7 @@
+from __future__ import annotations 
+from typing import Optional,List
 import chess
-import chess.pgn
+from chess.pgn import ChildNode, Game,read_game,read_headers
 import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
 from Board import GameState, Move
@@ -12,10 +14,10 @@ class PgnGameList:
         return len(self.games) == 0
 
     def __init__(self, filename):
-        self.games = []
+        self.games:Optional[List[Game]] = []
         pgn = open(filename, encoding='utf-8')
         while True:
-            game = chess.pgn.read_game(pgn)
+            game:chess.pgn.Game = read_game(pgn)
             if game is None:
                 break
             self.games.append(game)
@@ -23,8 +25,8 @@ class PgnGameList:
         pgn.close()
 
         # first char is the color, second char the piece, -- is empty
-        self.gs = GameState()
-        self.game = None
+        self.gs:Optional[GameState] = GameState()
+        self.game:Optional[chess.pgn.Game] = None
         self.node = None
 
     def makeNextMove(self):
@@ -39,7 +41,7 @@ class PgnGameList:
 
         self.node = self.node.variations[idx]
 
-        result = Move.fromChessMove(self.node.move, self.gs)
+        result:Optional[Move] = Move.fromChessMove(self.node.move, self.gs)
 
         self.gs.makeMove(result)
 
@@ -48,7 +50,7 @@ class PgnGameList:
     def getNextMainMove(self):
         if self.node is None:
             return None
-        nextNode = self.node.next()
+        nextNode:ChildNode = self.node.next()
         return None if nextNode is None else nextNode.move
 
 
@@ -56,30 +58,38 @@ class PgnGameList:
         if self.isEmpty():
             return False
         self.game = random.choice(self.games)
-        self.node = self.game
-        self.gs = GameState()
+        self.node:Optional[Game] = self.game
+        self.gs:Optional[GameState] = GameState()
         return True
 
 
     def is_end(self):
         return True if self.game is None else self.game.is_end()
 
-    def checkNextMove(self, move):
+    def checkNextMove(self, move:Move)->bool:
         """
         Check if input move is the next main move in the current variation
 
-        param move:Move
-         move to check
+        params:
+            move:Move   move to check
 
-        return: boolean
+         Returns:
+             boolean
+            
         """
-        newNode = self.node.next()
+        newNode:Optional[ChildNode] = self.node.next()
         if newNode is None:
             return False
 
         return self.gs.board.san(move) == newNode.san()
 
-    def doNextMainMove(self):
+    def doNextMainMove(self)->bool:
+        '''
+            do next main move
+            returns:
+                true of there was some move to do
+        
+        '''
         newNode = self.node.next()
         if newNode is None:
             return False

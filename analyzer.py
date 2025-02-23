@@ -1,3 +1,4 @@
+from __future__ import annotations 
 import asyncio
 # [m for m in g.mainline_moves()]
 import chess
@@ -5,33 +6,16 @@ import chess.pgn
 import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
 import random
+from Board import GameState
 from UCIEngines import engine
-
+from typing import Optional,List,Dict,Tuple,Dict
+from LearningBase import LearningBase, learningBases
 from datetime import datetime, timedelta, date
 import csv
 
-learningBases = {
-    "blunders": {
-        "data": {},
-        "filename": "data/tacticalerrors.csv",
-        "movesToAnalyse": 200,
-        "blunderValue": 200,
-        "ponderTime": 0.2,
-        "useBook": False
-    },
-    "openings": {
-        "data": {},
-        "filename": "data/openingerrors.csv",
-        "movesToAnalyse": 16,
-        "blunderValue": 80,
-        "ponderTime": 0.1,
-        "useBook": True
-    }
-}
 
-book = None
 
-book = chess.polyglot.MemoryMappedReader("./books/Perfect2021.bin")
+book:Optional[chess.polyglot.MemoryMappedReader] = chess.polyglot.MemoryMappedReader("./books/Perfect2021.bin")
 
 
 def close():
@@ -41,52 +25,47 @@ def close():
 # zobrist,skip,fen,eco,lastTry,firstTry,ok,move,moves,ntry,successful
 
 
-def saveInfo(learningBase):
-    with open(learningBase["filename"], 'w', newline="") as csvfile:
-        fieldnames = ['zobrist', 'skip', 'fen', 'eco', 'lastTry', 'firstTry', 'ok', 'move', "moves", "successful",
-                      "ntry",
-                      "white", "black", "date"]
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-        writer.writeheader()
-        for row in learningBase["data"].values():
-            rr = dict(
-                (k, v) for k, v in row.items() if k in fieldnames
-            )
-            if rr["lastTry"] is not None:
-                rr["lastTry"] = datetime.strftime(rr["lastTry"], "%d/%m/%Y")
-            if rr["firstTry"] is not None:
-                rr["firstTry"] = datetime.strftime(rr["firstTry"], "%d/%m/%Y")
-            writer.writerow(rr)
+def updateInfoStats(board:chess.Board, learningBase:LearningBase):
+    """ 
+        Updates the learning base with the given Board, in particular:
+            ntry = n. of attempts
+            lastTry = current time    
+            successful = n. of correct responses
+            firstTry = current time if this is first attempt
+            skip = S if answer was successful 5 times in a row
+            serie = current positive or negative serie
+        Args:
+            board:chess.Board current position
+            learningBase: learning base to update
+        Returns: 
+            True if response was right
 
-    if len(learningBase["data"]) % 50 == 0:
-        print(f"{learningBase['filename']}: {len(learningBase['data'])} positions found")
-
-
-def updateInfoStats(board, learningBase):
-    move = board.pop()
-    zobrist = chess.polyglot.zobrist_hash(board)
-    if zobrist not in learningBase["data"]:
+    """    
+    moveMade:Optional[chess.Move] = board.pop()
+    zobrist:Optional[int] = chess.polyglot.zobrist_hash(board)
+    if zobrist not in learningBase.positions:
         return False
-    item = learningBase["data"][zobrist]
-    item["ntry"] = item["ntry"] + 1
-    item["lastTry"] = datetime.now().date()
-    if item["firstTry"] is None:
-        item["firstTry"] = item["lastTry"]
-    if item["ok"] == board.uci(move):
-        item["successful"] = item["successful"] + 1
-        if item["successful"] >= 5:
-            item["skip"] = "S"  # mark as learned
-    else:
-        item["successful"] = 0
-    saveInfo(learningBase)
-    board.push(move)
-    return item["ok"] == board.uci(move)
+    # {zobrist,skip,fen,eco,lastTry,firstTry,ok,move,moves,successful,ntry,white,black,date}
+    position = learningBase.positions[zobrist]
+    res:Optional[bool] = LearningBase.updatePositionStats(position, moveMade, board, datetime.now().date())
+
+    learningBase.save()
+    board.push(moveMade)  # redo the move
+    return res
 
 
-def getRandomPositions(learningBase, filter=None):
+def getRandomPositions(learningBase:LearningBase, filter=None):
+    """
+        Gets a randomized filtered subset of the given learning base
+        Args:
+            leaningBase: the database of positions
+            filter: an object with the fields to match
+        Returns: 
+            List of positions
+    """
     l = []
-    for row in learningBase["data"].values():
+    for row in learningBase.positions.values():
         if filter is not None:
             if filter["eco"] is not None and row["eco"]!=filter["eco"].upper():
                 continue
@@ -102,51 +81,15 @@ def getRandomPositions(learningBase, filter=None):
     return l
 
 
-def reloadLearningBases():
-    for learn in learningBases.values():
-        reloadLearned(learn)
 
 
-# zobrist;fen;eco;lastTry;firstTry;move;ok;bad;moves,ntry,successful,ntry,white,black,date
-def reloadLearned(learningBase):
-    learningBase["data"].clear()
-    with open(learningBase["filename"]) as csv_file:
-        reader = csv.DictReader(csv_file)
-        for row in reader:
-            row['zobrist'] = int(row['zobrist'])
-            zobrist = row['zobrist']
 
-            if row["lastTry"] == "":
-                row["lastTry"] = None
-            else:
-                row["lastTry"] = datetime.strptime(row["lastTry"], "%d/%m/%Y")
-
-            if row["firstTry"] == "":
-                row["firstTry"] = None
-            else:
-                row["firstTry"] = datetime.strptime(row["firstTry"], "%d/%m/%Y")
-
-            if not "successful" in row:
-                row["successful"] = 0
-            else:
-                if row["successful"] is None:
-                    row["successful"] = 0
-                row["successful"] = int(row["successful"])
-
-            if not "ntry" in row:
-                row["ntry"] = 0
-            else:
-                if row["ntry"] is None:
-                    row["ntry"] = 0
-                row["ntry"] = int(row["ntry"])
-
-            learningBase["data"][zobrist] = row
-
-    line_count = len(learningBase["data"])
-    print(f'{learningBase["filename"]}: Processed {line_count} lines.')
-
-
-def isInBook(board):
+def isInBook(board:chess.Board)->bool:
+    """
+        Check if a board position is in current book
+        Returns 
+            True if board is in book
+    """
     m = book.get(board, minimum_weight=0)
     if m is None:
         return False
@@ -155,7 +98,12 @@ def isInBook(board):
 
 nAdditions = 0
 
-def evaluatePosition(board, ponderTime=3):
+def evaluatePosition(board:chess.Board, ponderTime=3):
+    """
+        Gives an evaluation of the given position
+        Returns:
+            Number
+    """
     # engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
     res = engine.analyse(board, chess.engine.Limit(time=ponderTime))
     # engine.close()
@@ -167,9 +115,12 @@ def recalcLearningBases():
 
 
 # zobrist;fen;eco;lastTry;firstTry;move;ok;bad;moves,ntry,successful,ntry,white,black,date
-def recalcLearned(learningBase):
+def recalcLearned(learningBase:LearningBase):
+    """
+    Evaluates the best move for each position in the learning base and saves learningBase
+    """
     # engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
-    for pos in learningBase["data"].values():
+    for pos in learningBase.positions.values():
         board = chess.Board(pos["fen"])
         res = engine.analyse(board, chess.engine.Limit(time=3), info=chess.engine.INFO_PV)
         goodMove = board.uci(res["pv"][0])
@@ -178,86 +129,82 @@ def recalcLearned(learningBase):
         print(res)
         print(f"Position {pos['fen']}: move {pos['ok']} recalculated to {goodMove}")
         pos['ok'] = goodMove
-        saveInfo(learningBase)
+    
+    learningBase.save()
 
     # engine.close()
 
+def assume_good_move(game:chess.pgn.Game, board:chess.Board,  learningBase:LearningBase):
+    """
+        Analyze last move made in a game
+    """
+    moveMade:Optional[chess.Move] = board.pop()  
+    zobrist:Optional[int] = chess.polyglot.zobrist_hash(board)        
+    goodMove = moveMade # the move choosen by the engine
 
-def addInfoError(game, board, engine, learningBase):
-    badMove = board.pop()  # evaluate a good move
-
-    zobrist = chess.polyglot.zobrist_hash(board)
-    if zobrist in learningBase["data"]:
-        return
+    learningBase.updatePosition(moveMade, goodMove, game,board)
+    
+    board.push(moveMade) # restores the move
+    
+def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:LearningBase):
+    """
+        Analyze last move made in a game
+    """
+    moveMade:Optional[chess.Move] = board.pop()  
+    zobrist:Optional[int] = chess.polyglot.zobrist_hash(board)    
 
     res = engine.analyse(board, chess.engine.Limit(time=0.4), info=chess.engine.INFO_PV)
-    goodMove = res["pv"][0]
+    goodMove = res["pv"][0] # the move choosen by the engine
 
-    moves = " ".join([board.uci(m) for m in board.move_stack])
-    r = {
-        "zobrist": zobrist,
-        "fen": board.fen(),
-        "eco": game.headers["ECO"] if "ECO" in game.headers else None,
-        "lastTry": None,
-        "firstTry": None,
-        "ok": board.uci(goodMove),
-        "move": board.uci(badMove),
-        "moves": moves,
-        "skip": "S" if board.uci(goodMove) == board.uci(badMove) else "N",
-        "successful": 0,
-        "ntry": 0,
-        "white": game.headers["White"],
-        "black": game.headers["Black"],
-        "date": game.headers["Date"] if "Date" in game.headers else None
-    }
-    learningBase["data"][zobrist] = r
-    saveInfo(learningBase)
-
-    # global nAdditions
-    # nAdditions += 1
-    # if nAdditions == 5:
-    #     saveInfos(info, filename)
-    #     nAdditions = 0
+    learningBase.updatePosition(moveMade, goodMove, game,board)
+    
+    board.push(moveMade) # restores the move
+    
+    
+   
 
 
-def checkInfo(pgnFileName, learningBase):
-    engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
-    pg = PgnAnalyzer("Hires", pgnFileName, learningBase)
-    pg.setEngine(engine)
+def analyzePgn(pgnFileName:str, learningBase:LearningBase):    
+    pg = PgnAnalyzer("hires", pgnFileName, learningBase)
     pg.analyzeDataBase()
-    engine.quit()
+    
 
 
 class PgnAnalyzer:
+    '''
+        Analyze games of  a player, using and updating a specified learningBase, that contains positions found
+    '''
 
-    def __init__(self, playerName, filename, learningBase):
+    def __init__(self, playerName:str, filename:str, learningBase:LearningBase):
+        '''
+            Args:
+            playerName:
+        '''
         self.pgn = open(filename, encoding='utf-8')
         self.colorToPlay = "White"
         self.player = playerName
         self.positions = {}
-        self.movesToAnalyse = learningBase["movesToAnalyse"]
+        self.movesToAnalyse = learningBase.movesToAnalyse
         self.engine = None
-        self.blunderValue = learningBase["blunderValue"]
-        self.ponderTime = learningBase["ponderTime"]
+        self.blunderValue = learningBase.blunderValue
+        self.ponderTime = learningBase.ponderTime
         self.learningBase = learningBase
         pass
 
-    def setEngine(self, engine):
-        self.engine = engine
 
     def analyzeDataBase(self):
         while True:
             game, colorToAnalyze = self.loadNextGame()
             if game is None:
                 break
-            board = self.analyzeGame(game, colorToAnalyze)
-            if board is not None:
-                addInfoError(game, board, self.engine, self.learningBase)
+            self.analyzeGame(game, colorToAnalyze)
+            
+            
 
         self.pgn.close()
-        saveInfo(self.learningBase)
+        self.learningBase.save()
 
-    def loadNextGame(self):
+    def loadNextGame(self)->Tuple[chess.pgn.Game,bool]:
         while True:
             game = chess.pgn.read_game(self.pgn)
             if game is None:
@@ -267,59 +214,86 @@ class PgnAnalyzer:
             if game.headers["Black"] == self.player:
                 return game, False
 
-    def analyzeGame(self, game, colorToAnalyze):
+    def analyzeGame(self, game:chess.pgn.Game, colorToAnalyze:bool):
+        """
+        Analyze every move in a game until 
+           a blunder or dubious move  is found in the book (if it is used in the current learning base)
+        
+        The assumption is that current learning base is a blunder database   
+
+        Args:
+            game: a game to analyze
+            colorToAnalyze = True for white/ False for black
+        Returns:
+            the first blunder or dubious move found made by analyzed color
+        """
         board: chess.Board = game.board()
         nmoves = 0
         prevScore = 0
 
         for node in game.mainline():
-            move = node.move
+            move:Optional[chess.Move] = node.move
             nmoves += 1
+
             if nmoves > self.movesToAnalyse:
-                return None
+                return None  #truncate analysis, nothing found
+
             board.push(move)
 
-            eval = node.eval()
+            eval = node.eval() # book could contain an evaluation for some reason
             if board.turn != colorToAnalyze and eval is not None:  # this refers to previous move!!!
                 if eval < (prevScore - self.blunderValue):
-                    return board
+                    updatePosition(game, board, self.learningBase)
+                    return board  # score has dropped more than the threeshold, the stats are to be reevaluated
 
-            if self.learningBase["useBook"]:
+            if self.learningBase.useBook:
+                # check book annotations
                 if chess.pgn.NAG_MISTAKE in node.nags or \
-                        chess.pgn.NAG_BLUNDER in node.nags:
-                    return board
-                if chess.pgn.NAG_DUBIOUS_MOVE in node.nags:
+                        chess.pgn.NAG_BLUNDER in node.nags or \
+                        chess.pgn.NAG_DUBIOUS_MOVE in node.nags:
+                    updatePosition(game, board, self.learningBase)
                     return board
 
             if board.turn == colorToAnalyze:
                 continue
 
-            if self.learningBase["useBook"] and isInBook(board):
+            if self.learningBase.useBook and isInBook(board):
+                # book position, no need to analyze, but we update the stats
+                assume_good_move(game, board, self.learningBase)
                 continue
 
             zobrist = chess.polyglot.zobrist_hash(board)
-            if zobrist in self.learningBase["data"]:
-                return board
+            
+            #Evaluate score after made move
             try:
-                infoAfter = self.engine.analyse(board, chess.engine.Limit(time=self.ponderTime))
+                infoAfter = engine.analyse(board, chess.engine.Limit(time=self.ponderTime))
             except:
                 return None
+
             pvsAfter = infoAfter["score"].pov(colorToAnalyze)
             if pvsAfter.is_mate():
                 if pvsAfter < Cp(0):  # will get mated
+                    updatePosition(game, board, self.learningBase)
                     return board
                 return None  # will give mate
             currScore = pvsAfter.score()
+
             if currScore < (prevScore - self.blunderValue):
+                updatePosition(game, board, self.learningBase) #blunder made
                 return board
+
+            if zobrist in self.learningBase.positions:
+                # updates also if not a blunder, then go on
+                updatePosition(game, board, self.learningBase)
+                 
             prevScore = currScore
 
 
-reloadLearningBases()
+
 
 if __name__ == "__main__":
     # checkGameOpenings()
     print(f"Start analyzing")
-    checkInfo("game1.pgn", learningBases["blunders"])
+    analyzePgn("all_pgn.pgn", learningBases["openings"])
     close()
     print(f"Analyzing Done")
