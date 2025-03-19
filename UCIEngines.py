@@ -45,6 +45,7 @@
 # * infinite
 # 	search until the "stop" command. Do not exit the search without being told so in this mode!
 from __future__ import annotations 
+from re import I
 from typing import Optional,List
 # from pickle import NONE
 import chess
@@ -62,17 +63,24 @@ def engine_close():
     
     global engine
     #engine.close()
+
     if engine is not None:
-        print(f"Closing engine...{engine.id}")
-        engine.quit()
-        engine = None
-        print("engine closed.\n")
+        try:
+            print(f"Closing engine...{engine.id}")
+            engine.close()
+            print("engine closed.\n")
+        except chess.engine.EngineTerminatedError:
+            print("Engine already terminated.")
+        except Exception as e:
+            print(f"An error occurred while closing the engine: {e}")
+        finally:
+            engine = None
 
 atexit.register(engine_close)
 
-def bestMove(board, validMoves:List[Board.Move]=None, time=0.1, elo= None)->Optional[chess.Move]:
+def bestMove(board, validMoves:List[Board.Move], time=0.1, elo= None)->chess.Move:
     if elo is None:
-        res = engine.play(board.board,
+        res:chess.engine.PlayResult = engine.play(board.board,
                           limit = chess.engine.Limit(time=time),
                           info = chess.engine.INFO_BASIC,
                           #options = {"UCI_Elo": 1600}
@@ -83,6 +91,7 @@ def bestMove(board, validMoves:List[Board.Move]=None, time=0.1, elo= None)->Opti
                           info=chess.engine.INFO_BASIC,
                           options = {"UCI_Elo": elo}
                           )
+    assert(res.move is not None)
     return res.move
 
 

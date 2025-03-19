@@ -3,21 +3,23 @@ import math
 import pygame_gui
 from Board import GameState
 import chess
+from typing import Optional,List,Dict,Tuple,Dict
+import pygame.surface
 
 DIMENSION = 8
-MOVELOGFONT = None
+MOVELOGFONT:Optional[p.Font] = None
 
 BOARD_WIDTH = 512
 BOARD_HEIGHT = BOARD_WIDTH
 
 SQ_SIZE = BOARD_HEIGHT / DIMENSION
 MAX_FPS = 30
-IMAGES = {}
+IMAGES:Dict[str,p.Surface] = {}
 MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 MOVE_LOG_PANEL_WIDTH = 250
 whiteUp = False
-MOVELOGFONT = None
-clock = None
+
+clock:Optional[p.time.Clock] = None
 
 
 colors = [p.Color("white"), p.Color("gray")]
@@ -40,6 +42,7 @@ def update():
     global MAX_FPS
     #p.display.flip()
     p.display.update()
+    assert(clock is not None)
     clock.tick(MAX_FPS)
 
 def setWhiteUp(screen, up):
@@ -210,7 +213,8 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
 
 def drawMoveLog(screen, gs):
     movesPerRow = 3
-    font = MOVELOGFONT
+    assert(MOVELOGFONT is not None)
+    font:p.Font = MOVELOGFONT
     moveLogRect = p.Rect(BOARD_WIDTH,0,MOVE_LOG_PANEL_WIDTH,MOVE_LOG_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
     moveLog = gs.moveLog

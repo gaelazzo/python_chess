@@ -58,8 +58,8 @@ class PgnGameList:
         if self.isEmpty():
             return False
         self.game = random.choice(self.games)
-        self.node:Optional[Game] = self.game
-        self.gs:Optional[GameState] = GameState()
+        self.node:Game = self.game
+        self.gs:GameState = GameState()
         return True
 
 

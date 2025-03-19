@@ -16,3 +16,7 @@
 /chess_com/cache
 /game1.ini
 *.ini
+/data - Copia
+/pgn/spanish.ini
+*.cko
+*.cpo

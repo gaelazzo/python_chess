@@ -5,7 +5,8 @@ Keeps a move log
 """
 from __future__ import annotations 
 from typing import Optional,List
-import chess
+import chess 
+import chess.polyglot
 
 
 
@@ -14,10 +15,10 @@ class GameState:
 
     def __init__(self):
         # first char is the color, second char the piece, -- is empty
-        self.board:Optional[chess.Board] = chess.Board()
-        self.moveLog:Optional[List[Move]] = []
+        self.board:chess.Board = chess.Board()
+        self.moveLog:List[Move] = []
         self.header = []
-        self.evaluation = None
+        self.evaluation:Optional[float] = None
 
     def setHeader(self, header):
         self.header = header
@@ -28,10 +29,11 @@ class GameState:
         '''
         self.evaluation = evaluation
 
-    def getEvaluation(self)->float:
+    def getEvaluation(self)->Optional[float]:
         '''
         gets the evaluation associated to current position
         '''
+        # assert(self.evaluation is not None)
         return self.evaluation
 
     def getHeader(self):
@@ -51,10 +53,7 @@ class GameState:
         param move: Move
         return:
         """
-        if hasattr(move, "move"):
-            self.board.push(move.move)
-        else:
-            self.board.push(move)
+        self.board.push(move.move)        
         self.moveLog.append(move)
 
     def undoMove(self):
@@ -88,7 +87,7 @@ class GameState:
         return "b"
 
     def getValidMoves(self)->List[Move]:
-        return [m for m in self.board.legal_moves]
+        return [Move.fromChessMove(m, self) for m in self.board.legal_moves]
 
 
     def stdValidMoves(self)->List[Move]:
@@ -122,9 +121,9 @@ class GameState:
         if moved is None:
             return "--"
 
-        moved = moved.symbol().upper()
+        movedColor  = moved.symbol().upper()
         color = self.colorAt(r, c)
-        return color + moved
+        return color + movedColor
 
     def inCheck(self)->bool:
        return self.board.is_check()
@@ -143,13 +142,13 @@ class Move:
 
 
     @classmethod
-    def fromChessMove(cls, m:chess.Move,board:chess.Board)->Move:
-        return cls([7-chess.square_rank(m.from_square),chess.square_file(m.from_square)],
-                    [7 - chess.square_rank(m.to_square), chess.square_file(m.to_square)],
-                    board
+    def fromChessMove(cls, m:chess.Move, game:GameState)->Move:
+        return cls((7-chess.square_rank(m.from_square),chess.square_file(m.from_square)),
+                    (7 - chess.square_rank(m.to_square), chess.square_file(m.to_square)),
+                    game
                     )
 
-    def __init__(self, startSq, stopSq, board):
+    def __init__(self, startSq:tuple[int,int], stopSq:tuple[int,int], game:GameState):
         '''
         Creates a chess move from a user move made on board
         '''
@@ -158,14 +157,15 @@ class Move:
         self.stopRow = stopSq[0]
         self.stopCol = stopSq[1]
 
-        self.uci:Optional[str] = self.getRankFile(startSq[0], startSq[1]) + \
+        self.uci:str = self.getRankFile(startSq[0], startSq[1]) + \
               self.getRankFile(stopSq[0], stopSq[1])
-        self.move:Optional[chess.Move] = chess.Move.from_uci(self.uci)
-        self.board:Optional[chess.Board] = board
-        self.pieceMoved = board.piece_at(self.startRow, self.startCol)
-        self.pieceCaptured = board.piece_at(self.stopRow, self.stopCol)
-        self.prettyPrint = self.board.board.san(self.move)
-        self.enPassant = self.board.board.is_en_passant(self.move)
+        self.move:chess.Move = chess.Move.from_uci(self.uci)
+        self.game:GameState = game
+        self.pieceMoved:str = game.piece_at(self.startRow, self.startCol)
+        
+        self.pieceCaptured:str = game.piece_at(self.stopRow, self.stopCol)
+        self.prettyPrint = self.game.board.san(self.move)
+        self.enPassant = self.game.board.is_en_passant(self.move)
 
 
     def promoteToPiece(self, p:chess.PieceType)->chess.Move:
@@ -180,9 +180,9 @@ class Move:
         return self.prettyPrint
 
 
-    def getRankFile(self, r, c):
+    def getRankFile(self, r:int, c:int):
         '''
-        gives a string represantition of a board square
+        gives a string representation of a board square
         '''
         return self.colsToFiles[c] + self.rowsToRanks[r]
 
