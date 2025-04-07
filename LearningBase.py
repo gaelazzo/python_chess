@@ -44,6 +44,7 @@ class LearnPosition:
     firstTry:Optional[date]=None
     serie:int = 0
     skip:bool    =False
+    idquiz: Optional[int] = None
 
     
 
@@ -66,7 +67,8 @@ class LearnPosition:
             black=data['black'],
             ok = data["ok"],
             move = data["move"],
-            gamedate= parse_date(data["gamedate"]) if data["gamedate"] else None
+            gamedate= parse_date(data["gamedate"]) if data["gamedate"] else None,
+            idquiz=int(data["idquiz"]) if "idquiz" in data.keys()  and data["idquiz"] != "" else None
         )
 
 
@@ -240,7 +242,8 @@ class LearningBase:
                 serie=0,
                 white=game.headers["White"],
                 black=game.headers["Black"],
-                gamedate=gamedate
+                gamedate=gamedate,
+                idquiz=None
             )
         
     
@@ -307,7 +310,7 @@ class LearningBase:
                 position. serie -= 1
             res =  False
 
-        print("Moves: ",position.moves, "stored:",position.move, "made:",moveMade, "ok is :", position.ok)
+        #print("Moves: ",position.moves, "stored:",position.move, "made:",moveMade, "ok is :", position.ok)
 
         return res
 

@@ -338,11 +338,18 @@ class PgnAnalyzer:
                 assume_good_move(game, board, self.learningBase)
                 continue
 
+   
+        
+
 # skip 8600, all_pgn-pgn
 if __name__ == "__main__":
     # checkGameOpenings()
     print(f"Start analyzing")
+
     # analyzePgn("all_pgn.pgn","gaelazzo", learningBases["openings"], skip_player='FAAILIX')
+    learningBases["blunders"].save()
+
+    
     close()
     engine_close()
     print(f"Analyzing Done")

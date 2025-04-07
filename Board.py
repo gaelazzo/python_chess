@@ -143,6 +143,9 @@ class Move:
 
     @classmethod
     def fromChessMove(cls, m:chess.Move, game:GameState)->Move:
+        if m is None:
+            return None
+
         return cls((7-chess.square_rank(m.from_square),chess.square_file(m.from_square)),
                     (7 - chess.square_rank(m.to_square), chess.square_file(m.to_square)),
                     game

@@ -7,6 +7,9 @@ import random
 from typing import Optional
 from Board import Move,GameState
 import pygame as p
+import BoardScreen
+import BrainMaster
+from LearningBase import LearningBase, LearnPosition, learningBases
 import UCIEngines
 import BoardScreen as BS
 import analyzer
@@ -22,6 +25,12 @@ from pygame_gui.elements.ui_button import UIButton
 import sys
 import UCIEngines
 from dataclasses import dataclass
+from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, unlock_new_lesson
+from typing import Optional, Union,List,Dict, Tuple, Iterator
+from datetime import datetime, date
+
+from  BoardScreen import setFactor, getFactor
+
 
 FPS = 60
 
@@ -359,8 +368,6 @@ def playAGame():
     main_menu.enable()
 
 
-
-
 def setAlfa(color, alfa):
     return [color[0],color[1],color[2], alfa]
 
@@ -369,14 +376,26 @@ def replayBadOpenings():
     global main_menu
     main_menu.disable()
     main_menu.full_reset()
-    replayBadPositions(analyzer.learningBases["openings"])
+    replayBadPositions(learningBases["openings"])
     return
 
 def replayBlunders():
     global main_menu
     main_menu.disable()
     main_menu.full_reset()
-    replayBadPositions(analyzer.learningBases["blunders"])
+    replayBadPositions(learningBases["blunders"])
+    return
+
+def brainMasterOpening():
+    playBrainMaster("openings")
+    return
+
+def brainMasterBlunders():
+    playBrainMaster("blunders")
+    return
+
+def checkNewLesson():
+    checkNewLesson("blunders")
     return
 
 @dataclass
@@ -385,7 +404,343 @@ class MistakenPosition:
     
 
 
-def replayBadPositions(learningBase):
+def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])->Dict[str, AnswerData] :
+    '''
+    Ask a set of positions until each one is solved. A position is solved when it is correctly answered 3 times
+     in a row after a mistake, or correctly answered the first time.
+    '''
+    global  screen
+    positions  = learningBase.positions
+    ll:List[LearnPosition]= []
+    result: Dict[str, AnswerData] = {}
+    
+    
+    # ll is a copy (not a deep copy) of data in the LearningBase
+    for q in questions:
+        ll.append(positions[int(q.id_question)])
+
+    running = True
+    sqSelected = ()
+    playerClicks = []
+    moveMade = False
+    animate = False
+    gameOver = False
+    errorsMade = {}  # tells how many mistakes for every position minus good answers
+    
+    
+    
+    if len(ll)==0:
+        text = "No positions found"
+        main_background()
+        BS.drawEndGameText(screen, text)
+        BS.update()
+        p.time.delay(2 * 1000)
+
+    help_text = [
+            "Istruzioni:",
+            "- Q per uscire",
+            "- C copia la posizione FEN nella clipboard",
+            "- S valuta la posizione ",
+            "- R reset",
+            "- + vedi altre mosse",
+            "- H mostra la soluzione"  
+        ]
+    show_help = False
+
+    start_stamp = None
+
+    while (len(ll) > 0) and running:
+        
+        pos = ll.pop(0)
+        curr_zobrist= str(pos.zobrist)
+
+        isNewPosition = False
+
+        curr_data = None
+
+        if curr_zobrist in result:
+            curr_data = result[curr_zobrist]
+        else:
+            curr_data =  AnswerData(datetime.now(), curr_zobrist, 1, 0,0)
+            result[curr_zobrist]=curr_data       
+            isNewPosition = True
+            errorsMade[curr_zobrist] = 0
+
+        fen = pos.fen.split()
+        header = ["White:"+pos.white, "Black:"+pos.black, "ECO:"+pos.eco, "Date:"+pos.gamedate.strftime('%d-%m-%Y'),
+                  "mistake was " + pos.move]
+
+
+        moves = pos.moves.split()
+        gs = GameState()
+        gs.setHeader(header)
+        #gs.setFen(pos["fen"])
+        #BS.setWhiteUp(screen, not gs.whiteToMove())
+        BS.setWhiteUp(screen, fen[1] == "b")
+        BS.drawGameState(screen, gs, [], [], ())
+        BS.update()
+        solution = pos.ok
+
+        currentMove = 0
+        validMoves = gs.stdValidMoves()
+        engineMove = 0
+        mustSkip = False        # mustSkip determines the exit from the cycle
+        humanCanPlay = True
+
+        last_stamp= datetime.now()
+
+        while running and not mustSkip:
+            updateStats = False
+            
+            if currentMove < len(moves):
+                ucimove = moves[currentMove]
+                currentMove += 1
+                chessMove:Optional[chess.Move] = chess.Move.from_uci(ucimove)
+                move:Optional[Move] = Move.fromChessMove(chessMove, gs)
+                # print(f"made a move from list:{move.getChessNotation()}")
+                gs.makeMove(move)
+                last_stamp= datetime.now()               
+                moveMade = True
+                animate = True
+                validMoves = gs.stdValidMoves()
+
+            if engineMove > 0:
+                # make a move choosen by the engine
+                chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, time=1.0)
+                move:Optional[Move] = Move.fromChessMove(chessmove, gs)
+                if move is None:
+                    engineMove = 0
+                    moveMade = False
+                    validMoves = []
+                    mustSkip= True
+                else:
+                    gs.makeMove(move)
+                    last_stamp= datetime.now()
+                    moveMade = True
+                    animate = True
+                    validMoves = gs.stdValidMoves()
+                    engineMove = engineMove-1
+
+            for e in p.event.get():
+                if e.type == p.QUIT:
+                    running = False            
+                elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
+                        # Mostra aiuto quando il tasto destro è premuto
+                        show_help = True            
+                elif e.type == p.MOUSEBUTTONUP and e.button == 3:
+                        # Nasconde aiuto quando il tasto destro è rilasciato
+                        show_help = False
+                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay:
+                    mustSkip = True
+                    break
+                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay:
+                    row, col = BS.getRowColFromLocation(p.mouse.get_pos())
+
+                    if sqSelected == (row, col) or col >= 8:  # user clicked same square or in move log
+                        sqSelected = ()
+                        playerClicks = []
+                    else:
+                        sqSelected = (row, col)
+                        playerClicks.append(sqSelected)
+
+                    if len(playerClicks) == 2:
+                        # do the move if two squares has been selected and the move is valid
+                        move = Move(playerClicks[0], playerClicks[1], gs)
+                        
+                        if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
+                            validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
+                                               m.startCol == playerClicks[0][1] and
+                                               m.stopRow == playerClicks[1][0] and
+                                               m.stopCol == playerClicks[1][1]
+                                               ]
+
+                            if len(validPromotions) > 0:
+                                piece = BS.choosePromotion(screen, move.pieceMoved[0])
+                                move = move.promoteToPiece(piece)
+
+                        validMove:Optional[Move] = move if move in validMoves else None
+                        if validMove is not None:
+                            # the move is valid so make it on the board
+                            gs.makeMove(validMove)
+                            moveMade = True
+                            animate = True
+                            validMoves = gs.stdValidMoves() #evaluate the new list of valid moves
+                            sqSelected = ()
+                            playerClicks = []
+                            updateStats = True
+                        else:
+                            sqSelected = (row, col)
+                            playerClicks = [sqSelected]
+                    if len(playerClicks) == 1 and gs.colorAt(row, col) != gs.colorToMove():
+                        sqSelected = ()
+                        playerClicks = []
+
+                elif e.type == p.KEYDOWN:
+                    if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
+                        setFactor( getFactor()*1.2)
+
+                    if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
+                        setFactor( getFactor() / 1.2)
+
+                    if e.key == p.K_c:
+                        # copy position to clibboard
+                        pyperclip.copy(gs.board.fen())
+                        text = "Position copied to clipboard"
+                        BS.drawEndGameText(screen, text)
+                        p.time.delay(2 * 1000)
+
+                    if e.key == p.K_s:  # evaluate score
+                        gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
+
+                    if e.key == p.K_KP_PLUS and not humanCanPlay:
+                        engineMove += 2
+
+                    if e.key == p.K_q:
+                        running = False
+
+                    if e.key == p.K_n and not updateStats:
+                        mustSkip = True
+                        break
+
+                    if e.key == p.K_h and not isNewPosition:  # Mostra la soluzione ma non se sta ancora risolvendo
+                        if solution:
+                            BS.drawEndGameText(screen, f"Solution: {solution}")
+                            BS.update()
+                            p.time.delay(2 * 1000)
+
+            
+            if show_help:   
+                    p.draw.rect(screen, GRAY, (50, 50, 600, 300))
+                    p.draw.rect(screen, BLACK, (50, 50, 600, 300), 2)
+
+                    for i, line in enumerate(help_text):
+                        text = myfont.render(line, True, BLACK)                        
+                        screen.blit(text, (60, 60 + i * 30))
+                    p.display.flip()
+                    continue
+
+            if moveMade and not mustSkip:
+                moveMade = False
+                lastMove = gs.moveLog[-1]
+                stop_stamp = datetime.now()
+
+                if animate:
+                    BS.animateMove(lastMove, screen, gs)
+
+                    p.time.delay(100)
+                    animate = False
+                
+                if updateStats:
+                    updateStats=False
+                    if AN.updateInfoStats(gs.board, learningBase):
+                        msg = "Right"
+                        
+                        
+                        if isNewPosition: # 
+                            p.time.delay(1 * 1000)
+                            curr_data.timeElapsed = (stop_stamp-last_stamp).total_seconds()
+                            curr_data.result = 1
+                            
+
+                        if not isNewPosition:
+                            curr_data.notesTime += (stop_stamp-last_stamp).total_seconds()
+                            
+                            errorsMade[curr_zobrist] -= 1
+                            if errorsMade[curr_zobrist] <= 0:
+                                BS.drawGameState(screen, gs, toHighlightCirclesColor=[],
+                                 toHighlightSquareColor=[],
+                                 sqSelected=sqSelected)
+                                msg  =  "Position solved"
+                            else:
+                                ll.append(pos)
+
+                        BS.drawEndGameText(screen, msg)
+                        BS.update()
+                        p.time.delay(1 * 1000)
+
+                        engineMove = num_moves_to_show
+                        humanCanPlay = False
+                    else:                        
+                        errorsMade[curr_zobrist]=3
+                        curr_data.result -= 1  # 1-> 0, 0->-1  ...
+                        if isNewPosition:  
+                            curr_data.timeElapsed = (stop_stamp-last_stamp).total_seconds()                            
+                        else:
+                            curr_data.notesTime += (stop_stamp-last_stamp).total_seconds()
+
+                        BS.drawEndGameText(screen, "Not the right move")
+                        BS.update()
+                        p.time.delay(1 * 1000)
+                        BS.update()
+                        gs.undoMove()
+                        validMoves = gs.stdValidMoves()
+                        isNewPosition = False
+                        
+
+            # Highlight squares when needed
+            if currentMove >= len(moves) and engineMove == 0:
+                toHighlightSquares = []
+                toHighlightCircle = []
+
+                if len(playerClicks) == 1:
+                    # if a square has been selected, highlith possible piece targets
+                    mm = [m for m in validMoves if m.startRow == sqSelected[0] and m.startCol == sqSelected[1]]
+                    toHighlightCircle = [(m.stopRow, m.stopCol, CIRCLE_COLOR) for m in mm]
+
+                if len(playerClicks) == 0 and len(gs.moveLog) > 0:
+                    # at the the start of a move, previous move is hightlighted
+                    lastMove = gs.moveLog[-1]
+                    toHighlightSquares = [(lastMove.stopRow, lastMove.stopCol, setAlfa(p.Color("yellow"), 150)),
+                                          (lastMove.startRow, lastMove.startCol, setAlfa(p.Color("yellow"), 150))]
+
+                BS.drawGameState(screen, gs, toHighlightCirclesColor=toHighlightCircle,
+                                 toHighlightSquareColor=toHighlightSquares,
+                                 sqSelected=sqSelected)
+
+            BS.update()
+    p.event.clear()
+    main_menu.enable()
+    return result
+
+
+def playBrainMaster(learningBaseName:str):
+    learningBase = learningBases[learningBaseName]
+
+    #eventually unlocks new lessons
+    screen.fill((255, 255, 255))    
+    BS.drawEndGameText(screen, "Checking lessons to unlock",size=20)
+    BS.update()
+
+    unlock_new_lesson(learningBaseName)
+
+    screen.fill((255, 255, 255))    
+    BS.drawEndGameText(screen, "Acquiring test",size=20)
+    BS.update()
+    suggestion = ask_for_quiz(learningBaseName, BrainMaster.id_student)
+    
+    screen.fill((255, 255, 255))    
+    if suggestion is None:
+        BS.drawEndGameText(screen, "Errore accedendo al servizio Brainmaster",size=20)
+        BS.update()
+        p.time.delay(2 * 1000)
+        return
+    action = suggestion["action"] if "action" in suggestion else None
+    if action is None:
+        BS.drawEndGameText(screen, "No suggestion available",size=20)
+        BS.update()
+        p.time.delay(2 * 1000)
+        return
+    questions:List[QuestionData] = [QuestionData.from_dict(q) for q in suggestion["questions"]]
+    results = playBrainMasterSet(learningBase, questions)
+    give_answers(learningBaseName, BrainMaster.id_student, action, list(results.values()))
+
+   
+def replayBadPositions(learningBase:LearningBase):
+    '''
+    Teaches maxErrorsToConsider = 10 positions at a time taken from a LearningBase. A Position is assumed to be learnt when
+      it is solved correctly 3 times in a row after a mistake, or correctly answered the first time.
+    '''
+
     global  screen
     
 
@@ -415,6 +770,7 @@ def replayBadPositions(learningBase):
             "- S valuta la posizione ",
             "- F flip board",
             "- R reset",
+            "- + vedi altre mosse",
             "- H mostra la soluzione"  
         ]
     show_help = False
@@ -433,7 +789,7 @@ def replayBadPositions(learningBase):
             pos = ll.pop()  # positions examined are less than the the desired index, we take the position from the learning base 
             isNewPosition = True
         else:
-            if currentElement >= len(errorsMade): # learning base has been exahusted, so we go on with errorsMade
+            if currentElement >= len(errorsMade): # learning base has been exhausted, so we go on with errorsMade
                 currentElement = len(errorsMade)-1  
             pos = errorsMade[currentElement]
             isNewPosition = False
@@ -482,12 +838,16 @@ def replayBadPositions(learningBase):
                 # make a move choosen by the engine
                 chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, time=1.0)
                 move:Optional[Move] = Move.fromChessMove(chessmove, gs)
-                gs.makeMove(move)
-
-                moveMade = True
-                animate = True
-                validMoves = gs.stdValidMoves()
-                engineMove = engineMove-1
+                if move is None:
+                    moveMade = False
+                    validMoves=[]
+                    mustSkip=True
+                else:
+                    gs.makeMove(move)
+                    moveMade = True
+                    animate = True
+                    validMoves = gs.stdValidMoves()
+                    engineMove = engineMove-1
 
             for e in p.event.get():
                 if e.type == p.QUIT:
@@ -552,17 +912,26 @@ def replayBadPositions(learningBase):
                         BS.drawEndGameText(screen, text)
                         p.time.delay(2 * 1000)
 
+                    if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
+                        setFactor( getFactor()*1.2)
+
+                    if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
+                        setFactor( getFactor() / 1.2)
+
                     if e.key == p.K_s:  # evaluate score
                         gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
 
                     if e.key == p.K_q:
                         running = False
 
+                    if e.key == p.K_KP_PLUS and not humanCanPlay:
+                        engineMove += 2
+
                     if e.key == p.K_n and not humanCanPlay:
                         mustSkip = True
                         break
 
-                    if e.key == p.K_h:  # Mostra la soluzione
+                    if e.key == p.K_h and not updateStats:  # Mostra la soluzione
                         if solution:
                             BS.drawEndGameText(screen, f"Solution: {solution}")
                             BS.update()
@@ -590,9 +959,7 @@ def replayBadPositions(learningBase):
 
                 if updateStats:
                     if AN.updateInfoStats(gs.board, learningBase):
-                        BS.drawEndGameText(screen, "Right")
-                        BS.update()
-                        p.time.delay(1 * 1000)
+                        msg = "Right"
 
                         if not isNewPosition:
                             # print(f"currentElement is {currentElement}, len of numberOfErrors is {len(numberOfErrors)}")
@@ -600,15 +967,18 @@ def replayBadPositions(learningBase):
                             if numberOfErrors[currentElement] == 0 or pos.skip == "S":
                                 del numberOfErrors[currentElement]
                                 del errorsMade[currentElement]
-                                BS.drawEndGameText(screen, "position solved")
-                                p.time.delay(2 * 1000)
+                                msg = "Position solved"
+
+                        BS.drawEndGameText(screen, msg)
+                        BS.update()
+                        p.time.delay(1 * 1000)
 
                         engineMove = num_moves_to_show
                         humanCanPlay = False
                     else:
                         BS.drawEndGameText(screen, "Not the right move")
                         BS.update()
-                        p.time.delay(2 * 1000)
+                        p.time.delay(1 * 1000)
                         BS.update()
                         gs.undoMove()
                         validMoves = gs.stdValidMoves()
@@ -645,7 +1015,7 @@ def replayBadPositions(learningBase):
 
             BS.update()
 
-
+    p.event.clear()
     main_menu.enable()
 
 def playModels():
@@ -660,6 +1030,11 @@ def playModels():
     return
 
 def playModelFiles(filename, humanColor):
+    '''
+        Play a random game from a file, and the player must always play the best move, while the computer plays one of the
+          available lines stored in the game.
+    '''
+
     global screen
 
     gr = gamereader.PgnGameList(filename)
@@ -774,6 +1149,7 @@ def playModelFiles(filename, humanColor):
                         else:
                             sqSelected = (row, col)
                             playerClicks = [sqSelected]
+
                     if len(playerClicks) == 1 and gs.colorAt(row, col) != gs.colorToMove():
                         sqSelected = ()
                         playerClicks = []
@@ -785,6 +1161,12 @@ def playModelFiles(filename, humanColor):
                         moveMade = True
                         animate = False
                         gameOver = False
+
+                    if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
+                        setFactor( getFactor()*1.2)
+
+                    if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
+                        setFactor( getFactor() / 1.2)
 
                     if e.key == p.K_c:
                         # copy position to clibboard
@@ -814,7 +1196,6 @@ def playModelFiles(filename, humanColor):
                 lastMove = gs.moveLog[-1]
                 if animate:
                     BS.animateMove(lastMove, screen, gs)
-
                     p.time.delay(100)
                     animate = False
 
@@ -836,6 +1217,7 @@ def playModelFiles(filename, humanColor):
 
             BS.update()
 
+    p.event.clear()
     main_menu.enable()
 
 
@@ -917,12 +1299,14 @@ def mainMenu(width,height, test: bool = False) -> None:
     menu.add.button('Return to main', pygame_menu.events.BACK)
 
 
-    main_menu = pygame_menu.Menu('Chess Phyton', width, height,
+    main_menu = pygame_menu.Menu('Chess Python', width, height,
                                  theme=pygame_menu.themes.THEME_BLUE)
     main_menu.add.button('Play against computer', choosePlayParamsMenu)
     main_menu.add.button('Play between humans', humanPlay)
     main_menu.add.button('Learn openings', chooseOpeningParamsMenu)
     main_menu.add.button('Review blunders', chooseBlundersParamsMenu)
+    main_menu.add.button('BrainMaster Openings', brainMasterOpening)
+    main_menu.add.button('BrainMaster Blunders', brainMasterBlunders)
     main_menu.add.button('Exercise by models', chooseModelGamesMenu)
     main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
 

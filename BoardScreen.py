@@ -13,7 +13,8 @@ BOARD_WIDTH = 512
 BOARD_HEIGHT = BOARD_WIDTH
 
 SQ_SIZE = BOARD_HEIGHT / DIMENSION
-MAX_FPS = 30
+MAX_FPS = 60
+factor = 1.0
 IMAGES:Dict[str,p.Surface] = {}
 MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
 MOVE_LOG_PANEL_WIDTH = 250
@@ -24,6 +25,20 @@ clock:Optional[p.time.Clock] = None
 
 colors = [p.Color("white"), p.Color("gray")]
 
+
+def getFactor():
+    global factor
+    return factor
+
+def setFactor(f):
+    global factor
+    if f>20:
+        f=20
+
+    if f < 0.1:
+        f=0.1
+
+    factor = f
 
 def init():
     global MOVELOGFONT
@@ -114,8 +129,8 @@ def drawPieces(screen, board: GameState):
                     screen.blit(IMAGES[piece], p.Rect(adjustedCol(c) * SQ_SIZE, adjustedRow(r) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 
-def drawEndGameText(screen, text):
-    font = p.font.SysFont("Helvetica", 32, True, False)
+def drawEndGameText(screen, text,size=32):
+    font = p.font.SysFont("Helvetica", size, True, False)
     textObject = font.render(text, False, p.Color("Gray"))
     textLocation = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move((BOARD_WIDTH - textObject.get_width()) / 2,
                                                                 (BOARD_HEIGHT - textObject.get_height()) / 2)
@@ -261,7 +276,7 @@ def animateMove(move, screen, board):
     dR = adjustedRow(move.stopRow) - adjustedRow(move.startRow)
     dC = adjustedCol(move.stopCol) - adjustedCol(move.startCol)
     framesPerSquare = int(MAX_FPS/3)
-    framesCount = framesPerSquare #  math.sqrt(dR**2 + dC**2) *
+    framesCount = int(framesPerSquare / factor) #  math.sqrt(dR**2 + dC**2) *
 
     for frame in range(framesCount+1):
         r, c = (adjustedRow(move.startRow) + (dR * frame) / framesCount,

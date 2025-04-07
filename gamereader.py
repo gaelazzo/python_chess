@@ -30,6 +30,9 @@ class PgnGameList:
         self.node = None
 
     def makeNextMove(self):
+        '''
+            Make a random move from the variations stored in the game
+        '''
         if self.node is None:
             return None
         if self.is_end():
@@ -48,6 +51,9 @@ class PgnGameList:
         return result
 
     def getNextMainMove(self):
+        '''
+            Get the next move in the main line
+        '''
         if self.node is None:
             return None
         nextNode:ChildNode = self.node.next()
@@ -68,7 +74,7 @@ class PgnGameList:
 
     def checkNextMove(self, move:Move)->bool:
         """
-        Check if input move is the next main move in the current variation
+        Check if the input move is the next main move in the current variation
 
         params:
             move:Move   move to check

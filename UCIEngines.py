@@ -91,7 +91,7 @@ def bestMove(board, validMoves:List[Board.Move], time=0.1, elo= None)->chess.Mov
                           info=chess.engine.INFO_BASIC,
                           options = {"UCI_Elo": elo}
                           )
-    assert(res.move is not None)
+    # assert(res.move is not None)
     return res.move
 
 
