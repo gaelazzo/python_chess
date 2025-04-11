@@ -298,7 +298,7 @@ def playAGame():
                         gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
 
                     if e.key == p.K_f:
-                        BS.flipBoard()
+                        BS.flipBoard(screen)
                         moveMade = True
                         animate = False
 
