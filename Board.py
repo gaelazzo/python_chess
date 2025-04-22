@@ -167,7 +167,11 @@ class Move:
         self.pieceMoved:str = game.piece_at(self.startRow, self.startCol)
         
         self.pieceCaptured:str = game.piece_at(self.stopRow, self.stopCol)
-        self.prettyPrint = self.game.board.san(self.move)
+        try:
+            self.prettyPrint = self.game.board.san(self.move)
+        except:
+            self.prettyPrint = self.move.uci()
+
         self.enPassant = self.game.board.is_en_passant(self.move)
 
 

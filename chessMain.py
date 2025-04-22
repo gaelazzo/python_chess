@@ -633,9 +633,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                 if updateStats:
                     updateStats=False
                     if AN.updateInfoStats(gs.board, learningBase):
-                        msg = "Right"
-                        
-                        
+                        msg = "Right"                                                
                         if isNewPosition: # 
                             p.time.delay(1 * 1000)
                             curr_data.timeElapsed = (stop_stamp-last_stamp).total_seconds()
@@ -663,6 +661,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                     else:                        
                         errorsMade[curr_zobrist]=3
                         curr_data.result -= 1  # 1-> 0, 0->-1  ...
+                        # print(f"{curr_zobrist} errored {curr_data.result}")
                         if isNewPosition:  
                             curr_data.timeElapsed = (stop_stamp-last_stamp).total_seconds()                            
                         else:
@@ -671,7 +670,6 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                         BS.drawEndGameText(screen, "Not the right move")
                         BS.update()
                         p.time.delay(1 * 1000)
-                        BS.update()
                         gs.undoMove()
                         validMoves = gs.stdValidMoves()
                         isNewPosition = False
@@ -711,7 +709,11 @@ def playBrainMaster(learningBaseName:str):
     BS.drawEndGameText(screen, "Checking lessons to unlock",size=20)
     BS.update()
 
-    unlock_new_lesson(learningBaseName)
+    res = unlock_new_lesson(learningBaseName)
+    if res:
+        BS.drawEndGameText(screen,f"New lesson unlocked:{res}",size=20)
+        BS.update()
+        p.time.delay(2 * 1000)
 
     screen.fill((255, 255, 255))    
     BS.drawEndGameText(screen, "Acquiring test",size=20)
@@ -732,6 +734,13 @@ def playBrainMaster(learningBaseName:str):
         return
     questions:List[QuestionData] = [QuestionData.from_dict(q) for q in suggestion["questions"]]
     results = playBrainMasterSet(learningBase, questions)
+    count = sum(1 for item in results.values() if item.result == 1)
+    total = len(results)
+    msg = f"Number of correct answers: {count} over {total}"
+    screen.fill((255, 255, 255)) 
+    BS.drawEndGameText(screen, msg,size=20)
+    BS.update()
+
     give_answers(learningBaseName, BrainMaster.id_student, action, list(results.values()))
 
    
