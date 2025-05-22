@@ -128,8 +128,14 @@ def drawPieces(screen, board: GameState):
             if piece != "--":
                     screen.blit(IMAGES[piece], p.Rect(adjustedCol(c) * SQ_SIZE, adjustedRow(r) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
+def redraw(screen, board):
+        drawBoard(screen)
+        if board is not None:
+            drawPieces(screen, board)
+        
 
-def drawEndGameText(screen, text,size=32):
+def drawEndGameText(screen, board, text,size=32):
+    redraw(screen, board)
     font = p.font.SysFont("Helvetica", size, True, False)
     textObject = font.render(text, False, p.Color("Gray"))
     textLocation = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move((BOARD_WIDTH - textObject.get_width()) / 2,
@@ -137,6 +143,7 @@ def drawEndGameText(screen, text,size=32):
     screen.blit(textObject, textLocation)
     textObject = font.render(text, False, p.Color("Black"))
     screen.blit(textObject, textLocation.move(2, 2))
+    update()
 
 # board first row are black pieces
 # board last row are white pieces
@@ -269,7 +276,7 @@ def drawMoveLog(screen, gs):
     update()
 
 
-def animateMove(move, screen, board):
+def animateMove(move, screen, board:GameState):
     global colors
     global MAX_FPS
     update()
@@ -304,3 +311,5 @@ def animateMove(move, screen, board):
     p.draw.rect(screen, color, p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, adjustedRow(move.stopRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
     drawPieces(screen, board)
     update()
+
+    

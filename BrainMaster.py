@@ -83,8 +83,7 @@ def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
 
 def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
     '''
-        unlock a lesson for a student
-
+        Unlock a lesson for a student
         Args:
             id_course(str)  chiave della tabella mdl_course
             id_student(str) chiave della tabella mdl_user
@@ -148,9 +147,8 @@ class QuestionData:
             explanation=data['explanation'],
             question=data['question'],
             rightAnswer=data['rightAnswer'],
-    
         )
-      
+
 
 def ask_for_quiz(id_course:str, id_student:str):
     '''
@@ -245,8 +243,7 @@ def unlock_new_lesson(id_course:str)->str:
         if response.status_code == 200:                        
             res = response.json()["result"]
             if not res: return False
-            print('New lesson unlocked') 
-            return res
+            print('New lesson to unlock')             
         else:
             print('Errore:', response.status_code, response.text)
             return None
@@ -284,5 +281,5 @@ if __name__ == "__main__":
         create_course(id_course)        
         add_all_lessons(id_course)
         add_all_questions(id_course)
-    
-    pass
+
+   

@@ -7,7 +7,7 @@ import random
 from typing import Optional
 from Board import Move,GameState
 import pygame as p
-import BoardScreen
+
 import BrainMaster
 from LearningBase import LearningBase, LearnPosition, learningBases
 import UCIEngines
@@ -29,7 +29,7 @@ from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, un
 from typing import Optional, Union,List,Dict, Tuple, Iterator
 from datetime import datetime, date
 
-from  BoardScreen import setFactor, getFactor
+
 
 
 FPS = 60
@@ -38,6 +38,11 @@ manager = None
 screen  = None
 W = None
 H = None
+
+timeFactor = 500.0
+
+def delay(unit: float) -> None:
+    p.time.delay(int(unit * timeFactor))
 
 def main_background() -> None:
     """
@@ -123,7 +128,10 @@ def chooseModelFile():
 
         p.display.update()
 
-
+def show_message(gs:GameState, text:str):
+    global screen
+    BS.drawEndGameText(screen, gs, text)
+    
 
 
 CIRCLE_COLOR = (15, 50, 180, 90)
@@ -290,8 +298,8 @@ def playAGame():
                     if e.key == p.K_c:  # copy to clipboard
                         pyperclip.copy(BS.board.fen())
                         text = "Position copied to clipboard"
-                        BS.drawEndGameText(screen, text)
-                        p.time.delay(2 * 1000)
+                        show_message(gs, text)
+                        delay(2)
                         running = False
 
                     if e.key == p.K_s:  # evaluate score
@@ -338,8 +346,8 @@ def playAGame():
                 # textsurface = myfont.render('Checkmate', False, p.Color("red"))
             else:
                 text = "Stalemate"
-            BS.drawEndGameText(screen, text)
-            p.time.delay(2 * 1000)
+            show_message(gs, text)            
+            delay(2 )
             running = False
             # textsurface = myfont.render('Stalemate', False, p.Color("red"))
             # screen.blit(textsurface, (200, 100))
@@ -431,10 +439,8 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
     
     if len(ll)==0:
         text = "No positions found"
-        main_background()
-        BS.drawEndGameText(screen, text)
-        BS.update()
-        p.time.delay(2 * 1000)
+        show_message(gs, text)
+        delay(2 )
 
     help_text = [
             "Istruzioni:",
@@ -577,17 +583,17 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
                 elif e.type == p.KEYDOWN:
                     if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
-                        setFactor( getFactor()*1.2)
+                        BS.setFactor( BS.getFactor()*1.2)
 
                     if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
-                        setFactor( getFactor() / 1.2)
+                        BS.setFactor( BS.getFactor() / 1.2)
 
                     if e.key == p.K_c:
                         # copy position to clibboard
                         pyperclip.copy(gs.board.fen())
                         text = "Position copied to clipboard"
-                        BS.drawEndGameText(screen, text)
-                        p.time.delay(2 * 1000)
+                        show_message(gs, text)
+                        delay(2)
 
                     if e.key == p.K_s:  # evaluate score
                         gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
@@ -604,9 +610,8 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
                     if e.key == p.K_h and not isNewPosition:  # Mostra la soluzione ma non se sta ancora risolvendo
                         if solution:
-                            BS.drawEndGameText(screen, f"Solution: {solution}")
-                            BS.update()
-                            p.time.delay(2 * 1000)
+                            show_message(gs, f"Solution: {solution}")                            
+                            delay(2 )
 
             
             if show_help:   
@@ -635,7 +640,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                     if AN.updateInfoStats(gs.board, learningBase):
                         msg = "Right"                                                
                         if isNewPosition: # 
-                            p.time.delay(1 * 1000)
+                            delay(1 )
                             curr_data.timeElapsed = (stop_stamp-last_stamp).total_seconds()
                             curr_data.result = 1
                             
@@ -652,9 +657,8 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                             else:
                                 ll.append(pos)
 
-                        BS.drawEndGameText(screen, msg)
-                        BS.update()
-                        p.time.delay(1 * 1000)
+                        show_message(gs, msg)
+                        delay(1 )
 
                         engineMove = num_moves_to_show
                         humanCanPlay = False
@@ -667,9 +671,8 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                         else:
                             curr_data.notesTime += (stop_stamp-last_stamp).total_seconds()
 
-                        BS.drawEndGameText(screen, "Not the right move")
-                        BS.update()
-                        p.time.delay(1 * 1000)
+                        show_message(gs, "Not the right move")
+                        delay(1 )
                         gs.undoMove()
                         validMoves = gs.stdValidMoves()
                         isNewPosition = False
@@ -703,42 +706,53 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
 def playBrainMaster(learningBaseName:str):
     learningBase = learningBases[learningBaseName]
+    global screen
 
     #eventually unlocks new lessons
-    screen.fill((255, 255, 255))    
-    BS.drawEndGameText(screen, "Checking lessons to unlock",size=20)
+    main_background() 
+    BS.drawEndGameText(screen,None, "Checking lessons to unlock",size=20)
     BS.update()
 
     res = unlock_new_lesson(learningBaseName)
     if res:
-        BS.drawEndGameText(screen,f"New lesson unlocked:{res}",size=20)
+        main_background() 
+        BS.drawEndGameText(screen, None,f"New lesson unlocked:{res}",size=20)
         BS.update()
-        p.time.delay(2 * 1000)
+        delay(2 )
 
-    screen.fill((255, 255, 255))    
-    BS.drawEndGameText(screen, "Acquiring test",size=20)
+    main_background() 
+    BS.drawEndGameText(screen, None,"Acquiring test",size=20)
     BS.update()
     suggestion = ask_for_quiz(learningBaseName, BrainMaster.id_student)
     
-    screen.fill((255, 255, 255))    
+    main_background() 
     if suggestion is None:
-        BS.drawEndGameText(screen, "Errore accedendo al servizio Brainmaster",size=20)
+        main_background() 
+        BS.drawEndGameText(screen, None,"Errore accedendo al servizio Brainmaster",size=20)
         BS.update()
-        p.time.delay(2 * 1000)
+        delay(2 )
         return
     action = suggestion["action"] if "action" in suggestion else None
     if action is None:
-        BS.drawEndGameText(screen, "No suggestion available",size=20)
+        main_background() 
+        BS.drawEndGameText(screen, None,"No suggestion available",size=20)
         BS.update()
-        p.time.delay(2 * 1000)
+        delay(2 )
         return
+    for q in suggestion["questions"]:
+        # print id_question, id_test, id_lesson for each question (with labels)
+        print(
+            f"Question: {q['id_question']}, Test: {q['id_test']}, Lesson: {q['id_lesson']}")
+        
+         
+
     questions:List[QuestionData] = [QuestionData.from_dict(q) for q in suggestion["questions"]]
     results = playBrainMasterSet(learningBase, questions)
     count = sum(1 for item in results.values() if item.result == 1)
     total = len(results)
     msg = f"Number of correct answers: {count} over {total}"
-    screen.fill((255, 255, 255)) 
-    BS.drawEndGameText(screen, msg,size=20)
+    main_background() 
+    BS.drawEndGameText(screen, None, msg,size=20)
     BS.update()
 
     give_answers(learningBaseName, BrainMaster.id_student, action, list(results.values()))
@@ -768,9 +782,9 @@ def replayBadPositions(learningBase:LearningBase):
     if len(ll)==0:
         text = "No positions found"
         main_background()
-        BS.drawEndGameText(screen, text)
+        BS.drawEndGameText(screen, None, text)
         BS.update()
-        p.time.delay(2 * 1000)
+        delay(2 )
 
     help_text = [
             "Istruzioni:",
@@ -918,14 +932,14 @@ def replayBadPositions(learningBase:LearningBase):
                         # copy position to clibboard
                         pyperclip.copy(gs.board.fen())
                         text = "Position copied to clipboard"
-                        BS.drawEndGameText(screen, text)
-                        p.time.delay(2 * 1000)
+                        show_message(gs, text)
+                        delay(2 )
 
                     if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
-                        setFactor( getFactor()*1.2)
+                        BS.setFactor( BS.getFactor()*1.2)
 
                     if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
-                        setFactor( getFactor() / 1.2)
+                        BS.setFactor( BS.getFactor() / 1.2)
 
                     if e.key == p.K_s:  # evaluate score
                         gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
@@ -942,9 +956,8 @@ def replayBadPositions(learningBase:LearningBase):
 
                     if e.key == p.K_h and not updateStats:  # Mostra la soluzione
                         if solution:
-                            BS.drawEndGameText(screen, f"Solution: {solution}")
-                            BS.update()
-                            p.time.delay(2 * 1000)
+                            show_message(gs, f"Solution: {solution}")
+                            delay(2)
 
             
             if show_help:   
@@ -963,7 +976,7 @@ def replayBadPositions(learningBase:LearningBase):
                 if animate:
                     BS.animateMove(lastMove, screen, gs)
 
-                    p.time.delay(100)
+                    delay(0.1)
                     animate = False
 
                 if updateStats:
@@ -978,17 +991,14 @@ def replayBadPositions(learningBase:LearningBase):
                                 del errorsMade[currentElement]
                                 msg = "Position solved"
 
-                        BS.drawEndGameText(screen, msg)
-                        BS.update()
-                        p.time.delay(1 * 1000)
+                        show_message(gs,msg)
+                        delay(1 )
 
                         engineMove = num_moves_to_show
                         humanCanPlay = False
                     else:
-                        BS.drawEndGameText(screen, "Not the right move")
-                        BS.update()
-                        p.time.delay(1 * 1000)
-                        BS.update()
+                        show_message(gs,"Not the right move")
+                        delay(1 )
                         gs.undoMove()
                         validMoves = gs.stdValidMoves()
                         if isNewPosition:
@@ -1058,9 +1068,9 @@ def playModelFiles(filename, humanColor):
     if gr.isEmpty():
         text = "No positions found"
         main_background()
-        BS.drawEndGameText(screen, text)
+        BS.drawEndGameText(screen, None, text)
         BS.update()
-        p.time.delay(2 * 1000)
+        delay(2 )
         main_menu.enable()
         return
 
@@ -1090,9 +1100,9 @@ def playModelFiles(filename, humanColor):
             if nextMove is None:  # game is over anyway
                 text = "Solved"
                 main_background()
-                BS.drawEndGameText(screen, text)
+                BS.drawEndGameText(screen, gs, text)
                 BS.update()
-                p.time.delay(2 * 1000)
+                delay(2 )
                 gameOver = True
                 break
 
@@ -1149,10 +1159,8 @@ def playModelFiles(filename, humanColor):
                                 if errors >= 3:
                                     rightMove = Move.fromChessMove(gr.getNextMainMove(), gs)
                                     msg = f"hint:{rightMove.uci[:2]}"
-
-                                BS.drawEndGameText(screen, msg)
-                                BS.update()
-                                p.time.delay(1 * 1000)
+                                show_message(gs,msg)
+                                delay(1)
                             sqSelected = ()
                             playerClicks = []
                         else:
@@ -1172,17 +1180,17 @@ def playModelFiles(filename, humanColor):
                         gameOver = False
 
                     if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
-                        setFactor( getFactor()*1.2)
+                        BS.setFactor( BS.getFactor()*1.2)
 
                     if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
-                        setFactor( getFactor() / 1.2)
+                        BS.setFactor( BS.getFactor() / 1.2)
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.board.fen())
+                        pyperclip.copy(gs.board.fen())                        
                         text = "Position copied to clipboard"
-                        BS.drawEndGameText(screen, text)
-                        p.time.delay(2 * 1000)
+                        show_message(gs,text)
+                        delay(2 )
 
                     if e.key == p.K_s:  # evaluate score
                         gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
@@ -1205,7 +1213,7 @@ def playModelFiles(filename, humanColor):
                 lastMove = gs.moveLog[-1]
                 if animate:
                     BS.animateMove(lastMove, screen, gs)
-                    p.time.delay(100)
+                    delay(0.1)
                     animate = False
 
             if humanCanPlay and not moveMade:
