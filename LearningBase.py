@@ -8,13 +8,17 @@ import csv
 from datetime import datetime, timedelta, date
 import os
 import Board
-from chess import polyglot,Board as chessBoard
-from chess.pgn import Game as PgnGame
+from chess import polyglot,Board as ChessBoard
+import chess.pgn
+from chess.pgn import  Game as PgnGame
 from chess.engine import Cp, Mate, MateGiven
 from dataclasses import dataclass,asdict,fields
-
+import pgn
+import io
 
 folder = "data"
+
+
 
 def parse_date(date_str: str) -> Optional[date]:
         if not date_str:
@@ -46,7 +50,36 @@ class LearnPosition:
     skip:bool    =False
     idquiz: Optional[int] = None
 
-    
+    def to_PgnString(self) -> str:
+        pgn_game  =  self.to_Pgn()
+        exporter = chess.pgn.StringExporter(headers=True, variations=True, comments=True)
+        return pgn_game.accept(exporter)
+        
+
+    def to_Pgn(self)->PgnGame:
+        pgnGame = PgnGame()
+        # pgnGame.setup(self.fen)
+        pgnGame.headers["White"] = self.white
+        pgnGame.headers["Black"] = self.black
+        pgnGame.headers["ECO"] = self.eco if self.eco is not None else ""
+        pgnGame.headers["Date"] = datetime.strftime(self.gamedate, "%Y.%m.%d") if self.gamedate else "????.??.??"
+        pgnGame.headers["Result"] = "*"
+        # pgnGame.headers["FEN"] = self.fen
+        board = pgnGame.board()
+        node = pgnGame
+        # board = ChessBoard() # self.fen
+        for uci_move in self.moves.split():
+            try:
+                move = board.parse_uci(uci_move)
+                board.push(move)
+                node = node.add_variation(move)
+            except ValueError:
+                print(f"Errore nella conversione del movimento UCI: {uci_move}")
+                # Opzionale: loggare o gestire errori
+                break
+        # pgnGame.board = board
+        return pgnGame
+
 
     @classmethod
     def from_dict(cls, data: dict[str,Any]) -> "LearnPosition":
@@ -175,6 +208,7 @@ class LearningBase:
         
         return instance
     
+
     
     def _savePositions(self):
         """
@@ -219,7 +253,7 @@ class LearningBase:
         print(f"learningBase[{self.filename}]: Processed {line_count} lines.")
 
     @classmethod
-    def create_first_position(cls, zobrist:int,board:chessBoard, game:PgnGame, goodMove:str, moveMade:str)->LearnPosition:
+    def create_first_position(cls, zobrist:int,board:ChessBoard, game:PgnGame, goodMove:str, moveMade:str)->LearnPosition:
         '''
             Create a position when it is played for the first time
         '''
@@ -314,7 +348,7 @@ class LearningBase:
 
         return res
 
-    def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:chessBoard):
+    def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:ChessBoard):
         """
             Analyze last move made in a game
             Args:

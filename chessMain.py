@@ -446,6 +446,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
             "Istruzioni:",
             "- Q per uscire",
             "- C copia la posizione FEN nella clipboard",
+            "- G copia le mosse come PGN nella clipboard", 
             "- S valuta la posizione ",
             "- R reset",
             "- + vedi altre mosse",
@@ -592,6 +593,13 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                         # copy position to clibboard
                         pyperclip.copy(gs.board.fen())
                         text = "Position copied to clipboard"
+                        show_message(gs, text)
+                        delay(2)
+
+                    if e.key == p.K_g:
+                        # copy position to clibboard
+                        pyperclip.copy(pos.to_PgnString())
+                        text = "Game copied to clipboard"
                         show_message(gs, text)
                         delay(2)
 
@@ -790,6 +798,7 @@ def replayBadPositions(learningBase:LearningBase):
             "Istruzioni:",
             "- Q per uscire",
             "- C copia la posizione FEN nella clipboard",
+            "- G copia la partita nella clipboard",
             "- S valuta la posizione ",
             "- F flip board",
             "- R reset",
@@ -934,6 +943,13 @@ def replayBadPositions(learningBase:LearningBase):
                         text = "Position copied to clipboard"
                         show_message(gs, text)
                         delay(2 )
+
+                    if e.key == p.K_g:
+                        # copy position to clibboard
+                        pyperclip.copy(pos.to_PgnString())
+                        text = "Game copied to clipboard"
+                        show_message(gs, text)
+                        delay(2)
 
                     if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
                         BS.setFactor( BS.getFactor()*1.2)
@@ -1191,6 +1207,13 @@ def playModelFiles(filename, humanColor):
                         text = "Position copied to clipboard"
                         show_message(gs,text)
                         delay(2 )
+                    
+                    if e.key == p.K_g:
+                        # copy position to clibboard
+                        pyperclip.copy(pos.to_PgnString())
+                        text = "Game copied to clipboard"
+                        show_message(gs, text)
+                        delay(2)
 
                     if e.key == p.K_s:  # evaluate score
                         gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
