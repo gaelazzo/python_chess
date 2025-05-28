@@ -180,7 +180,10 @@ class Move:
 
 
     def promoteToPiece(self, p:chess.PieceType)->chess.Move:
-        self.move = chess.Move.from_uci(self.move.uci()+chess.piece_symbol(p))
+        move = self.move.uci()
+        if not move.endswith(chess.piece_symbol(p)):
+            move += chess.piece_symbol(p)
+        self.move = chess.Move.from_uci(move)
         return self.move
 
     def getChessNotation(self)->str:

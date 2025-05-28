@@ -44,7 +44,7 @@ class PgnGameList:
 
         self.node = self.node.variations[idx]
 
-        result:Optional[Move] = Move.fromChessMove(self.node.move, self.gs)
+        result:Move = Move.fromChessMove(self.node.move, self.gs)
 
         self.gs.makeMove(result)
 

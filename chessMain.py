@@ -111,9 +111,7 @@ def chooseModelFile():
             if event.type == p.QUIT:
                 quit()
 
-            if event.type == p.USEREVENT:
-                if event.user_type == pygame_gui.UI_BUTTON_PRESSED:  # user_type
-                #if event.type == p.MOUSEBUTTONDOWN:  # user_type
+            if event.type == pygame_gui.UI_BUTTON_PRESSED: 
 
                     if event.ui_element == file_selection.ok_button:
                         positionParameters["filename"] = file_selection.current_file_path
@@ -678,10 +676,11 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                             curr_data.timeElapsed = (stop_stamp-last_stamp).total_seconds()                            
                         else:
                             curr_data.notesTime += (stop_stamp-last_stamp).total_seconds()
-
-                        show_message(gs, "Not the right move")
-                        delay(1 )
                         gs.undoMove()
+                        zobrist:int = chess.polyglot.zobrist_hash(gs.board)
+                        position = learningBase.positions[zobrist]
+                        show_message(gs, "Right move is "+position.ok)
+                        delay(3 )
                         validMoves = gs.stdValidMoves()
                         isNewPosition = False
                         
