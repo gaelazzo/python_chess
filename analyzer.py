@@ -190,7 +190,6 @@ class PgnAnalyzer:
             playerName:
         '''
         self.pgn = open(filename, encoding='utf-8')
-        self.colorToPlay = "White"
         self.player = playerName
         self.movesToAnalyze = learningBase.movesToAnalyze
         self.engine = None
@@ -262,6 +261,61 @@ class PgnAnalyzer:
                 assert(best_score is not None)
                 return best_score, board.uci(best_move) if best_move else None
 
+    def esplora_rami(self, game: chess.pgn.Game, colorSide:bool):
+        """Esplora tutti i rami di una partita PGN e raccoglie le posizioni rilevanti per un colore specifico"""
+        positions = []
+
+        def esplora_nodo(nodo, board):
+            if nodo.is_end():
+                return
+
+            for variation in nodo.variations:
+                
+                # Memorizza solo le posizioni del colore specificato
+                if board.turn == colorSide:
+                    # La mossa da giocare è la prossima mossa del nodo corrente (variation.move)
+                    # La posizione "prima" della mossa è la scacchiera prima di push, quindi dobbiamo passare la board "prima" della mossa
+                    # Ma ora board è già aggiornato con la mossa, quindi facciamo così:                    
+                    moveMade =  variation.move.uci()  # La mossa da giocare
+                    self.learningBase.addPosition(game, board, moveMade)                    
+
+                board.push(variation.move)
+                esplora_nodo(variation, board)
+                board.pop()
+
+        board = game.board()
+        esplora_nodo(game, board)
+        
+
+    def unrollGame(self, game: chess.pgn.Game, colorToAnalyze: bool):
+        """
+        Unrolls a game and adds all positions to the learning base
+        Args:
+            game: a game to unroll
+            colorToAnalyze: True for white/ False for black
+            learningBase: the learning base to update
+        """
+        positions = self.esplora_rami(game, colorToAnalyze)
+
+
+
+    def unroll(self, colorToAnalyze:bool):
+        """
+        Unrolls a pgn file and adds all positions to the learning base
+        If the pgn contains more than one game, every game will be unrolled
+        Args:
+            colorToAnalyze: True for white/ False for black
+        """
+        game = chess.pgn.read_game(self.pgn)
+        while game is not None:
+            self.unrollGame(game, colorToAnalyze)
+            game = chess.pgn.read_game(self.pgn)
+        
+        self.learningBase.save()
+
+
+
+       
 
     def analyzeGame(self, game:chess.pgn.Game, colorToAnalyze:bool):
         """
@@ -339,7 +393,17 @@ class PgnAnalyzer:
                 continue
 
    
-        
+def unrollPgn(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
+    """
+        Unrolls a pgn file and adds all positions to the learning base
+        Args:
+            pgnFileName: the name of the pgn file to unroll
+            playerName: the name of the player to analyze
+            learningBase: the learning base to update
+    """
+    pg = PgnAnalyzer("player", pgnFileName, learningBase)
+    pg.unroll(colorToAnalyze) 
+    pg.learningBase.save()
 
 # skip 8600, all_pgn-pgn
 if __name__ == "__main__":

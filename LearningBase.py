@@ -174,7 +174,7 @@ class LearningBase:
         Save the learning base 
         '''
         
-        filename = filename or self.filename
+        filename = filename or "base_"+self.filename
         assert(filename is not None)
 
         # Prepare data to be saved
@@ -239,11 +239,17 @@ class LearningBase:
 
 
     # zobrist;fen;eco;lastTry;firstTry;move;ok;bad;moves,ntry,successful,ntry,white,black,date    
+    
     def _loadPositions(self):
         self.positions.clear()
         assert(self.filename is not None)
 
-        with open(os.path.join(folder,self.filename)+".csv") as csv_file:
+        filepath = os.path.join(folder, self.filename) + ".csv"
+        if not os.path.exists(filepath):
+            print(f"File {filepath} non trovato.")
+            return
+
+        with open(filepath) as csv_file:
             reader = csv.DictReader(csv_file)
             for row in reader:                
                 position = LearnPosition.from_dict(row)
@@ -251,6 +257,8 @@ class LearningBase:
 
         line_count = len(self.positions)
         print(f"learningBase[{self.filename}]: Processed {line_count} lines.")
+
+
 
     @classmethod
     def create_first_position(cls, zobrist:int,board:ChessBoard, game:PgnGame, goodMove:str, moveMade:str)->LearnPosition:
@@ -348,6 +356,24 @@ class LearningBase:
 
         return res
 
+    def addPosition(self, game:PgnGame, board:ChessBoard, goodMove:str):
+        """
+            Add a position to the learning base
+            Args:
+                game: pgn game being analyzed
+                goodMove: the right move choosen by the engine
+                board: current chess game (BEFORE the move is played)
+            Returns:
+                True if a new position was added
+        """        
+        zobrist:int = polyglot.zobrist_hash(board)
+        if  zobrist not in self.positions:        
+            position = LearningBase.create_first_position(zobrist, board, game, goodMove, goodMove)
+            self.positions[zobrist] = position
+            return True
+        return False
+
+
     def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:ChessBoard):
         """
             Analyze last move made in a game
@@ -378,18 +404,24 @@ class LearningBase:
         
 
         
-        
-    
+file_json = [
+     os.path.splitext(nome)[0] for nome in os.listdir(folder)
+    if nome.endswith('.json') and (nome.startswith('base_'))
+]
 
-learningBases = {
-    "blunders": LearningBase.load("tacticalerrors"),
-    "openings": LearningBase.load("openingerrors")
-}
+
+def stripBaseName(filename: str) -> str:
+    """
+    Strips the 'base_' prefix from the filename and remove path if present.
+    """
+    return os.path.splitext(os.path.basename(filename))[0].replace("base_", "")
+
+learningBases = {stripBaseName(name): LearningBase.load(name) for name in file_json}
 
 
 if __name__ == "__main__":
     # checkGameOpenings()
     print(f"Start writing")
-    learningBases["blunders"].save()
-    learningBases["openings"].save()
+    for base in learningBases.values():
+        base.save()
     print(f"Save Done")

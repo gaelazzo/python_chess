@@ -29,6 +29,11 @@ class PgnGameList:
         self.game:Optional[chess.pgn.Game] = None
         self.node = None
 
+    def undoMove(self):
+        self.gs.undoMove()
+        self.node = self.node.parent if self.node is not None else None
+
+
     def makeNextMove(self):
         '''
             Make a random move from the variations stored in the game
@@ -43,6 +48,8 @@ class PgnGameList:
         idx = random.randint(0, nVariations-1)
 
         self.node = self.node.variations[idx]
+        if self.node.comment:
+            print(self.node.comment)
 
         result:Move = Move.fromChessMove(self.node.move, self.gs)
 
