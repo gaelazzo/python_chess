@@ -1,11 +1,35 @@
+# -*- coding: utf-8 -*-
+
 import argparse
 import hashlib
 import json
 import os
 import urllib
 import urllib.request
+import tempfile
+from shutil import rmtree  # Per la cancellazione ricorsiva
 
 import requests as requests
+
+import re
+
+def get_player_color(pgn_text, username):
+    """
+    Restituisce 'white', 'black' o None se lo username non è presente nella partita.
+    """
+    white_player = re.search(r'\[White\s+"(.+?)"\]', pgn_text)
+    black_player = re.search(r'\[Black\s+"(.+?)"\]', pgn_text)
+    
+    white_name = white_player.group(1).lower() if white_player else ''
+    black_name = black_player.group(1).lower() if black_player else ''
+    username = username.lower()
+    
+    if username == white_name:
+        return 'w'
+    elif username == black_name:
+        return 'b'
+    else:
+        return None
 
 
 def cached_json_get(url, cache_path):
@@ -40,35 +64,32 @@ def cached_json_get(url, cache_path):
         return json_data
 
 
-def load(user_name:str, output_path:str):
-    
+def load(user_name:str,  output_path:str, color:str):
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+
     url_games = f'https://api.chess.com/pub/player/{user_name}/games/archives'
 
-    # create output
-    
-    os.makedirs(output_path, exist_ok=True)
-
     # create cache
-    cache_path = os.path.join(output_path, 'cache')
-    os.makedirs(cache_path, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix='chess_cache_') as cache_path:
+        print(f"Cartella temporanea creata: {cache_path}")  # Debug
+        json_data = cached_json_get(url_games, cache_path)
+        archives = json_data['archives']
+        pgns = []
+        for archive in archives:
+            print(archive)
+            json_data = cached_json_get(archive, cache_path)
 
-    json_data = cached_json_get(url_games, cache_path)
-    archives = json_data['archives']
-    pgns = []
-    for archive in archives:
-        print(archive)
-        json_data = cached_json_get(archive, cache_path)
+            for game in json_data['games']:
+                pgns.append(game['pgn'])
 
-        for game in json_data['games']:
-            pgns.append(game['pgn'])
+        with open(output_path, 'w', encoding='utf-8') as f:
+            for pgn in pgns:
+                player_color = get_player_color(pgn, user_name)
+                if color is not None:
+                    if color!= player_color:
+                        continue
 
-    with open('all_pgn.pgn', 'w') as f:
-        for pgn in pgns:
-            f.write(pgn)
-            f.write('\n' * 2)
+                f.write(pgn)
+                f.write('\n' * 2)
 
-
-
-
-if __name__ == '__main__':
-    load('hires','chess_com')

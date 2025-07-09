@@ -15,7 +15,7 @@ from typing import Optional,List,Dict,Tuple,Dict
 from LearningBase import LearnPosition, LearningBase, learningBases
 from datetime import datetime, timedelta, date
 import csv
-
+import Quiz
 
 print("loading book...")
 book:chess.polyglot.MemoryMappedReader = chess.polyglot.MemoryMappedReader("./books/Perfect2021.bin")
@@ -404,6 +404,7 @@ def unrollPgn(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
     pg = PgnAnalyzer("player", pgnFileName, learningBase)
     pg.unroll(colorToAnalyze) 
     pg.learningBase.save()
+    Quiz.classifyLearningBase(learningBase)
 
 # skip 8600, all_pgn-pgn
 if __name__ == "__main__":

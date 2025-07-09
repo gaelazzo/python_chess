@@ -1,6 +1,7 @@
 
 from __future__ import annotations 
 from argparse import OPTIONAL
+from operator import le
 import os
 # [m for m in g.mainline_moves()]
 import chess
@@ -34,7 +35,7 @@ def getLearningBaseClassified(learningBase: LearningBase) -> List[tuple[str, Dic
 
 
 
-def classifyLearningBase(learningBase:LearningBase):    
+def describeLearningBase(learningBase:LearningBase):    
           
     sortedEcoStats = getLearningBaseClassified(learningBase)
 
@@ -88,16 +89,29 @@ def nameQuizzes(learningBase:LearningBase)->Dict[int,str]:
     return quizzesName
     
               
-        
+def classifyLearningBase(learningBase:LearningBase):
+    '''
+    Classify the learning base by ECO code
+    '''
+    print(f"Classifying {learningBase.filename} with {len(learningBase.positions)} positions")
+    makeQuizzes(learningBase)
+    quizNames = nameQuizzes(learningBase)
+    json_helper.write_struct(os.path.join(folder,f"lessons_{learningBase.filename}.json"), quizNames)
+    learningBase.save()
 
 
-if __name__ == "__main__":
-    # checkGameOpenings()
-    print(f"Start analyzing")
-    learnBase = "blunders"
-    quizNames = nameQuizzes(learningBases [learnBase])
-    json_helper.write_struct(os.path.join(folder,f"lessons_{learnBase}.json"), quizNames)
-    
-    # analyzePgn("all_pgn.pgn","gaelazzo", learningBases["openings"], skip_player='FAAILIX')
-    
-    print(f"Analyzing Done")
+def classifyAllLearningBases():
+    '''
+    Classify all learning bases
+    '''
+    for name, learnBase in learningBases.items():
+        # check if file already exists
+        fname = os.path.join(folder, f"lessons_{name}.json")
+        if os.path.exists(fname):
+            print(f"File {fname} already classified")
+            continue
+        classifyLearningBase(learnBase)
+
+print(f"Start classifying bases")
+classifyAllLearningBases()
+print(f"Classification Done")

@@ -275,6 +275,14 @@ def unlock_new_lesson(id_course:str)->str:
 
     print(f"No lesson to unlock in course {id_course}")
     return None
+def add_to_BrainMaster(id_course:str):
+    '''
+    Add a course to the Brain Master
+    '''
+    create_course(id_course)
+    add_all_lessons(id_course)
+    add_all_questions(id_course)
+    print(f"Course: {id_course} registered")
 
 if __name__ == "__main__":
     for id_course in LearningBase.learningBases:
