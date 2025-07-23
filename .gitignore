@@ -20,4 +20,5 @@
 /pgn/spanish.ini
 *.cko
 *.cpo
-/build/chessMain
+/build/
+/dist/
