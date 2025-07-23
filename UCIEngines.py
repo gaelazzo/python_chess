@@ -54,7 +54,7 @@ import atexit
 import Board
 
 #engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish_14.1_win_x64_popcnt.exe")
-engine:chess.engine.SimpleEngine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
+engine:chess.engine.SimpleEngine = chess.engine.SimpleEngine.popen_uci(r"engines\stockfish-17-avx2.exe")
 # D:\progetti\python\chess\engines\stockfish-17-avx2.exe
 # r"D:\python\chess\engines\stockfish_14.1_win_x64_popcnt.exe"
 # D:\python\chess\engines\lc0\lc0.exe
