@@ -5,16 +5,25 @@ import LearningBase
 from datetime import datetime
 from dataclasses import dataclass,fields
 from typing import Optional, Union,List,Dict, Tuple, Iterator, Any
-
+import json
+from config import config
 folder = "data"
 
+# Nome del file di configurazione
+
+
 # URL del tuo servizio Flask
-base_url = 'http://localhost:5000/api/'
-id_student = 'gaetano.lazzo'
+#base_url = 'http://localhost:5000/api/'
+#id_student = 'gaetano.lazzo'
 
 
 def create_course(id_course:str):
-    url = f"{base_url}create_course"
+    '''
+    Create a course in the Brain Master service.
+    Args:
+        id_course(str): unique identifier for the course, e.g. 'openings', 'C42_white', etc.
+    '''
+    url = f"{config.base_url}create_course"
     payload = {
             'id_course': id_course,
             'description': 'Chess course'
@@ -33,7 +42,15 @@ def create_course(id_course:str):
         print('Errore nella richiesta:', str(e))
     
 def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
-    url = f'{base_url}create_lesson'
+    '''
+    Create a lesson in the Brain Master service.
+    Args:
+        id_lesson(str): unique identifier for the lesson, e.g. 'C44_black', 'C42_white', etc.
+        id_course(str): unique identifier for the course
+        title(str): title of the lesson
+        description(str): description of the lesson
+    '''
+    url = f'{config.base_url}create_lesson'
     payload = {
         'id_lesson': id_lesson,
         'id_course': id_course,
@@ -56,7 +73,7 @@ def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
 def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
                         lesson_name:str, lesson_descr:str,
                         question:str, explanation:str, rightAnswer:str):
-    url = f'{base_url}add_question_OpenAnswer'
+    url = f'{config.base_url}add_question_OpenAnswer'
     payload = {
         'id_course': id_course,
         'id_test': id_test,
@@ -89,7 +106,7 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
             id_student(str) chiave della tabella mdl_user
             id_lesson(str)  chiave della tabella mdl_course_modules
     '''  
-    url = f'{base_url}unlock_lesson'
+    url = f'{config.base_url}unlock_lesson'
     payload = {
         'id_lesson': id_lesson,
         'id_student': id_student,
@@ -152,14 +169,19 @@ class QuestionData:
 
 def ask_for_quiz(id_course:str, id_student:str):
     '''
-    Returns a suggested quiz like
+    Ask the Brain Master to suggest a quiz for a student in a course.
+    Args:
+        id_course(str): unique identifier for the course, e.g. 'openings', 'C42_white', etc.
+        id_student(str): unique identifier for the student, e.g. 'gaetano.lazzo'
+    Returns:
+        A dictionary with the suggested quiz, containing:
                {"action":action.value, 
                 "description":Submitter.get_action_description(action),
                 "questions": Submitter.get_test(id_course, id_student, action)
                 }
     
     '''
-    url = f'{base_url}suggest_test'
+    url = f'{config.base_url}suggest_test'
     # I dati che vuoi inviare al servizio
     payload = {
         'id_course': id_course,
@@ -180,16 +202,21 @@ def ask_for_quiz(id_course:str, id_student:str):
         print('Errore nella richiesta:', str(e))
  
 
-def give_answers(id_course:str, id_student:str, action:int, answers:List[AnswerData]):
+def give_answers(id_course:str, action:int, answers:List[AnswerData]):
     '''
     Send answer to the Brain Master to train it
+    Args:
+        id_course(str): unique identifier for the course, e.g. 'openings', 'C42_white', etc.
+        id_student(str): unique identifier for the student, e.g. 'gaetano.lazzo'
+        action(int): action taken by the student
+        answers(List[AnswerData]): list of answers given by the student
     '''
-    url = f'{base_url}give_answers'
+    url = f'{config.base_url}give_answers'
        
     # I dati che vuoi inviare al servizio
     payload = {
         'id_course': id_course,
-        'id_student': id_student,
+        'id_student': config.id_student,
         'action': action,
         'answers': [a.to_dict() for a in  answers]
     }
@@ -207,6 +234,11 @@ def give_answers(id_course:str, id_student:str, action:int, answers:List[AnswerD
         print('Errore nella richiesta:', str(e))
 
 def add_all_lessons(learnBase:str):
+    '''
+        Add all lessons for a given learning base to the Brain Master.
+        Args:
+            learnBase(str): unique identifier for the learning base, e.g. 'openings', 'C42_white', etc.
+    '''
     quizNames = json_helper.read_struct(os.path.join(folder,f"lessons_{learnBase}.json"))
     lessons = set()
     for idtest, idlesson in quizNames.items():
@@ -217,6 +249,12 @@ def add_all_lessons(learnBase:str):
         create_lesson(id_brainMasterLesson, learnBase, idlesson, idlesson)
             
 def add_all_questions(learnBase:str):
+    '''
+        Add all questions for a given learning base to the Brain Master.
+        Args:
+            learnBase(str): unique identifier for the learning base, e.g. 'openings', 'C42_white', etc.
+    '''
+
     quizNames = json_helper.read_struct(os.path.join(folder,f"lessons_{learnBase}.json"))
     base = LearningBase.learningBases[learnBase]
     for pos in base.positions:
@@ -230,10 +268,15 @@ def add_all_questions(learnBase:str):
 
 
 def unlock_new_lesson(id_course:str)->str:
-    url = f'{base_url}suggest_new_lesson'
+    '''
+    Unlock a new lesson for a student in a course.
+    Args:
+        id_course(str): unique identifier for the course, e.g. 'openings', 'C42_white', etc.
+    '''
+    url = f'{config.base_url}suggest_new_lesson'
     payload = {
         'id_course': id_course,
-        'id_student': id_student
+        'id_student': config.id_student
     }
 
     try:
@@ -264,7 +307,7 @@ def unlock_new_lesson(id_course:str)->str:
             continue
         id_brainMasterLesson:str = f'{id_course}{idlesson}'
         print(f"Course: {id_course} Unlocking lesson {id_brainMasterLesson}")
-        if unlock_lesson(id_course, id_student, id_brainMasterLesson):
+        if unlock_lesson(id_course, config.id_student, id_brainMasterLesson):
             print(f"Course: {id_course} lesson {id_brainMasterLesson} unlocked")
             lesson_unlocks[idlesson]= datetime.now()
             json_helper.write_struct(fname, lesson_unlocks)
@@ -275,6 +318,7 @@ def unlock_new_lesson(id_course:str)->str:
 
     print(f"No lesson to unlock in course {id_course}")
     return None
+
 def add_to_BrainMaster(id_course:str):
     '''
     Add a course to the Brain Master
@@ -284,7 +328,12 @@ def add_to_BrainMaster(id_course:str):
     add_all_questions(id_course)
     print(f"Course: {id_course} registered")
 
+
+
 if __name__ == "__main__":
+    '''
+        Main function to add all courses, lessons, and questions to the Brain Master.
+    '''
     for id_course in LearningBase.learningBases:
         create_course(id_course)        
         add_all_lessons(id_course)

@@ -1,0 +1,5 @@
+{
+    "base_url": "http://localhost:5000/api/",
+    "id_student": "gaetano.lazzo",
+    "engine": "engines\\stockfish-17-avx2.exe"
+}

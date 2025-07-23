@@ -10,7 +10,7 @@ import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
 import random
 from Board import GameState
-from UCIEngines import engine, engine_close
+from UCIEngines import engine, engine_close, engine_open
 from typing import Optional,List,Dict,Tuple,Dict
 from LearningBase import LearnPosition, LearningBase, learningBases
 from datetime import datetime, timedelta, date
@@ -273,9 +273,9 @@ class PgnAnalyzer:
                 
                 # Memorizza solo le posizioni del colore specificato
                 if board.turn == colorSide:
-                    # La mossa da giocare Ë la prossima mossa del nodo corrente (variation.move)
-                    # La posizione "prima" della mossa Ë la scacchiera prima di push, quindi dobbiamo passare la board "prima" della mossa
-                    # Ma ora board Ë gi‡ aggiornato con la mossa, quindi facciamo cosÏ:                    
+                    # La mossa da giocare √® la prossima mossa del nodo corrente (variation.move)
+                    # La posizione "prima" della mossa √® la scacchiera prima di push, quindi dobbiamo passare la board "prima" della mossa
+                    # Ma ora board √® gi√† aggiornato con la mossa, quindi facciamo cos√¨:                    
                     moveMade =  variation.move.uci()  # La mossa da giocare
                     self.learningBase.addPosition(game, board, moveMade)                    
 
@@ -410,7 +410,7 @@ def unrollPgn(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
 if __name__ == "__main__":
     # checkGameOpenings()
     print(f"Start analyzing")
-
+    engine_open()
     # analyzePgn("all_pgn.pgn","gaelazzo", learningBases["openings"], skip_player='FAAILIX')
     learningBases["blunders"].save()
 

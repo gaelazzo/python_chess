@@ -1,6 +1,7 @@
 from __future__ import annotations 
 from typing import Optional,List
 import chess
+import os
 from chess.pgn import ChildNode, Game,read_game,read_headers
 import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
@@ -14,8 +15,9 @@ class PgnGameList:
         return len(self.games) == 0
 
     def __init__(self, filename):
+        fName = os.path.join("pgn", filename)+".pgn"
         self.games:Optional[List[Game]] = []
-        pgn = open(filename, encoding='utf-8')
+        pgn = open(fName, encoding='utf-8')
         while True:
             game:chess.pgn.Game = read_game(pgn)
             if game is None:

@@ -51,23 +51,40 @@ from typing import Optional,List
 import chess
 import chess.engine
 import atexit
+import os
 import Board
+engineFileName: Optional[str] = None
+engine:chess.engine.SimpleEngine =None
+from  config import config
+import time
 
-#engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish_14.1_win_x64_popcnt.exe")
-engine:chess.engine.SimpleEngine = chess.engine.SimpleEngine.popen_uci(r"engines\stockfish-17-avx2.exe")
-# D:\progetti\python\chess\engines\stockfish-17-avx2.exe
-# r"D:\python\chess\engines\stockfish_14.1_win_x64_popcnt.exe"
-# D:\python\chess\engines\lc0\lc0.exe
+def engine_open():
+    global engine
+    try:
+        engine = chess.engine.SimpleEngine.popen_uci(os.path.abspath(config.engine))
+        print(f"Engine {config.engine} opened successfully.")
+    except FileNotFoundError:
+        print(f"Engine file {config.engine} not found. Please check the configuration.")        
+    except Exception as e:
+        print(f"An error occurred while opening the engine: {e}")
+
+
+
+
+already_closing = False
 
 def engine_close():
     
-    global engine
-    #engine.close()
+    global engine, already_closing
+    if already_closing:
+        return
+    already_closing = True
 
     if engine is not None:
         try:
             print(f"Closing engine...{engine.id}")
             engine.close()
+            time.sleep(0.1)
             print("engine closed.\n")
         except chess.engine.EngineTerminatedError:
             print("Engine already terminated.")
@@ -75,8 +92,10 @@ def engine_close():
             print(f"An error occurred while closing the engine: {e}")
         finally:
             engine = None
+            del engine 
 
 atexit.register(engine_close)
+time.sleep(0.1)
 
 def bestMove(board, validMoves:List[Board.Move], time=0.1, elo= None)->chess.Move:
     if elo is None:
@@ -96,5 +115,6 @@ def bestMove(board, validMoves:List[Board.Move], time=0.1, elo= None)->chess.Mov
 
 
 if __name__ == "__main__":
+    engine_open()
     engine_close()
     

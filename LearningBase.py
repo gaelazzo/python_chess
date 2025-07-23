@@ -194,18 +194,15 @@ class LearningBase:
         Load the learning base positions
         Args:
             filename(str): File containing the learning base            
-        '''
-        
+        '''        
         data = json_helper.read_struct(os.path.join(folder,filename)+".json")
         
         learningBaseData = LearningBaseData(**data)
-
         # with open(class_filename, 'r', encoding="utf8") as class_file:
          #   json.load(class_file)
          #           
         instance = LearningBase._from_dict(learningBaseData)       
-        instance._loadPositions()
-        
+        instance._loadPositions()        
         return instance
     
 
@@ -263,7 +260,7 @@ class LearningBase:
     @classmethod
     def create_first_position(cls, zobrist:int,board:ChessBoard, game:PgnGame, goodMove:str, moveMade:str)->LearnPosition:
         '''
-            Create a position when it is played for the first time
+            Create a position when it is not yet in the learning base
         '''
         moves = " ".join([board.uci(m) for m in board.move_stack])
         gamedate:Optional[date|None]  = string_to_date(game.headers["Date"]) if "Date" in game.headers else None
@@ -385,7 +382,6 @@ class LearningBase:
             Returns:
                 True if a good move was played, also updates the statistics on the position played
         """        
-
         zobrist:int = polyglot.zobrist_hash(board)
 
         if  zobrist not in self.positions:        
@@ -403,7 +399,9 @@ class LearningBase:
         return LearningBase.updatePositionStats(position, moveMade, gamedate)
         
 
-        
+'''
+   Get all base filename from the data folder
+'''
 file_json = [
      os.path.splitext(nome)[0] for nome in os.listdir(folder)
     if nome.endswith('.json') and (nome.startswith('base_'))
@@ -416,6 +414,9 @@ def stripBaseName(filename: str) -> str:
     """
     return os.path.splitext(os.path.basename(filename))[0].replace("base_", "")
 
+'''
+    Load all learning bases from the data folder
+'''
 learningBases = {stripBaseName(name): LearningBase.load(name) for name in file_json}
 
 

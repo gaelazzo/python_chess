@@ -17,7 +17,10 @@ import json_helper
 folder = "data"
 
 def getLearningBaseClassified(learningBase: LearningBase) -> List[tuple[str, Dict[str, int]]]:
-    # evaluates statistics about ECO classification
+    '''
+    evaluates statistics on the learningBase splitting on ECO classification
+    '''
+
     ecoStats:Dict[str,Dict[str,int]] = {}
     for pos in learningBase.positions.values():
         eco = pos.eco
@@ -36,14 +39,18 @@ def getLearningBaseClassified(learningBase: LearningBase) -> List[tuple[str, Dic
 
 
 def describeLearningBase(learningBase:LearningBase):    
-          
+    '''
+    Prints a summary of the learning base statistics
+    '''
     sortedEcoStats = getLearningBaseClassified(learningBase)
 
     for eco,stats in sortedEcoStats:
         print(f"ECO {eco}: {stats['distinct']} distinct  {stats['total']} total, {stats['ok']} ok, {stats['bad']} bad ")
     
-def makeQuizzes(learningBase:LearningBase):
-    quiz_size = 10
+def makeQuizzes(learningBase:LearningBase, quiz_size:int=10):
+    '''
+    classify the learning base by ECO code and assign quizzes. If a learning base has already quizzes assigned, it will not change them.
+    '''
     curr_quiz_size = 0
     sortedEcoStats = getLearningBaseClassified(learningBase)
 
@@ -67,6 +74,17 @@ def makeQuizzes(learningBase:LearningBase):
                 curr_quiz_size = 0
 
 def nameQuizzes(learningBase:LearningBase)->Dict[int,str]:
+    '''
+        Assign a name to each quiz based on the ECO code of the positions in the quiz
+        If the quiz contains positions with the same ECO code, it will use that code as the name.
+        If the quiz contains positions with two different ECO codes, it will use both codes separated by a space.
+        If the quiz contains positions with more than two different ECO codes, it will use 'mix' as the name.
+        Arguments:
+            learningBase: The learning base to classify
+        Returns:
+            A dictionary with the quiz id as key and the quiz name as value.
+    '''
+
     quizzes:Dict[int, List[LearnPosition]] = {}
     quizzesName:Dict[int,str] = {}
     for pos in learningBase.positions.values():
@@ -84,7 +102,7 @@ def nameQuizzes(learningBase:LearningBase)->Dict[int,str]:
         elif len(eco) == 2:
             quizzesName[idquiz] = ' '.join(eco)  # I due elementi in eco
         else:
-            quizzesName[idquiz] = 'mix'  # Più di due elementi 
+            quizzesName[idquiz] = 'mix'  # PiÃ¹ di due elementi 
     
     return quizzesName
     
