@@ -7,7 +7,22 @@ import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
 from Board import GameState, Move
 import io
+import sys
 import random
+
+def get_base_path():
+    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+PGN_FOLDER = os.path.join(BASE_PATH, "pgn")
+
+
+
+
+
 
 class PgnGameList:
 
@@ -15,7 +30,7 @@ class PgnGameList:
         return len(self.games) == 0
 
     def __init__(self, filename):
-        fName = os.path.join("pgn", filename)+".pgn"
+        fName = os.path.join(BASE_PATH, "pgn", filename)+".pgn"
         self.games:Optional[List[Game]] = []
         pgn = open(fName, encoding='utf-8')
         while True:

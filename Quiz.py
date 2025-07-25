@@ -11,10 +11,10 @@ from typing import Optional,List,Dict,Tuple,Dict
 from LearningBase import LearnPosition, LearningBase, learningBases
 from datetime import datetime, timedelta, date
 import csv
-from LearningBase import LearningBase, LearnPosition
+from LearningBase import LearningBase, LearnPosition, DATA_FOLDER
 import json_helper
 
-folder = "data"
+folder = DATA_FOLDER
 
 def getLearningBaseClassified(learningBase: LearningBase) -> List[tuple[str, Dict[str, int]]]:
     '''

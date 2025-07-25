@@ -1,7 +1,20 @@
 import os
 import json
+import sys
 
-CONFIG_FILE = os.path.join(os.path.dirname(__file__), 'config.json')
+
+
+def get_base_path():
+    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
+    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+CONFIG_FILE = os.path.join(BASE_PATH, "config.json")
+
+#CONFIG_FILE = os.path.join(os.getcwd(), "config.json")
 from types import SimpleNamespace
 
 config = None

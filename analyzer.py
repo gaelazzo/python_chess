@@ -10,21 +10,65 @@ import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
 import random
 from Board import GameState
-from UCIEngines import engine, engine_close, engine_open
+from UCIEngines import  engine_close, engine_open
 from typing import Optional,List,Dict,Tuple,Dict
 from LearningBase import LearnPosition, LearningBase, learningBases
 from datetime import datetime, timedelta, date
 import csv
 import Quiz
+import os
+from config import config
+import atexit
+import UCIEngines
+import gamereader
 
-print("loading book...")
-book:chess.polyglot.MemoryMappedReader = chess.polyglot.MemoryMappedReader("./books/Perfect2021.bin")
-print("book loaded")
+import os
+import sys
 
-def close():
-    book.close()
+def get_base_path():
+    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+BOOKS_FOLDER = os.path.join(BASE_PATH, "books")
 
 
+if not os.path.exists(BOOKS_FOLDER):
+    os.makedirs(BOOKS_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)        
+
+
+book:chess.polyglot.MemoryMappedReader = None
+
+
+def open_book():
+    """
+        Opens a book file
+        Args:
+            bookFileName: the name of the book file to open
+        Returns:
+            a MemoryMappedReader object
+    """
+    global book
+    try:
+        book = chess.polyglot.MemoryMappedReader(os.path.abspath(os.path.join(BOOKS_FOLDER,config.book)))
+        num_positions  = sum(1 for _ in book)
+        print(f"Book {config.book} loaded successfully. {num_positions} position found")
+    except FileNotFoundError:
+        print(f"Book file {config.book} not found. Please check the configuration.")        
+    except Exception as e:
+        print(f"An error occurred while opening the book: {e}")
+
+
+
+def book_close():
+    global book
+    if book:
+        book.close()
+        book = None
+
+atexit.register(book_close)
 
 # zobrist,skip,fen,eco,lastTry,firstTry,ok,move,moves,ntry,successful
 
@@ -109,7 +153,7 @@ def evaluatePosition(board:chess.Board, ponderTime=3):
             Number
     """
     # engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
-    res = engine.analyse(board, chess.engine.Limit(time=ponderTime))
+    res = UCIEngines.engine.analyse(board, chess.engine.Limit(time=ponderTime))
     # engine.close()
     return res["score"].relative
 
@@ -126,7 +170,7 @@ def recalcLearned(learningBase:LearningBase):
     # engine = chess.engine.SimpleEngine.popen_uci(r"D:\progetti\python\chess\engines\stockfish-17-avx2.exe")
     for pos in learningBase.positions.values():
         board = chess.Board(pos.fen)
-        res = engine.analyse(board, chess.engine.Limit(time=3), info=chess.engine.INFO_PV)
+        res = UCIEngines.engine.analyse(board, chess.engine.Limit(time=3), info=chess.engine.INFO_PV)
         goodMove = board.uci(res["pv"][0])
         if goodMove == pos.ok:
             continue
@@ -189,7 +233,8 @@ class PgnAnalyzer:
             Args:
             playerName:
         '''
-        self.pgn = open(filename, encoding='utf-8')
+        pathcomplete = os.path.join(gamereader.PGN_FOLDER, filename)
+        self.pgn = open(pathcomplete, encoding='utf-8')
         self.player = playerName
         self.movesToAnalyze = learningBase.movesToAnalyze
         self.engine = None
@@ -248,7 +293,7 @@ class PgnAnalyzer:
                if bookEntry is not None: 
                         return 0, board.uci(bookEntry.move)
 
-         res = engine.analyse(board, chess.engine.Limit(time=self.ponderTime))
+         res = UCIEngines.engine.analyse(board, chess.engine.Limit(time=self.ponderTime))
          pvsAfter = res["score"].pov(colorSide)
          if pvsAfter.is_mate():
                 if pvsAfter < Cp(0):  # will get mated
@@ -415,6 +460,6 @@ if __name__ == "__main__":
     learningBases["blunders"].save()
 
     
-    close()
+    book_close()
     engine_close()
     print(f"Analyzing Done")

@@ -1,5 +1,6 @@
 {
-    "base_url": "http://localhost:5000/api/",
-    "id_student": "gaetano.lazzo",
-    "engine": "engines\\stockfish-17-avx2.exe"
+  "base_url": "http://172.17.247.235:5000/api",
+  "id_student": "gaetano.lazzo",
+  "engine": "stockfish-17-avx2.exe",
+  "book": "Perfect2021.bin"
 }

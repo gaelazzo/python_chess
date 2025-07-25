@@ -7,7 +7,17 @@ from dataclasses import dataclass,fields
 from typing import Optional, Union,List,Dict, Tuple, Iterator, Any
 import json
 from config import config
-folder = "data"
+import sys
+
+def get_base_path():
+    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
+    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+DATA_FOLDER = os.path.join(BASE_PATH, "data")
 
 # Nome del file di configurazione
 
@@ -239,7 +249,7 @@ def add_all_lessons(learnBase:str):
         Args:
             learnBase(str): unique identifier for the learning base, e.g. 'openings', 'C42_white', etc.
     '''
-    quizNames = json_helper.read_struct(os.path.join(folder,f"lessons_{learnBase}.json"))
+    quizNames = json_helper.read_struct(os.path.join(DATA_FOLDER,f"lessons_{learnBase}.json"))
     lessons = set()
     for idtest, idlesson in quizNames.items():
         if idlesson in lessons:
@@ -255,7 +265,7 @@ def add_all_questions(learnBase:str):
             learnBase(str): unique identifier for the learning base, e.g. 'openings', 'C42_white', etc.
     '''
 
-    quizNames = json_helper.read_struct(os.path.join(folder,f"lessons_{learnBase}.json"))
+    quizNames = json_helper.read_struct(os.path.join(DATA_FOLDER,f"lessons_{learnBase}.json"))
     base = LearningBase.learningBases[learnBase]
     for pos in base.positions:
         position = base.positions[pos]
@@ -295,12 +305,12 @@ def unlock_new_lesson(id_course:str)->str:
         return None
 
     lesson_unlocks:Dict[str,datetime] = {}
-    fname =os.path.join(folder,f'unlock_{id_course}.json')
+    fname =os.path.join(DATA_FOLDER,f'unlock_{id_course}.json')
 
     if os.path.exists(fname):
         lesson_unlocks = json_helper.read_struct(fname)
 
-    quizNames = json_helper.read_struct(os.path.join(folder,f"lessons_{id_course}.json"))
+    quizNames = json_helper.read_struct(os.path.join(DATA_FOLDER,f"lessons_{id_course}.json"))
 
     for idtest, idlesson in quizNames.items():
         if idlesson in lesson_unlocks: 

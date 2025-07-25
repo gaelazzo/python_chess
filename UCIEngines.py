@@ -52,17 +52,37 @@ import chess
 import chess.engine
 import atexit
 import os
+import sys
 import Board
 engineFileName: Optional[str] = None
 engine:chess.engine.SimpleEngine =None
 from  config import config
 import time
 
+
+
+def get_base_path():
+    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
+    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+ENGINE_FOLDER = os.path.join(BASE_PATH, "engines")
+
+
+
+if not os.path.exists(ENGINE_FOLDER):
+    os.makedirs(ENGINE_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)        
+
+
 def engine_open():
     global engine
     try:
-        engine = chess.engine.SimpleEngine.popen_uci(os.path.abspath(config.engine))
+        engine = chess.engine.SimpleEngine.popen_uci(os.path.abspath(os.path.join(ENGINE_FOLDER,config.engine)))
         print(f"Engine {config.engine} opened successfully.")
+        print(f"Engine ID: {engine.id["name"]}")
     except FileNotFoundError:
         print(f"Engine file {config.engine} not found. Please check the configuration.")        
     except Exception as e:
@@ -85,14 +105,15 @@ def engine_close():
             print(f"Closing engine...{engine.id}")
             engine.close()
             time.sleep(0.1)
-            print("engine closed.\n")
+            print(f"engine closed.\n")
         except chess.engine.EngineTerminatedError:
             print("Engine already terminated.")
         except Exception as e:
             print(f"An error occurred while closing the engine: {e}")
         finally:
             engine = None
-            del engine 
+            # del engine 
+            already_closing = False
 
 atexit.register(engine_close)
 time.sleep(0.1)

@@ -15,10 +15,19 @@ from chess.engine import Cp, Mate, MateGiven
 from dataclasses import dataclass,asdict,fields
 import pgn
 import io
+import sys
 
-folder = "data"
 
 
+def get_base_path():
+    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
+    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+        return os.path.dirname(sys.executable)
+    else:
+        return os.path.dirname(os.path.abspath(__file__))
+
+BASE_PATH = get_base_path()
+DATA_FOLDER = os.path.join(BASE_PATH, "data")
 
 def parse_date(date_str: str) -> Optional[date]:
         if not date_str:
@@ -185,7 +194,7 @@ class LearningBase:
         #with open(class_filename, 'w', encoding="utf8") as class_file:            
             # json.dump(class_data, class_file, indent=4, separators=(",", ": "), ensure_ascii=False) # 
 
-        json_helper.write_struct(os.path.join(folder,filename)+".json", class_data)  
+        json_helper.write_struct(os.path.join(DATA_FOLDER,filename)+".json", class_data)  
         self._savePositions()
 
     @classmethod
@@ -195,7 +204,7 @@ class LearningBase:
         Args:
             filename(str): File containing the learning base            
         '''        
-        data = json_helper.read_struct(os.path.join(folder,filename)+".json")
+        data = json_helper.read_struct(os.path.join(DATA_FOLDER,filename)+".json")
         
         learningBaseData = LearningBaseData(**data)
         # with open(class_filename, 'r', encoding="utf8") as class_file:
@@ -213,7 +222,7 @@ class LearningBase:
         """
         assert(self.filename is not None)
 
-        with open(os.path.join(folder,self.filename)+".csv", 'w', newline="") as csvfile:
+        with open(os.path.join(DATA_FOLDER,self.filename)+".csv", 'w', newline="") as csvfile:
             fieldnames = [f.name for f in fields(LearnPosition)]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, quoting=csv.QUOTE_NONNUMERIC)
 
@@ -241,7 +250,7 @@ class LearningBase:
         self.positions.clear()
         assert(self.filename is not None)
 
-        filepath = os.path.join(folder, self.filename) + ".csv"
+        filepath = os.path.join(DATA_FOLDER, self.filename) + ".csv"
         if not os.path.exists(filepath):
             print(f"File {filepath} non trovato.")
             return
@@ -397,13 +406,15 @@ class LearningBase:
         gamedate:date  = string_to_date(game.headers["Date"]) if "Date" in game.headers else date.today()
 
         return LearningBase.updatePositionStats(position, moveMade, gamedate)
-        
+
+if not os.path.exists(DATA_FOLDER):
+    os.makedirs(DATA_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)        
 
 '''
    Get all base filename from the data folder
 '''
 file_json = [
-     os.path.splitext(nome)[0] for nome in os.listdir(folder)
+     os.path.splitext(nome)[0] for nome in os.listdir(DATA_FOLDER)
     if nome.endswith('.json') and (nome.startswith('base_'))
 ]
 

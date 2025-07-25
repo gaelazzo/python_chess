@@ -10,6 +10,7 @@ import tempfile
 from shutil import rmtree  # Per la cancellazione ricorsiva
 
 import requests as requests
+import gamereader
 
 import re
 
@@ -64,9 +65,9 @@ def cached_json_get(url, cache_path):
         return json_data
 
 
-def load(user_name:str,  output_path:str, color:str):
-    output_dir = os.path.dirname(output_path)
-    os.makedirs(output_dir, exist_ok=True)
+def load(user_name:str,  output_file:str, color:str):
+    output_dir = os.path.join(gamereader.PGN_FOLDER, output_file)
+    os.makedirs(gamereader.PGN_FOLDER, exist_ok=True)
 
     url_games = f'https://api.chess.com/pub/player/{user_name}/games/archives'
 
@@ -74,7 +75,10 @@ def load(user_name:str,  output_path:str, color:str):
     with tempfile.TemporaryDirectory(prefix='chess_cache_') as cache_path:
         print(f"Cartella temporanea creata: {cache_path}")  # Debug
         json_data = cached_json_get(url_games, cache_path)
-        archives = json_data['archives']
+        archives = json_data.get('archives')
+        if archives is None:
+            print(f"User {user_name} does not exist")
+            return
         pgns = []
         for archive in archives:
             print(archive)
@@ -83,7 +87,7 @@ def load(user_name:str,  output_path:str, color:str):
             for game in json_data['games']:
                 pgns.append(game['pgn'])
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_dir, 'w', encoding='utf-8') as f:
             for pgn in pgns:
                 player_color = get_player_color(pgn, user_name)
                 if color is not None:

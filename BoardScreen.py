@@ -5,6 +5,8 @@ from Board import GameState
 import chess
 from typing import Optional,List,Dict,Tuple,Dict
 import pygame.surface
+import sys
+import os
 
 DIMENSION = 8
 MOVELOGFONT:Optional[p.Font] = None
@@ -104,12 +106,18 @@ def getRowColFromLocation(location):
     row = adjustedRow(int(location[1] // SQ_SIZE))
     return row,col
 
+def resource_path(relative_path):
+    """Restituisce il path assoluto, compatibile con PyInstaller."""
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    return os.path.join(os.path.abspath("."), relative_path)
+
 # load all images
 def loadImages():
     pieces = ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR", "bR", "bN", "bB", "bQ", "bK", "bB", "bN", "bR", "bP",
               "wP"]
     for piece in pieces:
-        IMAGES[piece] = p.transform.scale(p.image.load("images/" + piece + ".png"), (SQ_SIZE, SQ_SIZE))
+        IMAGES[piece] = p.transform.scale(p.image.load(resource_path("images/" + piece + ".png")), (SQ_SIZE, SQ_SIZE))
 
 
  
