@@ -10,7 +10,7 @@ import tempfile
 from shutil import rmtree  # Per la cancellazione ricorsiva
 
 import requests as requests
-import gamereader
+import pgngamelist
 
 import re
 
@@ -66,8 +66,8 @@ def cached_json_get(url, cache_path):
 
 
 def load(user_name:str,  output_file:str, color:str):
-    output_dir = os.path.join(gamereader.PGN_FOLDER, output_file)
-    os.makedirs(gamereader.PGN_FOLDER, exist_ok=True)
+    output_dir = os.path.join(pgngamelist.PGN_FOLDER, output_file)
+    os.makedirs(pgngamelist.PGN_FOLDER, exist_ok=True)
 
     url_games = f'https://api.chess.com/pub/player/{user_name}/games/archives'
 

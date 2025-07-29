@@ -53,7 +53,6 @@ import chess.engine
 import atexit
 import os
 import sys
-import Board
 engineFileName: Optional[str] = None
 engine:chess.engine.SimpleEngine =None
 from  config import config
@@ -118,7 +117,7 @@ def engine_close():
 atexit.register(engine_close)
 time.sleep(0.1)
 
-def bestMove(board, validMoves:List[Board.Move], time=0.1, elo= None)->chess.Move:
+def bestMove(board, time=0.1, elo= None)->chess.Move:
     if elo is None:
         res:chess.engine.PlayResult = engine.play(board.board,
                           limit = chess.engine.Limit(time=time),

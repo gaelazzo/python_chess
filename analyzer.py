@@ -9,7 +9,6 @@ import chess.pgn
 import chess.polyglot
 from chess.engine import Cp, Mate, MateGiven
 import random
-from Board import GameState
 from UCIEngines import  engine_close, engine_open
 from typing import Optional,List,Dict,Tuple,Dict
 from LearningBase import LearnPosition, LearningBase, learningBases
@@ -20,10 +19,12 @@ import os
 from config import config
 import atexit
 import UCIEngines
-import gamereader
+
 
 import os
 import sys
+
+import pgngamelist
 
 def get_base_path():
     if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
@@ -233,7 +234,7 @@ class PgnAnalyzer:
             Args:
             playerName:
         '''
-        pathcomplete = os.path.join(gamereader.PGN_FOLDER, filename)
+        pathcomplete = os.path.join(pgngamelist.PGN_FOLDER, filename)
         self.pgn = open(pathcomplete, encoding='utf-8')
         self.player = playerName
         self.movesToAnalyze = learningBase.movesToAnalyze

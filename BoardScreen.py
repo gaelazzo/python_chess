@@ -1,12 +1,13 @@
 import pygame as p
 import math
 import pygame_gui
-from Board import GameState
+from GameState import GameState
 import chess
 from typing import Optional,List,Dict,Tuple,Dict
 import pygame.surface
 import sys
 import os
+import pyttsx3
 
 DIMENSION = 8
 MOVELOGFONT:Optional[p.Font] = None
@@ -266,8 +267,10 @@ def drawMoveLog(screen, gs):
         textY += textObject.get_height() + lineSpacing
 
     header = gs.getHeader()
-    for i in range(len(header)):
-        addTxtLine(header[i])
+    for i in range(0, len(header), 2):
+        key = header[i]
+        value = header[i + 1]
+        addTxtLine(f"{key}: {value}")
 
     for i in range(0, len(moveTexts), movesPerRow):
         text = ""

@@ -7,7 +7,7 @@ import json_helper
 import csv
 from datetime import datetime, timedelta, date
 import os
-import Board
+
 from chess import polyglot,Board as ChessBoard
 import chess.pgn
 from chess.pgn import  Game as PgnGame

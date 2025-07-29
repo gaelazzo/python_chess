@@ -4,10 +4,11 @@ Main driver file
 """
 from ast import Dict
 from collections.abc import Callable
+from email import headerregistry
 import os.path
 import random
 from typing import Optional
-from Board import Move,GameState
+from GameState import Move,GameState
 import pygame as p
 import json
 import BrainMaster
@@ -22,8 +23,9 @@ import random
 import pyperclip
 import pygame_gui
 from pygame_gui.windows.ui_file_dialog import UIFileDialog
-import gamereader
+import pgngamelist
 from pygame_gui.elements.ui_button import UIButton
+from pygame_menu.locals import ALIGN_CENTER, ORIENTATION_HORIZONTAL
 import sys
 import UCIEngines
 from dataclasses import dataclass
@@ -34,6 +36,9 @@ import os
 import Quiz
 import chess_com_download
 from config import config, load_config, save_config
+import pgngamelist
+import uuid
+import pyttsx3
 
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
@@ -65,13 +70,23 @@ def main_background() -> None:
     global screen
     screen.fill(p.Color("white"))
 
+small_font_theme = pygame_menu.themes.THEME_BLUE.copy()
+small_font_theme.title_font_size = 24
+small_font_theme.widget_font_size = 18  # <-- qui imposti la dimensione del font
+
 
 
 playParameters = {
     "whiteCPU": False,
     "blackCPU": True,
     "elo": None,
-    "elomax": True
+    "elomax": True,
+    "white": "White", 
+    "black": "Black",
+    "result": "",
+    "event": "Play", 
+    "site": "Local",
+    "gameid":""
 }
 
 
@@ -303,9 +318,57 @@ def playGame():
     playAGame()
 
 
+
+def chooseNextMove(gs:GameState)->chess.Move:
+    """
+    Mostra un menu con le prossime mosse disponibili
+    """
+    next_moves = gs.getNextMoves()
+    if not next_moves:
+        return  None# Nessuna mossa disponibile
+
+    if len(next_moves) == 1:
+        # Se c'è solo una mossa, la restituisce direttamente
+        return next_moves[0]
+
+    menu_running = True
+    surface = screen
+    selected_move = None
+
+    def make_move_wrapper(move_index: int):
+        nonlocal menu_running,selected_move
+        selected_node = gs.node.variations[move_index]
+        selected_move = selected_node.move
+        menu_running = False
+
+    # Crea menu
+    move_menu = pygame_menu.Menu("Choose Move", W, H, theme=pygame_menu.themes.THEME_DARK)
+
+    for i, move in enumerate(next_moves):
+        san = move.uci() 
+        move_menu.add.button(san, make_move_wrapper, i)
+
+    move_menu.add.button('Cancel', lambda: setattr(sys.modules[__name__], "menu_running", False))
+
+    # Loop del menu
+    while menu_running:
+        events = p.event.get()
+        for ev in events:
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+
+        surface.fill((0, 0, 0))
+        move_menu.update(events)
+        move_menu.draw(surface)
+        p.display.flip()
+    return selected_move
+
 def playAGame():
     global screen
     gs:Optional[GameState] = GameState()
+    positionParameters["gameid"] = None
+
     validMoves = gs.stdValidMoves()
     elo = playParameters["elo"]
     if playParameters["elomax"]:
@@ -322,8 +385,11 @@ def playAGame():
     moveMade = False
     animate = False
     gameOver = False
+    analyze = False
+
     whiteCPU = playParameters["whiteCPU"]
     blackCPU = playParameters["blackCPU"]
+    analyzeMode = False
 
     if whiteCPU and not blackCPU:
         BS.setWhiteUp(screen, True)
@@ -332,9 +398,13 @@ def playAGame():
             "Istruzioni:",
             "- Z o freccia sinistra per ritirare la mossa",
             "- Q per uscire",
-            "- C copia la posizione FEN nella clipboard",
-            "- S valuta la posizione ",
-            "- F flip board",
+            "- C Copy FEN to clipboard",
+            "- G Copy PGN to clipboard ", 
+            "- S Save game ",
+            "- L Load game ", 
+            "- E Evalute position ",
+            "- A Analyze mode",
+            "- F Flip board", 
             "- R reset"
         ]
     show_help = False
@@ -343,7 +413,7 @@ def playAGame():
 
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
-            engine_move:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, elo=elo)  #validMoves is not used at the moment
+            engine_move:Optional[chess.Move] = UCIEngines.bestMove(gs, elo=elo)  #validMoves is not used at the moment
             if engine_move is not None:
                 move:Optional[Move] = Move.fromChessMove(engine_move, gs)
                 gs.makeMove(move)
@@ -414,10 +484,25 @@ def playAGame():
                         animate = False
                         gameOver = False
 
+                    if e.key == p.K_RIGHT:
+                        move = chooseNextMove(gs)
+                        if move is not None:
+                            gs.makeChessMove(move)
+                            validMoves = gs.stdValidMoves()
+                            moveMade = True
+                            animate = False
+                            gameOver = False
+
+
                     if e.key == p.K_q:
                         #quit
                         running = False
 
+                    if e.key == p.K_a:
+                        #quit
+                        analyze = not analyze
+                    
+                  
                     if e.key == p.K_c:  # copy to clipboard
                         pyperclip.copy(BS.board.fen())
                         text = "Position copied to clipboard"
@@ -425,8 +510,25 @@ def playAGame():
                         delay(2)
                         running = False
 
-                    if e.key == p.K_s:  # evaluate score
-                        gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
+                    if e.key == p.K_e:  # evaluate score
+                        gs.setEvaluation(analyzer.evaluatePosition(gs.node.board(), 5))
+                    
+                    if e.key== p.K_s: # save the game
+                        save_menu(gs)
+
+                    if e.key == p.K_l: # load a game
+                        load_menu(gs)
+                        moveMade = False # a move was made
+                        animate = False  # move must be showed
+                        validMoves = gs.stdValidMoves() # recalculate valid moves
+                        BS.setWhiteUp(screen, gs.node.board().turn== chess.BLACK)
+                        continue
+
+                    if e.key == p.K_g:  # copy to clipboard
+                        pyperclip.copy(gs.to_PgnString())
+                        text = "Game copied to clipboard"
+                        show_message(gs, text)
+                        delay(2)
 
                     if e.key == p.K_f:
                         BS.flipBoard(screen)
@@ -457,8 +559,8 @@ def playAGame():
             if animate:
                 BS.animateMove(gs.moveLog[-1], screen, gs)
                 animate = False
-            if not whiteCPU and not blackCPU:
-                BS.flipBoard(screen)
+            if not whiteCPU and not blackCPU and not analyze:
+                BS.setWhiteUp(screen, gs.node.board().turn== chess.BLACK)
 
         gameOver = gs.checkMate() or gs.staleMate()
 
@@ -555,9 +657,9 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
     help_text = [
             "Istruzioni:",
             "- Q per uscire",
-            "- C copia la posizione FEN nella clipboard",
-            "- G copia le mosse come PGN nella clipboard", 
-            "- S valuta la posizione ",
+            "- C Copy FEN to clipboard",
+            "- G Copy PGN to clipboard", 
+            "- E Evaluate position",
             "- R reset",
             "- + vedi altre mosse",
             "- H mostra la soluzione"  
@@ -585,10 +687,11 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
         fen = pos.fen.split()
         header = ["White:"+pos.white, "Black:"+pos.black, "ECO:"+pos.eco, "Date:"+pos.gamedate.strftime('%d-%m-%Y')]
+        header.append("id:"+ playParameters["gameid"])
         if pos.ok != pos.move:
             header.append("mistake was " + pos.move)
 
-
+        
 
         moves = pos.moves.split()
         gs = GameState()
@@ -637,7 +740,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
             if engineMove > 0:
                 # make a move choosen by the engine
-                chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, time=1.0)
+                chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs,  time=1.0)
                 move:Optional[Move] = Move.fromChessMove(chessmove, gs)
                 if move is None:
                     engineMove = 0
@@ -715,7 +818,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.board.fen())
+                        pyperclip.copy(gs.node.board().fen())
                         text = "Position copied to clipboard"
                         show_message(gs, text)
                         delay(2)
@@ -727,8 +830,8 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                         show_message(gs, text)
                         delay(2)
 
-                    if e.key == p.K_s:  # evaluate score
-                        gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
+                    if e.key == p.K_e:  # evaluate score
+                        gs.setEvaluation(analyzer.evaluatePosition(gs.node.board(), 5))
 
                     if e.key == p.K_KP_PLUS and not humanCanPlay:
                         engineMove += 2
@@ -769,7 +872,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                 
                 if updateStats:
                     updateStats=False
-                    if AN.updateInfoStats(gs.board, learningBase):
+                    if AN.updateInfoStats(gs.node.board(), learningBase):
                         msg = "Right"                                                
                         if isNewPosition: # 
                             delay(1 )
@@ -803,7 +906,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                         else:
                             curr_data.notesTime += (stop_stamp-last_stamp).total_seconds()
                         gs.undoMove()
-                        zobrist:int = chess.polyglot.zobrist_hash(gs.board)
+                        zobrist:int = chess.polyglot.zobrist_hash(gs.node.board())
                         position = learningBase.positions[zobrist]
                         show_message(gs, "Right move is "+position.ok)
                         delay(3 )
@@ -924,7 +1027,7 @@ def replayBadPositions(learningBase:LearningBase):
             "- Q per uscire",
             "- C copia la posizione FEN nella clipboard",
             "- G copia la partita nella clipboard",
-            "- S valuta la posizione ",
+            "- E valuta la posizione ",
             "- + vedi altre mosse",
             "- H mostra la soluzione"  
         ]
@@ -954,6 +1057,7 @@ def replayBadPositions(learningBase:LearningBase):
         # print(errorsMade)
         fen = pos.fen.split()
         header = ["White:"+pos.white, "Black:"+pos.black, "ECO:"+pos.eco, "Date:"+pos.gamedate.strftime('%d-%m-%Y')]
+        header.append("id:"+ playParameters["gameid"])
         if pos.ok != pos.move:
             header.append("mistake was " + pos.move)
 
@@ -1007,7 +1111,7 @@ def replayBadPositions(learningBase:LearningBase):
 
             if engineMove > 0:
                 # make a move choosen by the engine
-                chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs, validMoves, time=1.0)
+                chessmove:Optional[chess.Move] = UCIEngines.bestMove(gs,  time=1.0)
                 move:Optional[Move] = Move.fromChessMove(chessmove, gs)
                 if move is None:
                     moveMade = False
@@ -1078,7 +1182,7 @@ def replayBadPositions(learningBase:LearningBase):
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.board.fen())
+                        pyperclip.copy(gs.node.board().fen())
                         text = "Position copied to clipboard"
                         show_message(gs, text)
                         delay(2 )
@@ -1096,8 +1200,8 @@ def replayBadPositions(learningBase:LearningBase):
                     if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
                         BS.setFactor( BS.getFactor() / 1.2)
 
-                    if e.key == p.K_s:  # evaluate score
-                        gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
+                    if e.key == p.K_e:  # evaluate score
+                        gs.setEvaluation(analyzer.evaluatePosition(gs.node.board(), 5))
 
                     if e.key == p.K_q:
                         running = False
@@ -1135,7 +1239,7 @@ def replayBadPositions(learningBase:LearningBase):
                     animate = False
 
                 if updateStats:
-                    if AN.updateInfoStats(gs.board, learningBase):
+                    if AN.updateInfoStats(gs.node.board(), learningBase):
                         msg = "Right"
 
                         if not isNewPosition:
@@ -1211,7 +1315,7 @@ def playModelFiles(filename, humanColor):
 
     global screen, play_position
 
-    gr = gamereader.PgnGameList(filename)
+    gamelist = pgngamelist.PgnGameList(filename)
 
     running = True
     sqSelected = ()
@@ -1220,7 +1324,7 @@ def playModelFiles(filename, humanColor):
     animate = False
 
 
-    if gr.isEmpty():
+    if gamelist.isEmpty():
         text = "No positions found"
         main_background()
         BS.drawEndGameText(screen, None, text)
@@ -1230,9 +1334,9 @@ def playModelFiles(filename, humanColor):
         return
 
     while running:
-        gr.chooseRandomGame()
-        gs = gr.gs
-        gs.setHeader([filename])
+        gs = GameState()
+        game = gamelist.chooseRandomGame()
+        gs.setPgn(game)      
 
         if play_position:
             # skip all stored moves until a leaf node is reached
@@ -1242,17 +1346,14 @@ def playModelFiles(filename, humanColor):
                 playerTurn = gs.colorToMove() == humanColor    
 
                 if playerTurn:
-                    moreMoves = gr.doNextMainMove()
+                    moreMoves = gs.doNextMainMove()
                     if random.randint(1, 3) == 1:
                         break
                 else:
-                    move = gr.makeNextMove()
+                    move = gs.makeNextMove()
                     moreMoves = move is not None
             # takes back last move
-            gr.undoMove()
-            
-
-                
+            gs.undoMove()
         
 
         BS.setWhiteUp(screen, humanColor == "b")
@@ -1270,7 +1371,7 @@ def playModelFiles(filename, humanColor):
         while running and not mustSkip:
             humanCanPlay = gs.colorToMove() == humanColor
             checkMove = False
-            nextMove = gr.getNextMainMove()
+            nextMove = gs.getNextMainMove()
             if nextMove is None or stopCondition:  # game is over anyway
                 text = "Solved"
                 main_background()
@@ -1281,7 +1382,7 @@ def playModelFiles(filename, humanColor):
                 break
 
             if nextMove is not None and not humanCanPlay:
-                    move = gr.makeNextMove()
+                    move = gs.makeNextMove()
                     moveMade = True
                     animate = True
                     validMoves = gs.stdValidMoves()
@@ -1321,9 +1422,9 @@ def playModelFiles(filename, humanColor):
                         # print(move.getChessNotation())
                         validMove = next((m for m in validMoves if move == m), None)
                         if validMove is not None:
-                            if gr.checkNextMove(validMove.move):
+                            if gs.checkNextMove(validMove.move):
                                 errors = 0
-                                gr.doNextMainMove()
+                                gs.doNextMainMove()
                                 moveMade = True
                                 animate = True
                                 validMoves = gs.stdValidMoves()
@@ -1333,7 +1434,7 @@ def playModelFiles(filename, humanColor):
                                 errors += 1
                                 msg = "Not the right move"
                                 if errors >= 3:
-                                    rightMove = Move.fromChessMove(gr.getNextMainMove(), gs)
+                                    rightMove = Move.fromChessMove(gs.getNextMainMove(), gs)
                                     msg = f"hint:{rightMove.uci[:2]}"
                                 show_message(gs,msg)
                                 delay(1)
@@ -1363,20 +1464,20 @@ def playModelFiles(filename, humanColor):
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.board.fen())                        
+                        pyperclip.copy(gs.node.board().fen())                        
                         text = "Position copied to clipboard"
                         show_message(gs,text)
                         delay(2 )
                     
                     if e.key == p.K_g:
                         # copy position to clibboard
-                        pyperclip.copy(pos.to_PgnString())
+                        pyperclip.copy(gs.to_PgnString())
                         text = "Game copied to clipboard"
                         show_message(gs, text)
                         delay(2)
 
                     if e.key == p.K_s:  # evaluate score
-                        gs.setEvaluation(analyzer.evaluatePosition(gs.board, 5))
+                        gs.setEvaluation(analyzer.evaluatePosition(gs.node.board(), 5))
 
                     if e.key == p.K_q:
                         running = False
@@ -1588,6 +1689,261 @@ def registerBrainMaster():
     BS.update()
 
 
+def addChooseBaseFile(menu): 
+    '''
+    Adds a button to the menu that allows the user to choose a base file.
+    The button will open a file selector dialog and update the positionParameters["base"] variable with the selected file.
+    '''
+    labels = []
+    chooseBaseFile = make_file_selector(
+        "base", lambda x : x.replace("base_", "") , labels,DATA_FOLDER,".json", "Choose base file",None,"base_")
+    menu.add.button('Choose base file', chooseBaseFile)
+    default_value = str(positionParameters.get("base", "No selection"))
+    label = menu.add.button(default_value,chooseBaseFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
+    labels.append(label)
+
+
+def addChoosePGNFile(menu):
+    '''
+    Adds a button to the menu that allows the user to choose a PGN file.
+    The button will open a file selector dialog and update the positionParameters["filename"] variable with the selected file.
+    '''    
+    labels = []
+    chooseModelFile = make_file_selector("filename", None , labels, pgngamelist.PGN_FOLDER, ".pgn", "Choose PGN file", None)
+    menu.add.button('Choose PGN file', chooseModelFile)
+    default_value = str(positionParameters.get("filename", "No selection"))
+    label = menu.add.button(default_value,chooseModelFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
+    labels.append(label)
+
+
+def header_from_playparameters(params):
+    header = []
+    for key in ["White", "Black", "Event", "Site", "Result"]:
+        val = params.get(key.lower(), "")
+        if val:
+            header.extend([key, val])
+    header.extend(["Date", datetime.today().strftime("%Y.%m.%d")])
+    header.extend(["Round","*"])
+    return header
+
+def save_game(gs:GameState):
+    '''
+    Saves the current game state to a file.
+    The file name is taken from the positionParameters["filename"] variable.
+    '''
+    global scren
+    if positionParameters["filename"] is None:
+        text = "Please select a PGN file"
+        main_background()
+        BS.drawEndGameText(screen, None, text)
+        BS.update()
+        delay(2 )
+        return
+    gamelist = pgngamelist.PgnGameList(positionParameters["filename"])
+    positionParameters["gameid"] = gamelist.save_game(gs, positionParameters["filename"], positionParameters["gameid"])
+    
+    main_background()
+    BS.drawEndGameText(screen, None, "Game saved")
+    BS.update()
+    delay(2)
+
+def load_game(gs:GameState):
+    '''
+    Loads a game from a selected PGN file and lets the user choose which game to load.    
+    '''
+    global scren
+    if positionParameters["filename"] is None:
+        text = "Please select a PGN file"
+        main_background()
+        BS.drawEndGameText(screen, None, text)
+        BS.update()
+        delay(2 )
+        return
+
+    gameList = pgngamelist.PgnGameList(positionParameters["filename"])
+    total_games = len(gameList.games)
+    games_per_page = 10
+    current_page = 0
+    total_pages = (total_games + games_per_page - 1) // games_per_page
+
+    menu_running = True
+    surface = screen
+    def load_game_wrapper(N):
+        nonlocal menu_running
+        positionParameters["gameid"] = N
+        menu_running = False
+
+    def cancel_load():
+        nonlocal menu_running
+        menu_running = False
+
+    def next_page():
+        nonlocal current_page
+        if current_page < total_pages-1:
+            current_page += 1
+            refresh_menu()
+
+    def prev_page():
+        nonlocal current_page
+        if current_page > 0:
+            current_page -= 1
+            refresh_menu()
+
+    def first_page():
+        nonlocal current_page
+        current_page = 0
+        refresh_menu()
+
+    def last_page():
+        nonlocal current_page
+        current_page = total_pages-1
+        refresh_menu()
+
+
+    _load_menu = pygame_menu.Menu('Select Game', W, H, 
+                             theme=small_font_theme)
+    frame_width = 4 * 80 + 3 * 10  # 4 bottoni da 80px + 3 margini da 10px
+    frame_height = 50
+
+    def refresh_menu():
+        _load_menu.clear()
+        start = current_page * games_per_page
+        end = min(start + games_per_page, total_games)
+        for i in range(start, end):
+            game = gameList.games[i]
+            white = game.headers.get("White", "?")
+            black = game.headers.get("Black", "?")
+            result = game.headers.get("Result", "?")
+            nMoves = len(list(game.mainline_moves()))
+            label = f"{i+1}. {white} vs {black} ({nMoves} moves) [{result}]"
+            _load_menu.add.button(label, load_game_wrapper, i)
+
+        if total_games > games_per_page:
+            _load_menu.add.vertical_margin(10)
+            nav_buttons = []
+            #if current_page > 0:
+            nav_buttons.append(_load_menu.add.button('|<', first_page))
+            nav_buttons.append(_load_menu.add.button('<<', prev_page))
+
+            #if current_page < total_pages :
+            nav_buttons.append(_load_menu.add.button('>>', next_page))
+            nav_buttons.append(_load_menu.add.button('>|', last_page))
+
+
+            if nav_buttons:
+                nav_frame = _load_menu.add.frame_h(frame_width, frame_height, align=ALIGN_CENTER)
+                for b in nav_buttons:
+                    nav_frame.pack(b, margin=(10, 0))  # margine orizzontale tra pulsanti
+
+
+        _load_menu.add.vertical_margin(20)
+        _load_menu.add.button('Cancel', cancel_load)
+
+    refresh_menu()
+
+    while menu_running:
+        events = p.event.get()
+        for ev in events:
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+
+        surface.fill((0, 0, 0))
+        _load_menu.update(events)
+        _load_menu.draw(surface)
+        p.display.flip()
+    
+    
+    if positionParameters.get("gameid") is not None:
+        gameList.load_game(gs, positionParameters["gameid"])        
+        gs.goToLastMove()
+
+        main_background()
+        BS.drawEndGameText(screen, None, "Game selected")
+        BS.update()
+        delay(2)
+
+
+
+
+def load_menu(GS:GameState):
+    global W,H
+    menu_running = True
+    surface = screen
+    def load_game_wrapper():
+        nonlocal menu_running
+        menu_running = False
+        load_game(GS)
+
+    def cancel_load():
+        nonlocal menu_running
+        menu_running = False
+
+    _load_menu = pygame_menu.Menu('Load Game', W, H, 
+                             theme=pygame_menu.themes.THEME_BLUE)
+    addChoosePGNFile(_load_menu)
+    _load_menu.add.button('Load', load_game_wrapper)
+    _load_menu.add.button('Cancel', cancel_load)
+
+      
+    while menu_running:
+        events = p.event.get()
+        for ev in events:
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+
+        surface.fill((0, 0, 0))
+        _load_menu.update(events)
+        _load_menu.draw(surface)
+        p.display.flip()
+
+
+def save_menu(GS:GameState):
+    global W,H
+    menu_running = True
+    surface = screen
+    prev_pgn = positionParameters["filename"]
+    def save_game_wrapper():
+        nonlocal menu_running
+        GS.setHeader(header_from_playparameters(playParameters))
+        today_str = datetime.today().strftime("%Y.%m.%d")
+        if prev_pgn != positionParameters["filename"]:
+            positionParameters["gameid"]= None
+        save_game(GS)
+        menu_running = False
+
+    def cancel_save():
+        nonlocal menu_running
+        menu_running = False
+
+    _save_menu = pygame_menu.Menu('Save Game', W, H, 
+                             theme=pygame_menu.themes.THEME_BLUE)
+    addChoosePGNFile(_save_menu)
+    _save_menu.add.text_input('White:', default=playParameters["white"] or "", onchange=make_updater("white",str,playParameters))
+    _save_menu.add.text_input('Black:', default=playParameters["black"] or "", onchange=make_updater("black",str,playParameters))
+    _save_menu.add.text_input('Event:', default=playParameters["event"] or "", onchange=make_updater("event",str,playParameters))
+    _save_menu.add.text_input('Site:', default=playParameters["site"] or "", onchange=make_updater("site",str,playParameters))
+    _save_menu.add.text_input('Result:', default=playParameters["result"] or "", onchange=make_updater("result",str,playParameters))
+    _save_menu.add.button('Save', save_game_wrapper)
+    _save_menu.add.button('Cancel', cancel_save)
+
+    
+
+    
+    while menu_running:
+        events = p.event.get()
+        for ev in events:
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+
+        surface.fill((0, 0, 0))
+        _save_menu.update(events)
+        _save_menu.draw(surface)
+        p.display.flip()
+
+
 
 def mainMenu(width,height, test: bool = False) -> None:
     global clock
@@ -1637,13 +1993,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     playDataSetMenu.add.text_input('ECO (optional)', default=positionParameters["eco"] or "", onchange=setPositionEco)
     playDataSetMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Any", 2)], default=default_color_index,
                                 onchange=setColorIndex)
-    labels = []
-    chooseBaseFile = make_file_selector(
-        "base", lambda x : x.replace("base_", "") , labels,DATA_FOLDER,".json", "Choose base file",None,"base_")
-    playDataSetMenu.add.button('Choose base file', chooseBaseFile)
-    default_value = str(positionParameters.get("base", "Nessuna selezionata"))
-    label = playDataSetMenu.add.button(default_value,chooseBaseFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
-    labels.append(label)
+    addChooseBaseFile(playDataSetMenu)
     playDataSetMenu.add.selector('Skip initial moves', [("Yes", 1), ("No", 0)], default=play_position, onchange=make_selector_updater("play_position"))
     playDataSetMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int), 
                                      value_format=lambda x: str(round(x, 0)),
@@ -1664,12 +2014,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     ExerciseModelsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
                                        onchange=make_updater("num_moves_to_show",int), 
                 default=num_moves_to_show)  # Aggiungi questa riga
-    labels = []
-    chooseModelFile = make_file_selector("filename", None , labels, gamereader.PGN_FOLDER, ".pgn", "Choose PGN file", None)
-    ExerciseModelsMenu.add.button('Choose PGN file', chooseModelFile)
-    default_value = str(positionParameters.get("filename", "Nessuna selezionata"))
-    label = ExerciseModelsMenu.add.button(default_value,chooseModelFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())    
-    labels.append(label)
+    addChoosePGNFile(ExerciseModelsMenu)
     ExerciseModelsMenu.add.selector('Skip initial moves', [("Yes", 1), ("No", 0)], default=play_position, onchange=make_selector_updater("play_position"))
     ExerciseModelsMenu.add.button('Play', playModels)
 
@@ -1678,15 +2023,8 @@ def mainMenu(width,height, test: bool = False) -> None:
         theme=pygame_menu.themes.THEME_BLUE,
         title='Choose base',
         width=width
-    )    
-    labels = []
-    chooseBaseFile = make_file_selector(
-         "base", lambda x : x.replace("base_", "") , labels,DATA_FOLDER,".json", "Choose base file",None, "base_")
-    BrainMasterMenu.add.button('Choose base file', chooseBaseFile)
-    default_value = str(positionParameters.get("base", "Nessuna selezionata"))
-    
-    label = BrainMasterMenu.add.button(default_value,chooseBaseFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())    
-    labels.append(label)
+    )        
+    addChooseBaseFile(BrainMasterMenu)
     BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
                 default=num_moves_to_show, increment=1)  # Aggiungi questa riga
     BrainMasterMenu.add.selector('Skip initial moves', [("Yes", 1), ("No", 0)], default=play_position, onchange=make_selector_updater("play_position"))
@@ -1704,19 +2042,8 @@ def mainMenu(width,height, test: bool = False) -> None:
     )  
     labels = []
     updateLearningBaseMenu.add.text_input('player:', default=positionParameters["player"] or "", onchange=make_updater("player",str,positionParameters))
-    chooseModelFile = make_file_selector("filename", None , labels, gamereader.PGN_FOLDER, ".pgn", "Choose PGN file", None)
-    updateLearningBaseMenu.add.button('Choose PGN file', chooseModelFile)
-    default_value = str(positionParameters.get("filename", "Nessuna selezionata"))
-    label = updateLearningBaseMenu.add.button(default_value,chooseModelFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())        
-    labels.append(label)
-    labels = []
-    chooseBaseFile = make_file_selector("base", lambda x : x.replace("base_", "") , labels, DATA_FOLDER,".json", "Choose base file",None, "base_")
-    updateLearningBaseMenu.add.button('Choose base file', chooseBaseFile)
-    # Aggiungi un text_input che sarà usato per visualizzare la base corrente
-    # Inizializza il suo valore con la base corrente o un messaggio predefinito
-    default_value = str(positionParameters.get("base", "Nessuna selezionata"))
-    label = updateLearningBaseMenu.add.button(default_value,chooseBaseFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())           
-    labels.append(label)
+    addChoosePGNFile(updateLearningBaseMenu)
+    addChooseBaseFile(updateLearningBaseMenu)
     updateLearningBaseMenu.add.button('Update Learning Base', updateLearningBase)
     
     
@@ -1741,21 +2068,9 @@ def mainMenu(width,height, test: bool = False) -> None:
         title='Unroll model PGN',
         width=width
     )  
-    labels = []
-    chooseModelFile = make_file_selector("filename", None , labels, gamereader.PGN_FOLDER, ".pgn", "Choose PGN file", None)
-    unrollPGNMenu.add.button('Choose PGN file', chooseModelFile)
-    default_value = str(positionParameters.get("filename", "Nessuna selezionata"))
-    label =  unrollPGNMenu.add.button(default_value,chooseModelFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())           
-    labels.append(label)
+    addChoosePGNFile(unrollPGNMenu)
     unrollPGNMenu.add.selector('You play', [("White", "0"), ("Black", "1")], default=default_color_index if default_color_index<2 else 0, onchange=setColorIndex) 
-    labels = []
-    chooseBaseFile = make_file_selector("base", lambda x : x.replace("base_", "") , labels, DATA_FOLDER,".json", "Choose base file",None, "base_")
-    unrollPGNMenu.add.button('Choose base file', chooseBaseFile)
-    # Aggiungi un text_input che sarà usato per visualizzare la base corrente
-    # Inizializza il suo valore con la base corrente o un messaggio predefinito
-    default_value = str(positionParameters.get("base", "Nessuna selezionata"))
-    label = unrollPGNMenu.add.button(default_value,chooseBaseFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())           
-    labels.append(label)
+    addChooseBaseFile(unrollPGNMenu)
 
     unrollPGNMenu.add.button('Unroll', unrollPGN)
     
@@ -1766,7 +2081,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         width=width
     )  
     labels = []
-    chooseNewPgn = make_file_selector("filename", None , labels, gamereader.PGN_FOLDER+"/newfile.pgn", ".pgn", "Select PGN file to create", create=True)
+    chooseNewPgn = make_file_selector("filename", None , labels, pgngamelist.PGN_FOLDER+"/newfile.pgn", ".pgn", "Select PGN file to create", create=True)
     chessComMenu.add.button('PGN file to create', chooseNewPgn)
     default_value = str(positionParameters.get("filename", "Nessuna selezionata"))
     label = chessComMenu.add.button(default_value,chooseNewPgn,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
@@ -1786,7 +2101,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     configureGame = pygame_menu.Menu(
         height=height,
         theme=pygame_menu.themes.THEME_BLUE,
-        title='Choose base',
+        title='Setup',
         width=width
     )    
     configureGame.add.text_input('base_url:', default=config.base_url or "", 
@@ -1835,7 +2150,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     toolsMenu.add.button("Create learning base", createBaseMenu)
     toolsMenu.add.button('Update learning base', updateLearningBaseMenu)
     toolsMenu.add.button('Unroll PGN file', unrollPGNMenu)
-    toolsMenu.add.button('Config', configureGame)
+    toolsMenu.add.button('Setup', configureGame)
 
 
     main_menu = pygame_menu.Menu('Chess Python', width, height,

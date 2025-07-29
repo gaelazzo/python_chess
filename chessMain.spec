@@ -5,7 +5,7 @@ a = Analysis(
     ['chessMain.py'],
     pathex=[],
     binaries=[],
-    datas=[('images/*.png', 'images')],
+    datas=[('images/*.png', 'images'), ('pic-chess.png', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
