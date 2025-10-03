@@ -362,7 +362,7 @@ class LearningBase:
 
         return res
 
-    def addPosition(self, game:PgnGame, board:ChessBoard, goodMove:str):
+    def addPosition(self, game:PgnGame, board:ChessBoard, goodMove:str)->LearnPosition:
         """
             Add a position to the learning base
             Args:
@@ -370,14 +370,14 @@ class LearningBase:
                 goodMove: the right move choosen by the engine
                 board: current chess game (BEFORE the move is played)
             Returns:
-                True if a new position was added
+                added position or None if already present
         """        
         zobrist:int = polyglot.zobrist_hash(board)
         if  zobrist not in self.positions:        
             position = LearningBase.create_first_position(zobrist, board, game, goodMove, goodMove)
             self.positions[zobrist] = position
-            return True
-        return False
+            return position
+        return None
 
 
     def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:ChessBoard):

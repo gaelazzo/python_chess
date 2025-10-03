@@ -11,14 +11,15 @@ from chess.engine import Cp, Mate, MateGiven
 import random
 from UCIEngines import  engine_close, engine_open
 from typing import Optional,List,Dict,Tuple,Dict
-from LearningBase import LearnPosition, LearningBase, learningBases
+from LearningBase import LearnPosition, LearningBase, learningBases, DATA_FOLDER
 from datetime import datetime, timedelta, date
 import csv
 import Quiz
 import os
 from config import config
-import atexit
+import book
 import UCIEngines
+import json_helper
 
 
 import os
@@ -26,51 +27,7 @@ import sys
 
 import pgngamelist
 
-def get_base_path():
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
-        return os.path.dirname(sys.executable)
-    else:
-        return os.path.dirname(os.path.abspath(__file__))
-
-BASE_PATH = get_base_path()
-BOOKS_FOLDER = os.path.join(BASE_PATH, "books")
-
-
-if not os.path.exists(BOOKS_FOLDER):
-    os.makedirs(BOOKS_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)        
-
-
-book:chess.polyglot.MemoryMappedReader = None
-
-
-def open_book():
-    """
-        Opens a book file
-        Args:
-            bookFileName: the name of the book file to open
-        Returns:
-            a MemoryMappedReader object
-    """
-    global book
-    try:
-        book = chess.polyglot.MemoryMappedReader(os.path.abspath(os.path.join(BOOKS_FOLDER,config.book)))
-        num_positions  = sum(1 for _ in book)
-        print(f"Book {config.book} loaded successfully. {num_positions} position found")
-    except FileNotFoundError:
-        print(f"Book file {config.book} not found. Please check the configuration.")        
-    except Exception as e:
-        print(f"An error occurred while opening the book: {e}")
-
-
-
-def book_close():
-    global book
-    if book:
-        book.close()
-        book = None
-
-atexit.register(book_close)
-
+folder = DATA_FOLDER
 # zobrist,skip,fen,eco,lastTry,firstTry,ok,move,moves,ntry,successful
 
 
@@ -131,18 +88,6 @@ def getRandomPositions(learningBase:LearningBase, filter=None)->List [LearnPosit
 
 
 
-
-
-def isInBook(board:chess.Board)->bool:
-    """
-        Check if a board position is in current book
-        Returns 
-            True if board is in book
-    """
-    m = book.get(board, minimum_weight=0)
-    if m is None:
-        return False
-    return True
 
 
 nAdditions = 0
@@ -232,7 +177,9 @@ class PgnAnalyzer:
     def __init__(self, playerName:str, filename:str, learningBase:LearningBase):
         '''
             Args:
-            playerName:
+            playerName: the name of the player to analyze
+            pgnfile: the name of the pgn file to analyze
+            learningBase: the learning base to update
         '''
         pathcomplete = os.path.join(pgngamelist.PGN_FOLDER, filename)
         self.pgn = open(pathcomplete, encoding='utf-8')
@@ -242,6 +189,7 @@ class PgnAnalyzer:
         self.blunderValue = learningBase.blunderValue
         self.ponderTime = learningBase.ponderTime
         self.learningBase = learningBase
+        # estrai il nome del file senza estensione, diventa il nome della lezione che conterrà il file pgn
         pass
 
  
@@ -282,6 +230,8 @@ class PgnAnalyzer:
             game = chess.pgn.read_game(self.pgn)
             if game is None:
                 return None, True
+            if self.player is None:
+                return game, True
             if game.headers["White"] == self.player:
                 return game, True
             if game.headers["Black"] == self.player:
@@ -290,7 +240,7 @@ class PgnAnalyzer:
     def getPositionEvaluation(self, board:chess.Board, colorSide:bool)->Tuple[int,Optional[str]]:
          if self.learningBase.useBook:
                # check game annotations                
-               bookEntry = book.get(board, minimum_weight=0);
+               bookEntry = book.book.get(board); #, minimum_weight=0
                if bookEntry is not None: 
                         return 0, board.uci(bookEntry.move)
 
@@ -307,9 +257,9 @@ class PgnAnalyzer:
                 assert(best_score is not None)
                 return best_score, board.uci(best_move) if best_move else None
 
-    def esplora_rami(self, game: chess.pgn.Game, colorSide:bool):
+    def esplora_rami(self, game: chess.pgn.Game, colorSide:bool)->List[LearnPosition]:
         """Esplora tutti i rami di una partita PGN e raccoglie le posizioni rilevanti per un colore specifico"""
-        positions = []
+        positions:List[LearnPosition] = []
 
         def esplora_nodo(nodo, board):
             if nodo.is_end():
@@ -323,7 +273,9 @@ class PgnAnalyzer:
                     # La posizione "prima" della mossa è la scacchiera prima di push, quindi dobbiamo passare la board "prima" della mossa
                     # Ma ora board è già aggiornato con la mossa, quindi facciamo così:                    
                     moveMade =  variation.move.uci()  # La mossa da giocare
-                    self.learningBase.addPosition(game, board, moveMade)                    
+                    position = self.learningBase.addPosition(game, board, moveMade)
+                    if position: # se è nuova o da aggiornare
+                        positions.append(position)
 
                 board.push(variation.move)
                 esplora_nodo(variation, board)
@@ -331,9 +283,9 @@ class PgnAnalyzer:
 
         board = game.board()
         esplora_nodo(game, board)
+        return positions
         
-
-    def unrollGame(self, game: chess.pgn.Game, colorToAnalyze: bool):
+    def unrollGame(self, game: chess.pgn.Game, colorToAnalyze: bool) -> List[LearnPosition]:
         """
         Unrolls a game and adds all positions to the learning base
         Args:
@@ -341,27 +293,27 @@ class PgnAnalyzer:
             colorToAnalyze: True for white/ False for black
             learningBase: the learning base to update
         """
-        positions = self.esplora_rami(game, colorToAnalyze)
+        return self.esplora_rami(game, colorToAnalyze)
 
 
-
-    def unroll(self, colorToAnalyze:bool):
+    def unroll(self, colorToAnalyze:bool)->List[LearnPosition]:
         """
         Unrolls a pgn file and adds all positions to the learning base
         If the pgn contains more than one game, every game will be unrolled
         Args:
             colorToAnalyze: True for white/ False for black
+        Returns:
+            List of positions added
         """
+        positions: List[LearnPosition] = []
         game = chess.pgn.read_game(self.pgn)
         while game is not None:
-            self.unrollGame(game, colorToAnalyze)
+            positions.extend( self.unrollGame(game, colorToAnalyze))
             game = chess.pgn.read_game(self.pgn)
         
         self.learningBase.save()
+        return positions
 
-
-
-       
 
     def analyzeGame(self, game:chess.pgn.Game, colorToAnalyze:bool):
         """
@@ -438,7 +390,8 @@ class PgnAnalyzer:
                 assume_good_move(game, board, self.learningBase)
                 continue
 
-   
+
+
 def unrollPgn(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
     """
         Unrolls a pgn file and adds all positions to the learning base
@@ -450,17 +403,46 @@ def unrollPgn(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
     pg = PgnAnalyzer("player", pgnFileName, learningBase)
     pg.unroll(colorToAnalyze) 
     pg.learningBase.save()
-    Quiz.classifyLearningBase(learningBase)
+    Quiz.makeQuizzes_by_eco(learningBase)
+
+
+def unrollPgn_as_lesson(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
+    """
+        Unrolls a pgn file and adds all positions to the learning base
+        Args:
+            pgnFileName: the name of the pgn file to unroll
+            playerName: the name of the player to analyze
+            learningBase: the learning base to update
+    """
+    lessonName, _ = os.path.splitext(pgnFileName)  
+    fName = os.path.join(DATA_FOLDER, f"lessons_{learningBase.filename}.json")
+
+    if os.path.exists(fName):
+        oldQuizNames = json_helper.read_struct(fName)
+        oldQuizNames = {int(k): v for k, v in oldQuizNames.items()}
+
+        # 🔎 Controllo: se lessonName è già presente → avviso e stop
+        if lessonName in oldQuizNames.values():
+            print(f"[AVVISO] La lezione '{lessonName}' è già presente, nessuna azione eseguita.")
+            return
+    else:
+        oldQuizNames = {}
+
+    pg = PgnAnalyzer("player", pgnFileName, learningBase)
+    pg.unroll(colorToAnalyze) 
+    pg.learningBase.save()
+    Quiz.assign_unnamed_quizzes(oldQuizNames, learningBase, lessonName)
+    
 
 # skip 8600, all_pgn-pgn
 if __name__ == "__main__":
     # checkGameOpenings()
     print(f"Start analyzing")
+    book.open_book()
     engine_open()
     # analyzePgn("all_pgn.pgn","gaelazzo", learningBases["openings"], skip_player='FAAILIX')
     learningBases["blunders"].save()
 
-    
-    book_close()
+    book.close_book()
     engine_close()
     print(f"Analyzing Done")

@@ -11,23 +11,50 @@ import pyttsx3
 
 DIMENSION = 8
 MOVELOGFONT:Optional[p.Font] = None
+BOOKFONT:Optional[p.Font] = None
 
 BOARD_WIDTH = 512
 BOARD_HEIGHT = BOARD_WIDTH
 
 SQ_SIZE = BOARD_HEIGHT / DIMENSION
 MAX_FPS = 60
-factor = 1.0
+factor = 2.0
 IMAGES:Dict[str,p.Surface] = {}
-MOVE_LOG_PANEL_HEIGHT = BOARD_HEIGHT
-MOVE_LOG_PANEL_WIDTH = 250
+MOVE_LOG_HEIGHT = BOARD_HEIGHT
+MOVE_LOG_WIDTH = 250
+MOVE_LOG_X = BOARD_WIDTH
+MOVE_LOG_Y = 0
 whiteUp = False
+
+ANALYSYS_PANEL_HEIGHT = BOARD_HEIGHT
+ANALYSYS_PANEL_WIDTH = MOVE_LOG_WIDTH
+
+BOOK_HEIGHT = 2* (BOARD_HEIGHT // 3)
+BOOK_WIDTH = ANALYSYS_PANEL_WIDTH
+BOOK_X = BOARD_WIDTH + MOVE_LOG_WIDTH
+BOOK_Y = 0
+
+PGN_HEIGHT = BOARD_HEIGHT - BOOK_HEIGHT
+PGN_WIDTH = ANALYSYS_PANEL_WIDTH
+PGN_X = BOARD_WIDTH + MOVE_LOG_WIDTH
+PGN_Y = BOOK_HEIGHT
+
+CPU_WIDTH = ANALYSYS_PANEL_WIDTH+BOARD_WIDTH+ANALYSYS_PANEL_WIDTH
+CPU_HEIGHT = BOARD_HEIGHT // 3
+CPU_X = 0
+CPU_Y = BOARD_HEIGHT
+
+SCREEN_WIDTH = BOARD_WIDTH + MOVE_LOG_WIDTH + ANALYSYS_PANEL_WIDTH
+SCREEN_HEIGHT = BOARD_HEIGHT+ CPU_HEIGHT
 
 clock:Optional[p.time.Clock] = None
 
 
 colors = [p.Color("white"), p.Color("gray")]
 
+show_book = True
+show_pgn = True
+show_cpu = True
 
 def getFactor():
     global factor
@@ -44,13 +71,14 @@ def setFactor(f):
     factor = f
 
 def init():
-    global MOVELOGFONT
+    global MOVELOGFONT,BOOKFONT
     global clock
 
     loadImages()
     MOVELOGFONT = p.font.SysFont("Arial", 14, False, False)
-    height = BOARD_HEIGHT
-    width = BOARD_WIDTH+MOVE_LOG_PANEL_WIDTH
+    BOOKFONT = p.font.SysFont("Arial", 14, False, False)
+    height = SCREEN_HEIGHT
+    width = SCREEN_WIDTH
     clock = p.time.Clock()
     return width, height
 
@@ -131,6 +159,13 @@ def drawBoard(screen):
 
 
 def drawPieces(screen, board: GameState):
+    '''
+       Draws the pieces on the board based on the current game state.
+       Arguments:
+       screen: The pygame screen to draw on.
+       board: The current game state containing the board and pieces.
+    '''
+
     for r in range(DIMENSION):
         for c in range(DIMENSION):
             piece = board.piece_at(r, c)
@@ -144,6 +179,9 @@ def redraw(screen, board):
         
 
 def drawEndGameText(screen, board, text,size=32):
+    '''
+    Draws a message in the center of the board.
+    '''
     redraw(screen, board)
     font = p.font.SysFont("Helvetica", size, True, False)
     textObject = font.render(text, False, p.Color("Gray"))
@@ -227,6 +265,76 @@ def highlightSquaresColor(screen, squares):
         draw_rect_alpha(screen, s[2],
                         p.Rect(adjustedRow(s[1]) * SQ_SIZE, adjustedCol(s[0]) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
+def add_txt_line(t: str, text_y: int, font, screen, move_log_rect, padding, line_spacing, color="white") -> int:
+    text_object = font.render(t, True, p.Color(color))
+    text_location = move_log_rect.move(padding, text_y)
+    screen.blit(text_object, text_location)
+    return text_object.get_height() + line_spacing
+
+def clearBook(screen):
+    bookRect = p.Rect(BOOK_X, BOOK_Y, BOOK_WIDTH, BOOK_HEIGHT)
+    p.draw.rect(screen, p.Color("black"), bookRect)
+    return bookRect
+
+def drawBook(screen, gs: GameState):    
+    book = gs.getMovesFromBook()
+    bookRect = clearBook(screen)
+    if not book or not show_book:
+        return
+    myfont = BOOKFONT
+    textsurface = myfont.render('Book moves', False, p.Color("white"))
+    screen.blit(textsurface, (BOOK_X+ 5, BOOK_Y+ 5))
+    padding = 5
+    textY = padding
+    lineSpacing = 2
+    textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
+    for entry in book:
+        textY+= add_txt_line(entry.move.uci(), textY, myfont, screen, bookRect, padding, lineSpacing)
+        
+    update()
+
+
+def drawCpu(screen, text:List[str]):
+    cpuRect = clearCPU(screen)
+    if not show_cpu:
+        return
+    myfont = BOOKFONT
+    textsurface = myfont.render('CPU', False, p.Color("white"))
+    screen.blit(textsurface, (CPU_X + 5, CPU_Y + 5))
+    padding = 5
+    textY = padding
+    lineSpacing = 2
+    textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
+    for txt in text:
+        textY+= add_txt_line(txt, textY, myfont, screen, cpuRect, padding, lineSpacing)
+    update()
+
+def clearCPU(screen):
+    cpuRect = p.Rect(CPU_X, CPU_Y, CPU_WIDTH, CPU_HEIGHT)
+    p.draw.rect(screen, p.Color("black"), cpuRect)
+    return cpuRect
+
+def clearPgn(screen):
+    pgnRect = p.Rect(PGN_X, PGN_Y, PGN_WIDTH, PGN_HEIGHT)
+    p.draw.rect(screen, p.Color("black"), pgnRect)
+    return pgnRect
+
+def drawPgn(screen, gs: GameState):    
+    moves = gs.getNextMoves()
+    pgnRect = clearPgn(screen)
+    myfont = BOOKFONT
+    textsurface = myfont.render('PGN moves', False, p.Color("white"))
+    screen.blit(textsurface, (PGN_X + 5, PGN_Y+5))
+    padding = 5
+    textY = padding
+    lineSpacing = 2
+    textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
+   
+    for move in moves:
+        textY+= add_txt_line(move.uci(), textY, myfont, screen, pgnRect, padding, lineSpacing)
+
+    update()
+
 
 def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, sqSelected):
     drawBoard(screen)
@@ -239,14 +347,22 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
     highlightSquaresColor(screen, toHighlightSquareColor)
     drawPieces(screen, gs)
     drawMoveLog(screen, gs)
+    if show_book:
+        drawBook(screen, gs)
+    else:
+        clearBook(screen)
+
+    if show_pgn:
+        drawPgn(screen, gs)
+    else:
+        clearPgn(screen)
 
 
-
-def drawMoveLog(screen, gs):
+def drawMoveLog(screen, gs):    
     movesPerRow = 3
     assert(MOVELOGFONT is not None)
     font:p.Font = MOVELOGFONT
-    moveLogRect = p.Rect(BOARD_WIDTH,0,MOVE_LOG_PANEL_WIDTH,MOVE_LOG_PANEL_HEIGHT)
+    moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
     moveLog = gs.moveLog
     moveTexts = []  # [m.getChessNotation() for m in moveLog]
@@ -259,30 +375,23 @@ def drawMoveLog(screen, gs):
     textY = padding
     lineSpacing = 2
 
-    def addTxtLine(t):
-        nonlocal textY
-        textObject = font.render(t, True, p.Color("white"))
-        textLocation = moveLogRect.move(padding, textY)
-        screen.blit(textObject, textLocation)
-        textY += textObject.get_height() + lineSpacing
-
     header = gs.getHeader()
     for i in range(0, len(header), 2):
         key = header[i]
-        value = header[i + 1]
-        addTxtLine(f"{key}: {value}")
-
+        value = header[i + 1] if i + 1 < len(header) else ""
+        textY+= add_txt_line(f"{key}: {value}", textY, font, screen, moveLogRect, padding, lineSpacing)
+        
     for i in range(0, len(moveTexts), movesPerRow):
         text = ""
         for j in range(movesPerRow):
             if i+j < len(moveTexts):
                 text += moveTexts[i+j]+" "
         #str(moveTexts[i])
-        addTxtLine(text)
+        textY+= add_txt_line(text, textY, font, screen, moveLogRect, padding, lineSpacing)
 
     evaluation = gs.getEvaluation()
     if evaluation is not None:
-        addTxtLine(f"Evaluation is {evaluation}")
+        textY+= add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, moveLogRect, padding, lineSpacing)        
 
     update()
 
@@ -290,6 +399,7 @@ def drawMoveLog(screen, gs):
 def animateMove(move, screen, board:GameState):
     global colors
     global MAX_FPS
+    #print(f"Drawing move with MAX_FPS:{MAX_FPS} and factor {factor}")
     update()
     dR = adjustedRow(move.stopRow) - adjustedRow(move.startRow)
     dC = adjustedCol(move.stopCol) - adjustedCol(move.startCol)
@@ -317,6 +427,7 @@ def animateMove(move, screen, board:GameState):
         #  if move.pieceMoved != "--":
         screen.blit(IMAGES[move.pieceMoved], p.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
         update()
+        clock.tick(MAX_FPS)
 
     color = colors[(adjustedRow(move.stopRow) + adjustedCol(move.stopCol)) % 2]
     p.draw.rect(screen, color, p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, adjustedRow(move.stopRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE))

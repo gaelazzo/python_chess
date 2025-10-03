@@ -45,7 +45,7 @@ def create_course(id_course:str):
         # Controllo del risultato
         if response.status_code == 200:
             print('Corso creato con successo!')
-            print('Risposta:', response.json())  # Se restituisci un JSON dal backend
+            #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
         else:
             print('Errore:', response.status_code, response.text)
     except Exception as e:
@@ -74,7 +74,7 @@ def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
         # Controllo del risultato
         if response.status_code == 200:
             print(f'Lezione {id_lesson} creata con successo!')
-            print('Risposta:', response.json())  # Se restituisci un JSON dal backend
+            #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
         else:
             print('Errore:', response.status_code, response.text)
     except Exception as e:
@@ -102,7 +102,7 @@ def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
         # Controllo del risultato
         if response.status_code == 200:
             print(f'Domanda {id_question} {id_lesson} creata con successo!')
-            print('Risposta:', response.json())  # Se restituisci un JSON dal backend
+            #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
         else:
             print('Errore:', response.status_code, response.text)
     except Exception as e:
@@ -257,7 +257,11 @@ def add_all_lessons(learnBase:str):
         lessons.add(idlesson)
         id_brainMasterLesson = f'{learnBase}{idlesson}'
         create_lesson(id_brainMasterLesson, learnBase, idlesson, idlesson)
-            
+
+        
+
+
+
 def add_all_questions(learnBase:str):
     '''
         Add all questions for a given learning base to the Brain Master.
@@ -337,8 +341,6 @@ def add_to_BrainMaster(id_course:str):
     add_all_lessons(id_course)
     add_all_questions(id_course)
     print(f"Course: {id_course} registered")
-
-
 
 if __name__ == "__main__":
     '''

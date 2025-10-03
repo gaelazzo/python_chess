@@ -11,18 +11,19 @@ from chess.pgn import ChildNode, Game
 import chess.polyglot
 import random
 import pyttsx3
+import book
 
 
 class Voce:
     def __init__(self,lang_prefix="en"):
         self.engine = pyttsx3.init()
         voices = self.engine.getProperty('voices')
-        for i, voice in enumerate(voices):
-            print(f"[{i}] ID: {voice.id}")
-            print(f"    Name: {voice.name}")
-            print(f"    Lang: {voice.languages}")
-            print(f"    Gender (in name?): {voice.name.lower()}")
-            print()
+        # for i, voice in enumerate(voices):
+        #     print(f"[{i}] ID: {voice.id}")
+        #     print(f"    Name: {voice.name}")
+        #     print(f"    Lang: {voice.languages}")
+        #     print(f"    Gender (in name?): {voice.name.lower()}")
+        #     print()
 
         self.engine.setProperty('rate', 160)  # velocità di lettura
         self.engine.setProperty('volume', 1.0)  # volume
@@ -55,6 +56,22 @@ class GameState:
         self.evaluation:Optional[float] = None
         self.node = self.pgn
         
+    def get_hash(self):
+        """
+        Returns the hash of the current position
+        """
+        if self.node is None:
+            return None
+        return chess.polyglot.zobrist_hash(self.board())
+
+    def board(self) -> chess.Board:
+        """
+        Returns the current board
+        """
+        if self.node is None:
+            return None
+        return self.node.board()
+
 
     def setPgn(self, pgn: chess.pgn.Game):
         """
@@ -218,7 +235,20 @@ class GameState:
 
          return move
 
+    def gotoFirstMove(self) -> bool:
+            """
+            Go to the first move in the current game
+            """
+            if self.node is None:
+                return False
     
+            while self.node.parent is not None:
+                self.node = self.node.parent
+                if len(self.moveLog) > 0:
+                    del self.moveLog[-1]
+    
+            return True
+
      
     def goToLastMove(self)->bool:
          """
@@ -232,7 +262,6 @@ class GameState:
              move = Move.fromChessMove(node.move, self)
              self.makeMove(move)
              
-
          return True
 
     def getNextMainMove(self):
@@ -254,7 +283,14 @@ class GameState:
             return
         self.makeMove(Move.fromChessMove(move, self))
 
-
+    def getMovesFromBook(self)->List[chess.polyglot.Entry]:
+        """
+        Returns a list of moves from the book for the current position
+        """
+        if self.node is None:
+            return []
+        return book.getMovesFromBook(self.board())
+        
     def makeMove(self, move:Move):
         """
         Takes a move and executes it. Does not work for special moves
@@ -282,10 +318,10 @@ class GameState:
         
 
     def whiteToMove(self)->chess.Color:
-        return self.node.board().turn
+        return self.board().turn
 
     def colorToMove(self)->str:
-        return "w" if self.node.board().turn else "b"
+        return "w" if self.board().turn else "b"
 
     def colorAt(self, row:int, col:int)->str:
         """
@@ -296,7 +332,7 @@ class GameState:
             w or b
 
         """
-        p = self.node.board().piece_at((7-row)*8+col)
+        p = self.board().piece_at((7-row)*8+col)
         if p is None:
             return "-"
         if p.color:
@@ -309,7 +345,7 @@ class GameState:
 
     def stdValidMoves(self)->List[Move]:
         dest = []
-        for m in self.node.board().legal_moves:
+        for m in self.board().legal_moves:
             # if chess.square_rank(m.from_square) != fromRow:
             #     continue
             # if chess.square_file(m.from_square) != fromCol:
@@ -334,7 +370,7 @@ class GameState:
             piece code in a format like --, wB, bN etc
         '''
 
-        moved = self.node.board().piece_at((7-r)*8+c)
+        moved = self.board().piece_at((7-r)*8+c)
         if moved is None:
             return "--"
 
@@ -343,13 +379,13 @@ class GameState:
         return color + movedColor
 
     def inCheck(self)->bool:
-       return self.node.board().is_check()
+       return self.board().is_check()
 
     def checkMate(self)->bool:
-        return self.node.board().is_checkmate()
+        return self.board().is_checkmate()
 
     def staleMate(self)->bool:
-        return self.node.board().is_stalemate()
+        return self.board().is_stalemate()
 
 class Move:
     ranksToRows = {"1": 7, "2": 6, "3": 5, "4": 4, "5": 3, "6": 2, "7": 1, "8": 0}
@@ -389,11 +425,12 @@ class Move:
         
         self.pieceCaptured:str = game.piece_at(self.stopRow, self.stopCol)
         try:
-            self.prettyPrint = game.board.san(self.move)
-        except:
+            self.prettyPrint = game.board().san(self.move)
+        except Exception as e:
+            print('Errore nella conversione:', str(e))
             self.prettyPrint = self.move.uci()
 
-        self.enPassant = game.node.board().is_en_passant(self.move)
+        self.enPassant = game.board().is_en_passant(self.move)
 
 
     def promoteToPiece(self, p:chess.PieceType)->chess.Move:

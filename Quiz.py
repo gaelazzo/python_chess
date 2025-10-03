@@ -47,13 +47,19 @@ def describeLearningBase(learningBase:LearningBase):
     for eco,stats in sortedEcoStats:
         print(f"ECO {eco}: {stats['distinct']} distinct  {stats['total']} total, {stats['ok']} ok, {stats['bad']} bad ")
     
-def makeQuizzes(learningBase:LearningBase, quiz_size:int=10):
+
+
+
+def _makeQuizzes_by_eco(learningBase:LearningBase, quiz_size:int=5):
     '''
-    classify the learning base by ECO code and assign quizzes. If a learning base has already quizzes assigned, it will not change them.
+    Create quizzes grouping positions by ECO. If a learning base has already quizzes assigned, it will not change them.
     '''
+    print(f"Classifying {learningBase.filename} with {len(learningBase.positions)} positions")
+
     curr_quiz_size = 0
     sortedEcoStats = getLearningBaseClassified(learningBase)
-
+    
+    # id del massimo quiz presente nella learning base
     max_id_quiz=0
     for pos in learningBase.positions.values():
         if pos.idquiz is None:
@@ -64,8 +70,7 @@ def makeQuizzes(learningBase:LearningBase, quiz_size:int=10):
     max_id_quiz += 1
 
     for eco, stats in sortedEcoStats:
-        positions = [ pos for pos in learningBase.positions.values() if pos.eco == eco and  pos.idquiz is None]
-        
+        positions = [ pos for pos in learningBase.positions.values() if pos.eco == eco and  pos.idquiz is None]        
         for pos in positions:
             pos.idquiz = max_id_quiz
             curr_quiz_size += 1
@@ -73,7 +78,29 @@ def makeQuizzes(learningBase:LearningBase, quiz_size:int=10):
                 max_id_quiz += 1
                 curr_quiz_size = 0
 
-def nameQuizzes(learningBase:LearningBase)->Dict[int,str]:
+def name_unnamed_Quizzes(existingQuizzesName:Dict[str,str], learningBase:LearningBase, lessonName:str)->Dict[int,str]:
+    '''
+        Assign a name to each unnamed quiz 
+        Arguments:
+            learningBase: The learning base to classify
+            lessonName: The name to assign to unnamed quizzes
+        Returns:
+            A dictionary with the quiz id as key and the quiz name as value.
+    '''
+
+    quizzes:Dict[int, List[LearnPosition]] = {}
+    for pos in learningBase.positions.values():
+        if not int(pos.idquiz) in quizzes:
+            quizzes[pos.idquiz]= []
+        quizzes[pos.idquiz].append(pos)  # assign the position to the quiz in the dictionary quizzes 
+    
+    for idquiz, base in quizzes.items():
+        if not (idquiz in existingQuizzesName):
+            existingQuizzesName[idquiz] = lessonName  # Default name for the quiz
+    
+    return existingQuizzesName
+
+def nameQuizzes_by_eco(learningBase:LearningBase)->Dict[int,str]:
     '''
         Assign a name to each quiz based on the ECO code of the positions in the quiz
         If the quiz contains positions with the same ECO code, it will use that code as the name.
@@ -106,17 +133,32 @@ def nameQuizzes(learningBase:LearningBase)->Dict[int,str]:
     
     return quizzesName
     
-              
-def classifyLearningBase(learningBase:LearningBase):
+
+
+
+def assign_unnamed_quizzes(quizzes:dict[str,str], learningBase:LearningBase, lessonName:str): 
     '''
-    Classify the learning base by ECO code
+        Merge all lessons from a PGN file to a given learning base.
+        Args:
+            quizzes: A dictionary with the quiz id as key and the quiz name as value.
+            learningBase: The learning base to examine
+            colorToAnalyze: True for white/ False for black
     '''
-    print(f"Classifying {learningBase.filename} with {len(learningBase.positions)} positions")
-    makeQuizzes(learningBase)
-    quizNames = nameQuizzes(learningBase)
-    json_helper.write_struct(os.path.join(folder,f"lessons_{learningBase.filename}.json"), quizNames)
+    _makeQuizzes_by_eco(learningBase)   
+    name_unnamed_Quizzes(quizzes, learningBase, lessonName)        
+    json_helper.write_struct(os.path.join(folder,f"lessons_{learningBase.filename}.json"), quizzes)
     learningBase.save()
 
+
+#was classifyLearningBase              
+def makeQuizzes_by_ECO(learningBase:LearningBase):
+    '''
+    Create quizzes grouping positions by ECO classification
+    '''    
+    _makeQuizzes_by_eco(learningBase)
+    quizNames = nameQuizzes_by_eco(learningBase)
+    json_helper.write_struct(os.path.join(folder,f"lessons_{learningBase.filename}.json"), quizNames)
+    learningBase.save()
 
 def classifyAllLearningBases():
     '''
@@ -126,10 +168,10 @@ def classifyAllLearningBases():
         # check if file already exists
         fname = os.path.join(folder, f"lessons_{name}.json")
         if os.path.exists(fname):
-            print(f"File {fname} already classified")
+            #print(f"File {fname} already classified")
             continue
-        classifyLearningBase(learnBase)
+        makeQuizzes_by_ECO(learnBase)
 
-print(f"Start classifying bases")
+#print(f"Start classifying bases")
 classifyAllLearningBases()
-print(f"Classification Done")
+#print(f"Classification Done")

@@ -1,6 +1,12 @@
 {
-  "base_url": "http://172.17.247.235:5000/api",
+  "base_url": "http://localhost:5000/api/",
   "id_student": "gaetano.lazzo",
   "engine": "stockfish-17-avx2.exe",
-  "book": "Perfect2021.bin"
+  "book": "PowerBook2022.bin",
+  "engine_options": {
+    "Hash": 1024,
+    "Threads": 16,
+    "SyzygyPath": "D:\\ChessBase\\Tablebases\\6;D:\\ChessBase\\Tablebases\\345"
+  },
+  "engine_usebook": true
 }
