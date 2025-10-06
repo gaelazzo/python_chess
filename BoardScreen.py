@@ -8,6 +8,7 @@ import pygame.surface
 import sys
 import os
 import pyttsx3
+import UCIEngines
 
 DIMENSION = 8
 MOVELOGFONT:Optional[p.Font] = None
@@ -299,6 +300,10 @@ def drawCpu(screen, text:List[str]):
     if not show_cpu:
         return
     myfont = BOOKFONT
+    text_cpu = "CPU info"
+    if not UCIEngines.cpu_is_on():
+        text_cpu = "CPU is off"
+
     textsurface = myfont.render('CPU', False, p.Color("white"))
     screen.blit(textsurface, (CPU_X + 5, CPU_Y + 5))
     padding = 5

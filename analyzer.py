@@ -403,7 +403,7 @@ def unrollPgn(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):
     pg = PgnAnalyzer("player", pgnFileName, learningBase)
     pg.unroll(colorToAnalyze) 
     pg.learningBase.save()
-    Quiz.makeQuizzes_by_eco(learningBase)
+    Quiz.makeQuizzes_by_ECO(learningBase)
 
 
 def unrollPgn_as_lesson(pgnFileName:str, learningBase:LearningBase, colorToAnalyze:bool):

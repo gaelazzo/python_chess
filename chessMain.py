@@ -2142,9 +2142,9 @@ def mainMenu(width,height, test: bool = False) -> None:
     playComputerMenu.add.range_slider('ELO', range_values=(1350, 2850), onchange=setPlayElo, default=2000, increment=50)
     playComputerMenu.add.toggle_switch("ELO MAX", state_text=("Off", "On"), state_values=(False, True), 
                                        onchange=make_updater("elomax",bool,playParameters))
-    playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,  
-                                      onchange=make_updater("num_moves_to_show",int), 
-                default=num_moves_to_show)  # Aggiungi questa riga
+    # playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,  
+    #                                   onchange=make_updater("num_moves_to_show",int), 
+    #             default=num_moves_to_show)  # Aggiungi questa riga
 
     playComputerMenu.add.button('Play', playGame)
     

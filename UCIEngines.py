@@ -40,6 +40,7 @@ from queue import Queue
 import threading
 
 
+
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
     if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
@@ -137,7 +138,6 @@ def analyze_forever(board, callback, interval_sec=1.0):
         analysis_variants = {}
         try:
             with engine.analysis(board, multipv=3) as analysis:
-                print(analysis)
                 last_time = time.time()
                 for info in analysis:
                     now = time.time()
@@ -186,6 +186,8 @@ def engine_on_off(board,callback,interval_sec=1.0):
         analyze_forever(board, callback,interval_sec)
     else:
         stop_analysis()
+        callback(["engine stopped"])
+
 
 def stop_analysis():
     global stopper
