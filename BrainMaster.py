@@ -38,7 +38,8 @@ def create_course(id_course:str):
             'id_course': id_course,
             'description': 'Chess course'
         }
-    
+        
+
     try:        
         response = requests.post(url, json=payload)
     
@@ -280,6 +281,28 @@ def add_all_questions(learnBase:str):
                         idlesson, idlesson,
                         position.moves, 'no', position.ok)
 
+
+def list_courses() -> List[str]: 
+    '''
+    List all courses in the Brain Master service.
+    Returns:
+        A list of course identifiers.
+    '''
+    url = f'{config.base_url}list_courses'
+    
+    try:
+        response = requests.get(url)
+    
+        # Controllo del risultato
+        if response.status_code == 200:
+            res = response.json()
+            return res
+        else:
+            print('Errore:', response.status_code, response.text)
+            return []
+    except Exception as e:
+        print('Errore nella richiesta:', str(e))
+        return []
 
 def unlock_new_lesson(id_course:str)->str:
     '''

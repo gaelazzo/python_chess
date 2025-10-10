@@ -262,10 +262,6 @@ def make_file_selector(
     return choose_file
 
 
-
-
-
-
 def show_message(gs:GameState, text:str):
     global screen
     BS.drawEndGameText(screen, gs, text)
@@ -273,8 +269,6 @@ def show_message(gs:GameState, text:str):
 
 
 CIRCLE_COLOR = (15, 50, 180, 90)
-
-
 
 
 def setEloMax(value):
@@ -639,7 +633,6 @@ def setAlfa(color, alfa):
     return [color[0],color[1],color[2], alfa]
 
 
-
 def replayBase():
     global main_menu
     main_menu.disable()
@@ -804,7 +797,8 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                     running = False            
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
-                        show_help = True            
+                        show_help = True     
+                        play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
@@ -1209,6 +1203,7 @@ def replayBadPositions(learningBase:LearningBase):
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
                         show_help = True            
+                        play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
@@ -1518,6 +1513,7 @@ def playModelFiles(filename, humanColor):
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
                         show_help = True         
+                        play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False                        
@@ -1824,7 +1820,7 @@ def readChessComGames():
     delay(2)
 
 
-def registerBrainMaster():
+def createCourse():
     '''
     Registers a new BrainMaster base, which is a LearningBase with a specific name.
     The name is taken from the positionParameters["base"] variable.
@@ -1836,19 +1832,19 @@ def registerBrainMaster():
         main_background()
         BS.drawEndGameText(screen, None, text)
         BS.update()
-        delay(2 )
+        delay(2)
         return
 
     if not learningBaseName in learningBases:
-        text = f"BrainMaster base {learningBaseName} does not exist"
+        text = f"Base {learningBaseName} does not exist"
         main_background()
         BS.drawEndGameText(screen, None, text)
         BS.update()
-        delay(2 )
+        delay(2)
         return
 
     BrainMaster.add_to_BrainMaster(learningBaseName)
-    text = f"BrainMaster base {learningBaseName} registered"
+    text = f"Base {learningBaseName} added to Brainmaster"
     main_background()
     BS.drawEndGameText(screen, None, text)
     BS.update()
@@ -1911,6 +1907,7 @@ def save_game(gs:GameState):
     BS.drawEndGameText(screen, None, "Game saved")
     BS.update()
     delay(2)
+
 
 def load_game(gs:GameState):
     '''
@@ -2184,20 +2181,31 @@ def mainMenu(width,height, test: bool = False) -> None:
     ExerciseModelsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
     ExerciseModelsMenu.add.button('Play', playModels)
 
-    BrainMasterMenu = pygame_menu.Menu(
-        height=height,
-        theme=pygame_menu.themes.THEME_BLUE,
-        title='Choose base',
-        width=width
-    )        
-    addChooseBaseFile(BrainMasterMenu)
-    BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
-                default=num_moves_to_show, increment=1)  # Aggiungi questa riga
-    BrainMasterMenu.add.selector('Skip initial moves', [ ("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
-    # Disabilita il text_input in modo che l'utente non possa modificarlo
-    BrainMasterMenu.add.button('Create course', registerBrainMaster)
-    BrainMasterMenu.add.button('Play', playBrainMasterBase)
+    CreateCourseMenu = None
+    if config.base_url:
+        CreateCourseMenu = pygame_menu.Menu(
+            height=height,
+            theme=pygame_menu.themes.THEME_BLUE,
+            title='Choose base',
+            width=width
+        )        
+        addChooseBaseFile(CreateCourseMenu)
+        CreateCourseMenu.add.button('Create course', createCourse)
     
+    BrainMasterMenu = None
+    if config.base_url:
+        BrainMasterMenu = pygame_menu.Menu(
+            height=height,
+            theme=pygame_menu.themes.THEME_BLUE,
+            title='Exercise with Brainmaster',
+            width=width
+        )        
+        addChooseBaseFile(BrainMasterMenu)
+        BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
+                    default=num_moves_to_show, increment=1)  # Aggiungi questa riga
+        BrainMasterMenu.add.selector('Skip initial moves', [ ("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
+        BrainMasterMenu.add.button('Exercise', playBrainMasterBase)
+
 
 
     updateLearningBaseMenu = pygame_menu.Menu(
@@ -2332,6 +2340,8 @@ def mainMenu(width,height, test: bool = False) -> None:
     toolsMenu.add.button('Update learning base', updateLearningBaseMenu)
     toolsMenu.add.button('Unroll PGN file', unrollPGNMenu)
     toolsMenu.add.button('Unroll PGN file as lesson', unrollPGNMenuAsLesson)
+    if CreateCourseMenu:
+        toolsMenu.add.button('Create Course for BrainMaster', CreateCourseMenu)
     toolsMenu.add.button('Setup', configureGame)
 
 
@@ -2340,7 +2350,8 @@ def mainMenu(width,height, test: bool = False) -> None:
     main_menu.add.button('Play against computer', playComputerMenu)
     main_menu.add.button('Play between humans', humanPlay)
     main_menu.add.button('Play a dataset', playDataSetMenu)
-    main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
+    if BrainMasterMenu:
+        main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
     main_menu.add.button('Exercise by models', ExerciseModelsMenu)
     main_menu.add.button('Tools', toolsMenu)
     main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
