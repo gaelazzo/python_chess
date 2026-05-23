@@ -316,8 +316,8 @@ class LearningBase:
             return oldTry
 
         if oldTry < newValue:
-            return newValue
-        return oldTry
+            return oldTry
+        return newValue
 
     @classmethod
     def updatePositionStats(self, position:LearnPosition, moveMade:str,  date:date)->boolean:
