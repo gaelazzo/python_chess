@@ -42,6 +42,12 @@ import book
 
 from app_context import app
 import game_loop_common as glc
+import state
+from state import playParameters, positionParameters, COLOR_MAP, REVERSE_COLOR_MAP, CIRCLE_COLOR, small_font_theme
+from learningbase_admin import (
+    createLearningBase, updateLearningBase, unrollPgnAsLesson,
+    unrollPGN, readChessComGames, createCourse,
+)
 
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
@@ -63,41 +69,12 @@ def main_background() -> None:
     """
     app.main_background()
 
-small_font_theme = pygame_menu.themes.THEME_BLUE.copy()
-small_font_theme.title_font_size = 24
-small_font_theme.widget_font_size = 18  # <-- qui imposti la dimensione del font
 
 
 
-playParameters = {
-    "whiteCPU": False,
-    "blackCPU": True,
-    "elo": None,
-    "elomax": True,
-    "white": "White", 
-    "black": "Black",
-    "result": "",
-    "event": "Play", 
-    "site": "Local",
-    "gameid":""
-}
 
 
-positionParameters = {
-    "eco": None,
-    "color": "w",
-    "filename": None,
-    "base":"openings",
-    "player":None,
-    "movesToAnalyze":16,
-    "blunderValue":80 ,
-    "ponderTime": 0.5,
-    "useBook": False,
-    "filename": ""
 
-}
-
-num_moves_to_show = 4
 
 def make_updater(key, cast_type, target_dict=None, validator=None, target_module=None):
     def updater(value):
@@ -113,8 +90,8 @@ def make_updater(key, cast_type, target_dict=None, validator=None, target_module
             if target_dict is not None:
                 target_dict[key] = casted
             else:
-                mod = target_module or sys.modules[__name__]
-                setattr(mod, key, casted)                
+                mod = target_module or state
+                setattr(mod, key, casted)
         except (ValueError, TypeError):
             pass
     return updater
@@ -126,7 +103,7 @@ def make_selector_updater(key, target_dict=None):
         if target_dict is not None:
             target_dict[key] = selected_value
         else:
-            globals()[key] = selected_value
+            setattr(state, key, selected_value)
     return updater
 
 def make_selector_updater_mapped(key, target_dict, value_map):
@@ -136,8 +113,8 @@ def make_selector_updater_mapped(key, target_dict, value_map):
         mapped_value = value_map.get(selected_value)
 
         if target_dict is None:
-            # Se target_dict è None, il "key" è una variabile globale da aggiornare direttamente
-            globals()[key] = mapped_value
+            # Se target_dict è None, il "key" è una variabile di sessione da aggiornare in state
+            setattr(state, key, mapped_value)
         else:
             target_dict[key] = mapped_value
     return updater
@@ -150,14 +127,7 @@ def make_bool_selector_updater(key, target_dict):
 '''
  1 if skip playing initial moves, 0 if play all moves
 '''
-play_position = 1  
 
-COLOR_MAP = {
-    0: "w",
-    1: "b",
-    2: None
-}
-REVERSE_COLOR_MAP = {v: k for k, v in COLOR_MAP.items()}
 
 
 def getCurrentColorIndex():
@@ -260,7 +230,6 @@ def show_message(gs:GameState, text:str):
     
 
 
-CIRCLE_COLOR = (15, 50, 180, 90)
 
 
 def setEloMax(value):
@@ -274,11 +243,6 @@ def humanPlay():
     playParameters["blackCPU"] = False
     playGame()
 
-WHITE = (255, 255, 255)
-BLACK = (0, 0, 0)
-GRAY = (200, 200, 200)
-# orange color components
-ORANGE = (100,100,0)
 
 def setPositionEco(current_text, **kwargs):
     global positionParameters
@@ -609,15 +573,14 @@ def replayBase():
 
 # Study a set of positions of a course, suggested by the BrainMaster module, until they are all solved
 def playBrainMasterBase():
-    global id_course
-    if id_course is None :
+    if state.id_course is None :
         text = "Please select a Course first"
         main_background()
         BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2)
         return
-    playBrainMaster(id_course)
+    playBrainMaster(state.id_course)
     return
 
 
@@ -667,7 +630,6 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     Ask a set of positions until each one is solved. A position is solved when it is correctly answered 3 times
      in a row after a mistake, or correctly answered the first time.
     '''
-    global play_position
     ll:List[LearnPositionSimplified]= []
     result: Dict[str, AnswerData] = {}
     
@@ -754,7 +716,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
             updateStats = False
             update = False
 
-            if play_position:
+            if state.play_position:
                 while currentMove < len(moves):
                     ucimove = moves[currentMove]
                     currentMove += 1
@@ -940,7 +902,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                         show_message(gs, msg)
                         delay(1 )
 
-                        engineMove = num_moves_to_show
+                        engineMove = state.num_moves_to_show
                         humanCanPlay = False
                     else:                        
                         errorsMade[curr_zobrist]=3
@@ -1044,7 +1006,6 @@ def replayBadPositions(learningBase:LearningBase):
       it is solved correctly 3 times in a row after a mistake, or correctly answered the first time.
     '''
 
-    global play_position
     
 
     # ll is a copy (not a deep copy) of data in the csv, not the same structure
@@ -1135,7 +1096,7 @@ def replayBadPositions(learningBase:LearningBase):
             update  = False
             updateStats = False
 
-            if play_position:
+            if state.play_position:
                 while currentMove < len(moves):
                     ucimove = moves[currentMove]
                     currentMove += 1
@@ -1307,7 +1268,7 @@ def replayBadPositions(learningBase:LearningBase):
                         show_message(gs,msg)
                         delay(1 )
 
-                        engineMove = num_moves_to_show
+                        engineMove = state.num_moves_to_show
                         humanCanPlay = False
                     else:
                         show_message(gs,"Not the right move")
@@ -1366,7 +1327,6 @@ def playModelFiles(filename, humanColor):
           available lines stored in the game.
     '''
 
-    global play_position
 
     gamelist = pgngamelist.PgnGameList(filename)
 
@@ -1410,7 +1370,7 @@ def playModelFiles(filename, humanColor):
         game = gamelist.chooseRandomGame()
         gs.setPgn(game)      
 
-        if play_position:
+        if state.play_position:
             # skip all stored moves until a leaf node is reached
             moreMoves = True
             move = None
@@ -1510,7 +1470,7 @@ def playModelFiles(filename, humanColor):
                                 moveMade = True
                                 animate = True
                                 validMoves = gs.stdValidMoves()
-                                if play_position:
+                                if state.play_position:
                                     stopCondition=True
                             else:
                                 errors += 1
@@ -1613,191 +1573,28 @@ def playModelFiles(filename, humanColor):
     app.main_menu.enable()
 
 
-current_base_label = None
-current_filename_label = None
-current_base_label2 = None
-current_base_label3 = None 
-current_filename_label3 = None
-current_filename_label4= None
-current_ChessComFile_label = None
 
 
 def update_base_display():
-    global current_base_label, current_base_label2,current_base_label3
     value = positionParameters.get("base", "Nessuna selezionata")
-    current_base_label.set_title(value)
-    current_base_label2.set_title(value)
-    current_base_label3.set_title(value)
+    state.current_base_label.set_title(value)
+    state.current_base_label2.set_title(value)
+    state.current_base_label3.set_title(value)
 
 def update_filename_display():
-    global current_filename_label, current_filename_label3, current_filename_label4, current_ChessComFile_label
     value = positionParameters.get("filename", "Nessuna selezionata")
-    current_filename_label.set_title(value)
-    current_filename_label3.set_title(value)
-    current_filename_label4.set_title(value)
-    current_ChessComFile_label.set_title(value)
+    state.current_filename_label.set_title(value)
+    state.current_filename_label3.set_title(value)
+    state.current_filename_label4.set_title(value)
+    state.current_ChessComFile_label.set_title(value)
 
 def quit_program():
     print ("quit program called\n")
     app.main_running = False
 
 # create a new empty LearningBase with the name specified in positionParameters["filename"] and the parameters specified in positionParameters, and save it in the learningBases dictionary
-def createLearningBase():    
-    global positionParameters
-    # Verifica che filename non sia vuoto
-    filename = positionParameters.get("filename", "").strip()
-    if not filename:
-        raise ValueError("Il campo 'filename' in positionParameters è vuoto.")
 
 
-    learningBase = LearningBase(movesToAnalyze=positionParameters.get("movesToAnalyze",16),
-                                                               blunderValue=positionParameters.get("blunderValue", 80),
-                               ponderTime=positionParameters.get("ponderTime", 0.5),
-                                useBook=positionParameters.get("useBook", False))
-
-    learningBase.setFileName(filename)
-    learningBases[filename] = learningBase
-    learningBase.save()
-
-    main_background()
-    BS.drawEndGameText(app.screen, None, f"learning base created")
-    BS.update()
-    delay(2 )
-    return
-
-# add the games in the pgn file specified in positionParameters["filename"] to the LearningBase specified in positionParameters["base"],
-#  analyzing them with the parameters specified in positionParameters, and save the updated LearningBase
-def updateLearningBase():
-    pgnFileName = positionParameters.get("filename", None)
-    learningBaseName = positionParameters.get("base", None)
-    player = positionParameters.get("player", None)
-    if pgnFileName is None :
-        text = "Please select a PGN file"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2 )
-        return
-
-    if learningBaseName is None:
-        text = "Please select a base file"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2 )
-        return
-
-    if player is None or player == "":
-        text = "Please enter a player name"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2 )
-        return
-
-    learningBase = learningBases.get(learningBaseName, None)
-    
-    analyzer.analyzePgn(pgnFileName, player, learningBase)
-    text = f"Learning base {learningBaseName} updated with {pgnFileName}"
-    main_background()
-    BS.drawEndGameText(app.screen, None, text)
-    BS.update()
-
-#transforms a pgn file into a set of positions to use with Brainmaster
-def unrollPgnAsLesson():
-    pgnFileName = positionParameters.get("filename", None)
-    if pgnFileName is None :
-        text = "Please select a PGN file"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2 )
-        return
-
-    learningBaseName = positionParameters.get("base", None)
-    learningBase = learningBases.get(learningBaseName, None)
-    analyzer.unrollPgn_as_lesson(pgnFileName+".pgn", learningBase, positionParameters.get("color", "w")=="w")
-        
-    main_background()
-    BS.drawEndGameText(app.screen, None, f"Unroll {pgnFileName} as a lesson done")
-    BS.update()
-    delay(2)
-    return
-
-def unrollPGN():
-    pgnFileName = positionParameters.get("filename", None)
-    if pgnFileName is None :
-        text = "Please select a PGN file"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2 )
-        return
-
-    learningBaseName = positionParameters.get("base", None)
-    learningBase = learningBases.get(learningBaseName, None)
-    analyzer.unrollPgn(pgnFileName+".pgn", learningBase, positionParameters.get("color", "w")=="w")
-        
-    main_background()
-    BS.drawEndGameText(app.screen, None, "Unroll done")
-    BS.update()
-    delay(2)
-    return
-
-def readChessComGames(): 
-    '''
-    Reads a file with Chess.com games and creates a LearningBase from it.
-    The file must be in the format of a Chess.com export, with each game separated by a blank line.
-    '''
-    pgnFileName = positionParameters.get("filename", None)
-    if pgnFileName is None :
-        text = "Please select a PGN file"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2)
-        return
-    
-    chess_com_download.load(positionParameters.get("player", None), pgnFileName, positionParameters.get("color",None))
-        
-    main_background()
-    BS.drawEndGameText(app.screen, None, "Games downloaded")
-    BS.update()
-    delay(2)
-
-
-def createCourse():
-    '''
-    Registers a new BrainMaster base, which is a LearningBase with a specific name.
-    The name is taken from the positionParameters["base"] variable.
-    '''
-    global current_base_label2
-    learningBaseName = positionParameters.get("base", None)
-    if learningBaseName is None or learningBaseName == "":
-        text = "Please select a base file"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2)
-        return
-
-    if not learningBaseName in learningBases:
-        text = f"Base {learningBaseName} does not exist"
-        main_background()
-        BS.drawEndGameText(app.screen, None, text)
-        BS.update()
-        delay(2)
-        return
-
-    BrainMaster.add_to_BrainMaster(learningBaseName)
-    text = f"Base {learningBaseName} added to Brainmaster"
-    main_background()
-    BS.drawEndGameText(app.screen, None, text)
-    BS.update()
-
-
-id_course = None
-courses = None
 
 
 def make_choose_course( labels: List,
@@ -1808,10 +1605,9 @@ def make_choose_course( labels: List,
         '''
         Loads a game from a selected PGN file and lets the user choose which game to load.    
         '''
-        global id_course, courses
 
-        courses = BrainMaster.list_courses()
-        total_courses = len(courses)
+        state.courses = BrainMaster.list_courses()
+        total_courses = len(state.courses)
         courses_per_page = 10
         current_page = 0
         total_pages = (total_courses + courses_per_page - 1) // courses_per_page
@@ -1820,13 +1616,12 @@ def make_choose_course( labels: List,
         surface = app.screen
         def load_course_wrapper(N):
             nonlocal menu_running, labels
-            global id_course
-            id_course = courses[N]
+            state.id_course = state.courses[N]
             if callback:
-                callback(id_course)
+                callback(state.id_course)
             for label in labels:
                  if label:
-                       label.set_title(id_course)
+                       label.set_title(state.id_course)
 
             menu_running = False
 
@@ -1865,7 +1660,7 @@ def make_choose_course( labels: List,
             start = current_page * courses_per_page
             end = min(start + courses_per_page, total_courses)
             for i in range(start, end):
-                course = courses[i]
+                course = state.courses[i]
                 label = f"{i+1} {course}"
                 _load_menu.add.button(label, load_course_wrapper, i)
 
@@ -1905,7 +1700,7 @@ def make_choose_course( labels: List,
             p.display.flip()
     
     
-        if id_course is not None:
+        if state.id_course is not None:
             main_background()
             BS.drawEndGameText(app.screen, None, "Course selected")
             BS.update()
@@ -1919,10 +1714,9 @@ def addChooseCourse(menu):
     The button will open a file selector dialog and update the positionParameters["base"] variable with the selected course.
     '''
     labels = []    
-    global id_course
     choose_course = make_choose_course(labels)
     chooseCourse = menu.add.button('Choose BrainMaster course', choose_course)
-    default_value = id_course
+    default_value = state.id_course
     label = menu.add.button(default_value, choose_course, font_size=20, background_color=None, 
                             selection_effect=pygame_menu.widgets.NoneSelection())
     labels.append(label)
@@ -2179,9 +1973,6 @@ def save_menu(GS:GameState):
 
 
 def mainMenu(width,height, test: bool = False) -> None:
-    global num_moves_to_show
-    global current_base_label, current_base_label2,current_filename_label, current_base_label3, current_filename_label3, current_filename_label4
-    global current_ChessComFile_label
 
     app.clock = p.time.Clock()
 
@@ -2206,7 +1997,7 @@ def mainMenu(width,height, test: bool = False) -> None:
                                        onchange=make_updater("elomax",bool,playParameters))
     # playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,  
     #                                   onchange=make_updater("num_moves_to_show",int), 
-    #             default=num_moves_to_show)  # Aggiungi questa riga
+    #             default=state.num_moves_to_show)  # Aggiungi questa riga
 
     playComputerMenu.add.button('Play', playGame)
     
@@ -2222,10 +2013,10 @@ def mainMenu(width,height, test: bool = False) -> None:
                                 onchange=setColorIndex)
     addChooseBaseFile(playDataSetMenu)
     
-    playDataSetMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
+    playDataSetMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
     playDataSetMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int), 
                                      value_format=lambda x: str(round(x, 0)),
-                default=num_moves_to_show)  # Aggiungi questa riga
+                default=state.num_moves_to_show)  # Aggiungi questa riga
 
     playDataSetMenu.add.button('Play', replayBase)
     
@@ -2241,9 +2032,9 @@ def mainMenu(width,height, test: bool = False) -> None:
                       default=default_color_index if default_color_index<2 else 0, onchange=setColorIndex)
     ExerciseModelsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
                                        onchange=make_updater("num_moves_to_show",int), 
-                default=num_moves_to_show)  # Aggiungi questa riga
+                default=state.num_moves_to_show)  # Aggiungi questa riga
     addChoosePGNFile(ExerciseModelsMenu)
-    ExerciseModelsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
+    ExerciseModelsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
     ExerciseModelsMenu.add.button('Play', playModels)
 
     CreateCourseMenu = None
@@ -2267,8 +2058,8 @@ def mainMenu(width,height, test: bool = False) -> None:
         )        
         addChooseCourse(BrainMasterMenu)
         BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
-                    default=num_moves_to_show, increment=1)  # Aggiungi questa riga
-        BrainMasterMenu.add.selector('Skip initial moves', [ ("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
+                    default=state.num_moves_to_show, increment=1)  # Aggiungi questa riga
+        BrainMasterMenu.add.selector('Skip initial moves', [ ("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
         BrainMasterMenu.add.button('Exercise', playBrainMasterBase)
 
 
