@@ -22,7 +22,8 @@
  'EvalFileSmall': Option(name='EvalFileSmall', type='string', default='nn-37f18f62d772.nnue', min=None, max=None, var=[])}
 '''
 
-from __future__ import annotations 
+from __future__ import annotations
+from calendar import c 
 import book
 from re import I
 from typing import Optional,List
@@ -250,6 +251,128 @@ def bestMove(board:chess.Board, time=0.1, elo= None)->chess.Move:
     # assert(res.move is not None)
     return res.move
 
+
+def extract_lines(board, depth=None, multipv=1, time=None, root_moves=None, mate=None):
+    global engine
+
+    if mate is not None:
+        limit = chess.engine.Limit(mate=mate)
+    elif time is not None:
+        limit = chess.engine.Limit(time=time)
+    elif depth is not None:
+        limit = chess.engine.Limit(depth=depth)
+    else:
+        raise ValueError("Devi specificare almeno uno tra depth, time o mate")
+
+    infos = engine.analyse(
+        board,
+        limit,
+        multipv=multipv,
+        root_moves=root_moves
+    )
+
+    lines = []
+    for info in infos:
+        pv = info.get("pv", [])
+        score = info.get("score")
+
+        lines.append({
+            "moves": pv,
+            "score": score
+        })
+
+    return lines
+
+
+
+def pv_to_san(board, pv):
+    b = board.copy()
+    san_moves = []
+
+    for move in pv:
+        san_moves.append(b.san(move))
+        b.push(move)
+
+    return san_moves
+
+
+def solve_position(board, depth, multipv, time=None, root_moves=None, mate=None):
+    lines = extract_lines(board, depth=depth, multipv=multipv, time=time, root_moves=root_moves, mate=mate)
+
+    def score_key(l):
+        s = l["score"].white()
+        return s.score(mate_score=10000)
+
+    # ordina per punteggio decrescente
+    lines.sort(key=score_key, reverse=True)
+
+    result = []
+
+    for l in lines:
+        san = pv_to_san(board, l["moves"]) #[:8]
+        result.append(" ".join(san))
+
+    return result
+
+
+def analyse_chessbase_style(board, time_limit=30, max_depth=40, multipv=10):
+    """
+    Emula comportamento tipo ChessBase:
+    - iterative deepening
+    - accumulo PV globali
+    - ranking stabile finale
+    """
+    global engine
+    import time
+    start = time.time()
+
+
+
+    pv_map = {}  # pv(tuple) -> best score
+
+    depth = 1
+
+    while depth <= max_depth:
+        elapsed = time.time() - start
+        if elapsed >= time_limit:
+            break
+
+        infos = engine.analyse(
+            board,
+            chess.engine.Limit(depth=depth),
+            multipv=multipv
+        )
+
+        for info in infos:
+            pv = tuple(info.get("pv", []))
+            if not pv:
+                continue
+
+            score = info["score"].white().score(mate_score=10000)
+
+            # conserva solo il meglio per quella PV
+            if pv not in pv_map or score > pv_map[pv]:
+                pv_map[pv] = score
+
+        depth += 1
+
+    # ranking finale globale
+    sorted_lines = sorted(
+        pv_map.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+
+    result = []
+
+    for pv, score in sorted_lines:
+        san = pv_to_san(board, list(pv))
+        result.append({
+            "score": score,
+            "line": " ".join(san)
+        })
+
+    return result
 
 if __name__ == "__main__":
     engine_open()

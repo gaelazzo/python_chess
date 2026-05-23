@@ -1,0 +1,79 @@
+\mysection{sgombero.tex}
+
+\begin{enumerate}
+
+\item
+\newchessgame[setfen=1rbr2k1/p4pp1/5b1p/2p1p3/3qPP2/1PNB2PP/PKP2Q2/5R1R b - - 0 0]
+\variation{ 1... c4 2. Qxd4 exd4 3. Nd5 cxd3 4. cxd3 Ba6 5. Rf3 }
+
+\item
+\newchessgame[setfen=6k1/5rp1/4Nb1p/2p5/4Q3/1r5P/q5P1/3R1R1K w - - 0 0]
+\variation{ 1. Rxf6 Rd3 2. Qxd3 Rxf6 3. Qd8+ Kh7 4. Nf8+ Rxf8 }
+
+\item
+\newchessgame[setfen=r4rk1/1b4bp/p1npq1P1/4p3/8/1N2BP2/1PPQ2P1/4KB1R w K - 0 0]
+\variation{ 1. Rxh7 Rf6 2. Bd3 Rxg6 3. Bxg6 Qxg6 4. Rh4 Kf8 }
+
+\item
+\newchessgame[setfen=6k1/1qrRb1pp/1p2Pn2/5p2/1P6/PQ2P1P1/1B3P1P/6K1 w - - 0 0]
+\variation{ 1. Rd8+ Bxd8 2. e7+ Rc4 3. Qxc4+ Qd5 4. Qxd5+ Kh8 }
+
+\item
+\newchessgame[setfen=5k2/pp3pnR/q2pb1p1/6P1/5P2/1NQ5/rPP3P1/1KR5 b - - 0 0]
+\variation{ 1... Ra1+ 2. Nxa1 Qa2# }
+
+\item
+\newchessgame[setfen=rnb2rk1/ppq1b1p1/2p4p/4p1N1/2P1B3/6P1/PPQ2P1P/R1B2RK1 w - - 0 0]
+\variation{ 1. Bd5+ Rf7 2. Qh7+ Kf8 3. Qh8# }
+
+\item
+\newchessgame[setfen=4r1k1/p4pqp/1b3R2/2pN4/2P2Q2/P3P2P/6PK/8 w - - 0 1]
+\variation{ 1. Rxb6 axb6 2. Nf6+ Qxf6 3. Qxf6 Re6 4. Qd8+ Kg7 }
+
+\item
+\newchessgame[setfen=r4r1k/pp3p1p/4bNpb/3N4/1Q6/8/PP3PPP/6K1 w - - 0 0]
+\variation{ 1. Qh4 Rg8 2. Qxh6 Rg7 3. Nc3 g5 4. h3 Bf5 }
+
+\item
+\newchessgame[setfen=k1q1bbrr/1p3pp1/p7/5n1n/PP2N2p/1NP5/1BB1Q1PP/2R2R1K b - - 0 0]
+\variation{ 1... Nhg3+ 2. Nxg3 Nxg3+ 3. hxg3 hxg3+ 4. Kg1 Rh2 5. Qd3 }
+
+\item
+\newchessgame[setfen=5r2/2q1p1k1/p3Q1p1/1pp2nN1/3b4/1P6/P5PP/2R2R1K w - - 0 0]
+\variation{ 1. Qxf5 gxf5 2. Ne6+ Kf6 3. Nxc7 Rc8 4. Nd5+ Ke6 }
+
+\item
+\newchessgame[setfen=r3k2r/pp3p1p/2nq4/P3nbp1/1bPpp3/1P4PP/3BPPN1/RN1QKB1R b KQkq - 0 0]
+\variation{ 1... e3 2. Bxb4 Qxb4+ 3. Nd2 Qc3 4. Rc1 exd2+ 5. Qxd2 }
+
+\item
+\newchessgame[setfen=6k1/p4p1p/3p1p2/2p1r3/2PnrqN1/P6P/1P1Q1PP1/3R1RK1 b - - 0 0]
+\variation{ 1... Ne2+ 2. Kh1 Qxg4 3. Qxd6 Qg6 4. b4 Kg7 5. Qd3 }
+
+\item
+\newchessgame[setfen=r5kr/ppp2n1p/7B/5q1N/1bp5/2Pp4/PP2RPPP/R2Q2K1 w - - 0 0]
+\variation{ 1. Re8+ Rxe8 2. Qg4+ Ng5 3. Qxf5 Re6 4. Qxg5+ Kf7 }
+
+\item
+\newchessgame[setfen=q3rn1k/2QR4/pp2pp2/8/P1P5/1P4N1/6n1/6K1 w - - 0 1]
+\variation{ 1. Nf5 Re7 2. Rxe7 exf5 3. Qg3 Ne6 4. Qg6 Qg8 }
+
+\item
+\newchessgame[setfen= N3r1k1/pp3ppp/8/2P2b2/1b1P1B2/1qnB1N2/1P4PP/nQK1R2R b - - 0 1]
+\variation{ 1... Qd1+ 2. Rxd1 Ne2+ 3. Bxe2 Nb3# }
+
+\item
+\newchessgame[setfen=1r3rk1/1bn2qnp/3p1B1Q/p2P1pP1/1pp5/5N1P/PPB2P2/2KR3R w - - 0 0]
+\variation{ 1. g6 Qxg6 2. Bxg7 Qxh6+ 3. Bxh6 Rf7 4. Rhg1+ Kh8 }
+
+\item
+\newchessgame[setfen=r4rk1/p1pb1qp1/3n1p1R/2pPpN2/2P5/P1PB4/4Q1PP/5RK1 w - - 0 0]
+\variation{ 1. Ne7+ Qxe7 2. Rh8+ Kxh8 3. Qh5+ Kg8 4. Qh7+ Kf7 }
+
+\item
+\newchessgame[setfen= r3k2r/pp1b1pbn/1qp1n1pp/8/P1Q1PB2/2N3NP/BPP3P1/3R1R1K w kq - 0 0]
+\variation{ 1. Rxd7 O-O 2. Rxf7 Rae8 3. Rxf8+ Nxf8 4. Bd6 Qe3 }
+
+\end{enumerate}
+
+

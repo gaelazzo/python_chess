@@ -40,6 +40,9 @@ import uuid
 import pyttsx3
 import book
 
+from app_context import app
+import game_loop_common as glc
+
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
     if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
@@ -50,25 +53,15 @@ def get_base_path():
 BASE_PATH = get_base_path()
 DATA_FOLDER = os.path.join(BASE_PATH, "data")
 
-FPS = 60
-
-manager = None
-screen  = None
-W = None
-H = None
-
-timeFactor = 500.0
-
 def delay(unit: float) -> None:
-    p.time.delay(int(unit * timeFactor))
+    app.delay(unit)
 
 def main_background() -> None:
     """
     Function used by menus, draw on background while menu is active.
     :return: None
     """
-    global screen
-    screen.fill(p.Color("white"))
+    app.main_background()
 
 small_font_theme = pygame_menu.themes.THEME_BLUE.copy()
 small_font_theme.title_font_size = 24
@@ -182,6 +175,7 @@ def setPlayColor(color,index):
     playParameters["whiteCPU"] = myColor == "Black"
     playParameters["blackCPU"] = myColor == "White"
 
+
 def make_file_selector(
     key: str,
     fileNameTranformer: Optional[Callable[[str], str]] ,
@@ -194,13 +188,12 @@ def make_file_selector(
     create: bool = False,
 ):
     def choose_file():
-        global manager, screen, W, H, clock
-        background = p.Surface((W, H))
+        background = p.Surface((app.W, app.H))
         background.fill(p.Color('#000000'))
 
         file_selection = UIFileDialog(
-            rect=p.Rect(0, 0, W, H),
-            manager=manager,
+            rect=p.Rect(0, 0, app.W, app.H),
+            manager=app.manager,
             allow_existing_files_only= not create,
             window_title=window_title,
             initial_file_path=initial_folder,
@@ -209,7 +202,7 @@ def make_file_selector(
         )
         
         while True:
-            time_delta = clock.tick(60) / 1000.0
+            time_delta = app.clock.tick(60) / 1000.0
 
             for event in p.event.get():
                 if event.type == p.QUIT:
@@ -231,8 +224,8 @@ def make_file_selector(
                             pygame_gui.windows.UIMessageWindow(
                                 html_message=f"The selected file is not valid:<br><b>{file_name}</b><br>it must start with {prefix}.",
                                 window_title="Invalid file selection",
-                                manager=manager,
-                                rect=p.Rect(W // 4, H // 4, W // 2, H // 2) # Posizione e dimensione del popup
+                                manager=app.manager,
+                                rect=p.Rect(app.W // 4, app.H // 4, app.W // 2, app.H // 2) # Posizione e dimensione del popup
                             )     
                             continue
 
@@ -252,19 +245,18 @@ def make_file_selector(
                     elif event.ui_element == file_selection.cancel_button:
                         return
 
-                manager.process_events(event)
+                app.manager.process_events(event)
 
-            manager.update(time_delta)
-            screen.blit(background, (0, 0))
-            manager.draw_ui(screen)
+            app.manager.update(time_delta)
+            app.screen.blit(background, (0, 0))
+            app.manager.draw_ui(app.screen)
             p.display.update()
 
     return choose_file
 
 
 def show_message(gs:GameState, text:str):
-    global screen
-    BS.drawEndGameText(screen, gs, text)
+    BS.drawEndGameText(app.screen, gs, text)
     
 
 
@@ -282,25 +274,21 @@ def humanPlay():
     playParameters["blackCPU"] = False
     playGame()
 
-
-
-
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (200, 200, 200)
 # orange color components
 ORANGE = (100,100,0)
-myfont:p.Font
 
 def setPositionEco(current_text, **kwargs):
-    global openingParameters
+    global positionParameters
     if current_text == "":
         positionParameters["eco"] = None
     else:
         positionParameters["eco"] = current_text.upper()
 
 def setPlayer(current_text, **kwargs):
-    global openingParameters
+    global positionParameters
     if current_text == "":
         positionParameters["player"] = None
     else:
@@ -308,12 +296,9 @@ def setPlayer(current_text, **kwargs):
 
 
 def playGame():
-    global main_menu
-    main_menu.disable()
-    main_menu.full_reset()
+    app.main_menu.disable()
+    app.main_menu.full_reset()
     playAGame()
-
-
 
 def chooseNextMove(gs:GameState)->chess.Move:
     """
@@ -328,7 +313,7 @@ def chooseNextMove(gs:GameState)->chess.Move:
         return next_moves[0]
 
     menu_running = True
-    surface = screen
+    surface = app.screen
     selected_move = None
 
     def make_move_wrapper(move_index: int):
@@ -338,7 +323,7 @@ def chooseNextMove(gs:GameState)->chess.Move:
         menu_running = False
 
     # Crea menu
-    move_menu = pygame_menu.Menu("Choose Move", W, H, theme=pygame_menu.themes.THEME_DARK)
+    move_menu = pygame_menu.Menu("Choose Move", app.W, app.H, theme=pygame_menu.themes.THEME_DARK)
 
     for i, move in enumerate(next_moves):
         san = move.uci() 
@@ -360,8 +345,8 @@ def chooseNextMove(gs:GameState)->chess.Move:
         p.display.flip()
     return selected_move
 
+# Play a game against the engine or against another player, depending on the settings in playParameters
 def playAGame():
-    global screen
     gs:Optional[GameState] = GameState()
     positionParameters["gameid"] = None
 
@@ -392,9 +377,9 @@ def playAGame():
     analyzeMode = False
 
     if whiteCPU and not blackCPU:
-        BS.setWhiteUp(screen, True)
+        BS.setWhiteUp(app.screen, True)
     
-    BS.clearCPU(screen)
+    BS.clearCPU(app.screen)
 
     help_text = [
             "Istruzioni:",
@@ -414,16 +399,8 @@ def playAGame():
         ]
     show_help = False
     def do_show_help():
-        p.draw.rect(screen, ORANGE, (50, 50, 600, 400))
-        p.draw.rect(screen, BLACK, (50, 50, 600, 400), 2)
+        glc.draw_help_overlay(help_text, height=400)
 
-        for i, line in enumerate(help_text):
-            text = myfont.render(line, True, BLACK)                        
-            screen.blit(text, (60, 60 + i * 30))
-        p.display.flip()
-
-    def engine_callback(text: str):
-        BS.drawCpu(screen, text)
 
     while running:
         update = False
@@ -440,6 +417,7 @@ def playAGame():
 
         else:
             for e in p.event.get():                
+                update = True
                 if e.type == p.QUIT:
                     running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
@@ -461,7 +439,7 @@ def playAGame():
                         playerClicks.append(sqSelected)
 
                     if len(playerClicks) == 2:
-                        # do the move if two squares has been selected and the move is valid
+                        # do the move if two squares have been selected and the move is valid
                         move = Move(playerClicks[0], playerClicks[1], gs)
 
                         if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
@@ -472,7 +450,7 @@ def playAGame():
                                                ]
 
                             if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(screen, move.pieceMoved[0])
+                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
                                 move = move.promoteToPiece(piece)
 
                         validMove:Optional[Move] = move if move in validMoves else None
@@ -512,12 +490,10 @@ def playAGame():
                             animate = False
 
                     if e.key == p.K_b:
-                        BS.show_book = not BS.show_book
-                        BS.drawBook(screen,gs)
+                        glc.toggle_book(gs)
 
                     if e.key == p.K_d:
-                        BS.show_pgn = not BS.show_pgn
-                        BS.drawPgn(screen,gs)
+                        glc.toggle_pgn(gs)
 
                     if e.key == p.K_q:
                         #quit
@@ -530,35 +506,28 @@ def playAGame():
                     
                   
                     if e.key == p.K_c:  # copy to clipboard
-                        pyperclip.copy(gs.board().fen())
-                        text = "Position copied to clipboard"
-                        show_message(gs, text)
-                        delay(2)
+                        glc.copy_to_clipboard(gs.board().fen(), "Position copied to clipboard", gs)
                         
                    
                     if e.key== p.K_s: # save the game
                         save_menu(gs)
                     
                     if e.key == p.K_e:  # Engine on /off
-                        BS.show_cpu =True
-                        UCIEngines.engine_on_off(gs.board(), engine_callback)
+                        glc.toggle_engine(gs)
 
                     if e.key == p.K_l: # load a game
                         load_menu(gs)
                         moveMade = False # a move was made
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves
-                        BS.setWhiteUp(screen, gs.node.board().turn== chess.BLACK)
+                        BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
                         continue
 
                     if e.key == p.K_g:  # copy to clipboard
-                        pyperclip.copy(gs.to_PgnString())
-                        text = "Game copied to clipboard"
-                        show_message(gs, text)
-                        delay(2)
+                        glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_f:
-                        BS.flipBoard(screen)
+                        BS.flipBoard(app.screen)
                         moveMade = True
                         animate = False
 
@@ -582,27 +551,27 @@ def playAGame():
         if moveMade:
             moveMade = False
             UCIEngines.update_board(
-                gs.board(), engine_callback)
+                gs.board(), glc.engine_callback)
             if animate:
-                BS.animateMove(gs.moveLog[-1], screen, gs)
+                BS.animateMove(gs.moveLog[-1], app.screen, gs)
                 animate = False
             if not whiteCPU and not blackCPU and not analyze:
-                BS.setWhiteUp(screen, gs.node.board().turn== chess.BLACK)
+                BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
 
         gameOver = gs.checkMate() or gs.staleMate()
 
         if gameOver:
-            BS.drawGameState(screen, gs, [], [], ())
+            BS.drawGameState(app.screen, gs, [], [], ())
             if gs.checkMate():
                 text = "Black wins by CheckMate" if gs.colorToMove() == "w" else "White wins by CheckMate"
-                # textsurface = myfont.render('Checkmate', False, p.Color("red"))
+                # textsurface = app.myfont.render('Checkmate', False, p.Color("red"))
             else:
                 text = "Stalemate"
             show_message(gs, text)            
             delay(2 )
             running = False
-            # textsurface = myfont.render('Stalemate', False, p.Color("red"))
-            # screen.blit(textsurface, (200, 100))
+            # textsurface = app.myfont.render('Stalemate', False, p.Color("red"))
+            # app.screen.blit(textsurface, (200, 100))
 
         else:
             # Highlight squares when needed
@@ -618,7 +587,7 @@ def playAGame():
                 lastMove = gs.moveLog[-1]
                 toHighlightSquares = [(lastMove.stopRow, lastMove.stopCol, setAlfa(p.Color("yellow"),150)),
                                  (lastMove.startRow,lastMove.startCol,setAlfa(p.Color("yellow"),150))]
-            BS.drawGameState(screen, gs, toHighlightCirclesColor= toHighlightCircle,
+            BS.drawGameState(app.screen, gs, toHighlightCirclesColor= toHighlightCircle,
                              toHighlightSquareColor=toHighlightSquares,
                              sqSelected=sqSelected)
 
@@ -626,22 +595,29 @@ def playAGame():
     
     p.event.clear()
     UCIEngines.stop_analysis()
-    main_menu.enable()
-
+    app.main_menu.enable()
 
 def setAlfa(color, alfa):
     return [color[0],color[1],color[2], alfa]
 
 
 def replayBase():
-    global main_menu
-    main_menu.disable()
-    main_menu.full_reset()
+    app.main_menu.disable()
+    app.main_menu.full_reset()
     replayBadPositions(learningBases[positionParameters["base"]])
     return
 
+# Study a set of positions of a course, suggested by the BrainMaster module, until they are all solved
 def playBrainMasterBase():
-    playBrainMaster(positionParameters["base"])
+    global id_course
+    if id_course is None :
+        text = "Please select a Course first"
+        main_background()
+        BS.drawEndGameText(app.screen, None, text)
+        BS.update()
+        delay(2)
+        return
+    playBrainMaster(id_course)
     return
 
 
@@ -650,21 +626,55 @@ class MistakenPosition:
     pass
     
 
+@dataclass
+class LearnPositionSimplified:
+    fen: str
+    ok: str
+    moves: str
+    eco: str
+    gamedate: date
+    id_question: str
+    id_test:str
+    id_lesson:str
+    zobrist: int
+    move:str
+    @staticmethod
+    def fromQuestionData(pos):
+        movelist = pos["question"]
+        moves = movelist.split() if movelist else []
+        FEN = "X "
+        if len(moves) % 2 == 0:
+            FEN += "w "
+        else:
+            FEN += "b "
 
-def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])->Dict[str, AnswerData] :
+        return LearnPositionSimplified(
+            fen=FEN,
+            ok=pos["rightAnswer"],
+            moves=pos["question"],
+            move=pos["rightAnswer"],
+            eco='none',
+            id_lesson=pos["id_lesson"],
+            id_test=pos["id_test"],
+            gamedate=date.today(),
+            id_question=pos["id_question"],
+            zobrist=pos["id_question"]
+        )
+
+# play a set of positions suggested by the BrainMaster module, until they are all solved
+def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     '''
     Ask a set of positions until each one is solved. A position is solved when it is correctly answered 3 times
      in a row after a mistake, or correctly answered the first time.
     '''
-    global  screen, play_position
-    positions  = learningBase.positions
-    ll:List[LearnPosition]= []
+    global play_position
+    ll:List[LearnPositionSimplified]= []
     result: Dict[str, AnswerData] = {}
     
     
     # ll is a copy (not a deep copy) of data in the LearningBase
     for q in questions:
-        ll.append(positions[int(q.id_question)])
+        ll.append(LearnPositionSimplified.fromQuestionData(q))
 
     running = True
     sqSelected = ()
@@ -674,11 +684,9 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
     gameOver = False
     errorsMade = {}  # tells how many mistakes for every position minus good answers
     
-    
-    
     if len(ll)==0:
         text = "No positions found"
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         delay(2 )
 
     help_text = [
@@ -696,10 +704,10 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
     start_stamp = None
     BS.show_cpu = False
-    BS.clearCPU(screen)
+    BS.clearCPU(app.screen)
 
-    def engine_callback(text: str):
-        BS.drawCpu(screen, text)
+    def do_show_help():
+        glc.draw_help_overlay(help_text, height=300)
 
     while (len(ll) > 0) and running:
         
@@ -719,20 +727,18 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
             errorsMade[curr_zobrist] = 0
 
         fen = pos.fen.split()
-        header = ["White:"+pos.white, "Black:"+pos.black, "ECO:"+pos.eco, "Date:"+pos.gamedate.strftime('%d-%m-%Y')]
+        header = ["id_lesson:"+pos.id_lesson, "id_test:"+pos.id_test]
         
         if pos.ok != pos.move:
             header.append("mistake was " + pos.move)
-
-        
 
         moves = pos.moves.split()
         gs = GameState()
         gs.setHeader(header)
         #gs.setFen(pos["fen"])
-        #BS.setWhiteUp(screen, not gs.whiteToMove())
-        BS.setWhiteUp(screen, fen[1] == "b")
-        BS.drawGameState(screen, gs, [], [], ())
+        #BS.setWhiteUp(app.screen, not gs.whiteToMove())
+        BS.setWhiteUp(app.screen, fen[1] == "b")
+        BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()
         solution = pos.ok
 
@@ -793,12 +799,13 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                     engineMove = engineMove-1
 
             for e in p.event.get():                
+                update = True
                 if e.type == p.QUIT:
                     running = False            
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
                         show_help = True     
-                        play_position = 1
+                        #play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
@@ -829,7 +836,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                                                ]
 
                             if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(screen, move.pieceMoved[0])
+                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
                                 move = move.promoteToPiece(piece)
 
                         validMove:Optional[Move] = move if move in validMoves else None
@@ -859,32 +866,23 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.node.board().fen())
-                        text = "Position copied to clipboard"
-                        show_message(gs, text)
-                        delay(2)
+                        glc.copy_to_clipboard(gs.node.board().fen(), "Position copied to clipboard", gs)
 
                     if e.key == p.K_g:
                         # copy position to clibboard
-                        pyperclip.copy(pos.to_PgnString())
-                        text = "Game copied to clipboard"
-                        show_message(gs, text)
-                        delay(2)
+                        glc.copy_to_clipboard(pos.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_e:  # Engine on /off
-                        BS.show_cpu =True
-                        UCIEngines.engine_on_off(gs.board(), engine_callback)
+                        glc.toggle_engine(gs)
 
                     if e.key == p.K_KP_PLUS and not humanCanPlay:
                         engineMove += 2
                     
                     if e.key == p.K_b:
-                        BS.show_book = not BS.show_book
-                        BS.drawBook(screen,gs)
+                        glc.toggle_book(gs)
 
                     if e.key == p.K_d:
-                        BS.show_pgn = not BS.show_pgn
-                        BS.drawPgn(screen,gs)
+                        glc.toggle_pgn(gs)
 
                     if e.key == p.K_q:
                         running = False
@@ -899,15 +897,9 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                             delay(2 )
 
             
-            if show_help:   
-                    p.draw.rect(screen, ORANGE, (50, 50, 600, 300))
-                    p.draw.rect(screen, BLACK, (50, 50, 600, 300), 2)
-
-                    for i, line in enumerate(help_text):
-                        text = myfont.render(line, True, BLACK)                        
-                        screen.blit(text, (60, 60 + i * 30))
-                    p.display.flip()
-                    continue
+            if show_help:
+                do_show_help()
+                continue
 
             if not update:
                 continue
@@ -917,14 +909,15 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                 stop_stamp = datetime.now()
 
                 if animate:
-                    BS.animateMove(lastMove, screen, gs)
+                    BS.animateMove(lastMove, app.screen, gs)
 
                     p.time.delay(100)
                     animate = False
                 
                 if updateStats:
                     updateStats=False
-                    if AN.updateInfoStats(gs.node.board(), learningBase):
+
+                    if lastMove.move.uci()==pos.ok:
                         msg = "Right"                                                
                         if isNewPosition: # 
                             delay(1 )
@@ -937,7 +930,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                             
                             errorsMade[curr_zobrist] -= 1
                             if errorsMade[curr_zobrist] <= 0:
-                                BS.drawGameState(screen, gs, toHighlightCirclesColor=[],
+                                BS.drawGameState(app.screen, gs, toHighlightCirclesColor=[],
                                  toHighlightSquareColor=[],
                                  sqSelected=sqSelected)
                                 msg  =  "Position solved"
@@ -958,9 +951,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                         else:
                             curr_data.notesTime += (stop_stamp-last_stamp).total_seconds()
                         gs.undoMove()
-                        zobrist: int = gs.get_hash()
-                        position = learningBase.positions[zobrist]
-                        show_message(gs, "Right move is "+position.ok)
+                        show_message(gs, "Right move is "+pos.ok)
                         delay(3 )
                         validMoves = gs.stdValidMoves()
                         isNewPosition = False
@@ -982,7 +973,7 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
                     toHighlightSquares = [(lastMove.stopRow, lastMove.stopCol, setAlfa(p.Color("yellow"), 150)),
                                           (lastMove.startRow, lastMove.startCol, setAlfa(p.Color("yellow"), 150))]
 
-                BS.drawGameState(screen, gs, toHighlightCirclesColor=toHighlightCircle,
+                BS.drawGameState(app.screen, gs, toHighlightCirclesColor=toHighlightCircle,
                                  toHighlightSquareColor=toHighlightSquares,
                                  sqSelected=sqSelected)
 
@@ -990,42 +981,40 @@ def playBrainMasterSet(learningBase:LearningBase, questions: List[QuestionData])
     
     p.event.clear()
     UCIEngines.stop_analysis()
-    main_menu.enable()
+    app.main_menu.enable()
     return result
 
-
-def playBrainMaster(learningBaseName:str):
-    learningBase = learningBases[learningBaseName]
-    global screen
+# Study a course from the BrainMaster module, eventually unlocking new lessons and playing quizzes
+def playBrainMaster(learningBaseName:str):    
 
     #eventually unlocks new lessons
     main_background() 
-    BS.drawEndGameText(screen,None, "Checking lessons to unlock",size=20)
+    BS.drawEndGameText(app.screen,None, "Checking lessons to unlock",size=20)
     BS.update()
 
     res = unlock_new_lesson(learningBaseName)
     if res:
         main_background() 
-        BS.drawEndGameText(screen, None,f"New lesson unlocked:{res}",size=20)
+        BS.drawEndGameText(app.screen, None,f"New lesson unlocked:{res}",size=20)
         BS.update()
         delay(2 )
 
     main_background() 
-    BS.drawEndGameText(screen, None,"Acquiring test",size=20)
+    BS.drawEndGameText(app.screen, None,"Acquiring test",size=20)
     BS.update()
     suggestion = ask_for_quiz(learningBaseName, config.id_student)
     
     main_background() 
     if suggestion is None:
         main_background() 
-        BS.drawEndGameText(screen, None,"Errore accedendo al servizio Brainmaster",size=20)
+        BS.drawEndGameText(app.screen, None,"Errore accedendo al servizio Brainmaster",size=20)
         BS.update()
         delay(2 )
         return
     action = suggestion["action"] if "action" in suggestion else None
     if action is None:
         main_background() 
-        BS.drawEndGameText(screen, None,"No suggestion available",size=20)
+        BS.drawEndGameText(app.screen, None,"No suggestion available",size=20)
         BS.update()
         delay(2 )
         return
@@ -1036,25 +1025,26 @@ def playBrainMaster(learningBaseName:str):
         
          
 
-    questions:List[QuestionData] = [QuestionData.from_dict(q) for q in suggestion["questions"]]
-    results = playBrainMasterSet(learningBase, questions)
+    questions:List[dict] = [q for q in suggestion["questions"]]
+    results = playBrainMasterSet(questions)
     count = sum(1 for item in results.values() if item.result == 1)
     total = len(results)
     msg = f"Number of correct answers: {count} over {total}"
     main_background() 
-    BS.drawEndGameText(screen, None, msg,size=20)
+    BS.drawEndGameText(app.screen, None, msg,size=20)
     BS.update()
 
     give_answers(learningBaseName, action, list(results.values()))
 
-   
+
+# study a set of positions taken from a LearningBase   
 def replayBadPositions(learningBase:LearningBase):
     '''
     Teaches maxErrorsToConsider = 10 positions at a time taken from a LearningBase. A Position is assumed to be learnt when
       it is solved correctly 3 times in a row after a mistake, or correctly answered the first time.
     '''
 
-    global  screen
+    global play_position
     
 
     # ll is a copy (not a deep copy) of data in the csv, not the same structure
@@ -1072,7 +1062,7 @@ def replayBadPositions(learningBase:LearningBase):
     if len(ll)==0:
         text = "No positions found"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
 
@@ -1088,19 +1078,11 @@ def replayBadPositions(learningBase:LearningBase):
             "- D show/hide moves"
         ]
     show_help = False
-    BS.clearCPU(screen)
+    BS.clearCPU(app.screen)
 
     def do_show_help():
-        p.draw.rect(screen, ORANGE, (50, 50, 600, 300))
-        p.draw.rect(screen, BLACK, (50, 50, 600, 300), 2)
+        glc.draw_help_overlay(help_text, height=300)
 
-        for i, line in enumerate(help_text):
-            text = myfont.render(line, True, BLACK)                        
-            screen.blit(text, (60, 60 + i * 30))
-        p.display.flip()
-
-    def engine_callback(text: str):
-        BS.drawCpu(screen, text)
 
     while (len(ll) > 0 or len(errorsMade) > 0) and running:
         #extract a position to play, either from the errorsMade or from the learningBase.
@@ -1134,9 +1116,9 @@ def replayBadPositions(learningBase:LearningBase):
         gs = GameState()
         gs.setHeader(header)
         #gs.setFen(pos["fen"])
-        #BS.setWhiteUp(screen, not gs.whiteToMove())
-        BS.setWhiteUp(screen, fen[1] == "b")
-        BS.drawGameState(screen, gs, [], [], ())
+        #BS.setWhiteUp(app.screen, not gs.whiteToMove())
+        BS.setWhiteUp(app.screen, fen[1] == "b")
+        BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()
         solution = pos.ok
         BS.show_cpu = False
@@ -1203,7 +1185,7 @@ def replayBadPositions(learningBase:LearningBase):
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
                         show_help = True            
-                        play_position = 1
+                        # play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
@@ -1232,7 +1214,7 @@ def replayBadPositions(learningBase:LearningBase):
                                                ]
 
                             if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(screen, move.pieceMoved[0])
+                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
                                 move = move.promoteToPiece(piece)
 
                         validMove:Optional[Move] = move if move in validMoves else None
@@ -1256,17 +1238,11 @@ def replayBadPositions(learningBase:LearningBase):
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.node.board().fen())
-                        text = "Position copied to clipboard"
-                        show_message(gs, text)
-                        delay(2 )
+                        glc.copy_to_clipboard(gs.node.board().fen(), "Position copied to clipboard", gs)
 
                     if e.key == p.K_g:
                         # copy position to clibboard
-                        pyperclip.copy(pos.to_PgnString())
-                        text = "Game copied to clipboard"
-                        show_message(gs, text)
-                        delay(2)
+                        glc.copy_to_clipboard(pos.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
                         BS.setFactor( BS.getFactor()*1.2)
@@ -1275,19 +1251,16 @@ def replayBadPositions(learningBase:LearningBase):
                         BS.setFactor( BS.getFactor() / 1.2)
 
                     if e.key == p.K_e:  # Engine on /off
-                        BS.show_cpu = True
-                        UCIEngines.engine_on_off(gs.board(), engine_callback)
+                        glc.toggle_engine(gs)
 
                     if e.key == p.K_q:
                         running = False
 
                     if e.key == p.K_b:
-                        BS.show_book = not BS.show_book
-                        BS.drawBook(screen,gs)
+                        glc.toggle_book(gs)
 
                     if e.key == p.K_d:
-                        BS.show_pgn = not BS.show_pgn
-                        BS.drawPgn(screen,gs)
+                        glc.toggle_pgn(gs)
 
                     if e.key == p.K_KP_PLUS and not humanCanPlay:
                         engineMove += 2
@@ -1303,15 +1276,9 @@ def replayBadPositions(learningBase:LearningBase):
                 
 
             
-            if show_help:   
-                    p.draw.rect(screen, ORANGE, (50, 50, 600, 300))
-                    p.draw.rect(screen, BLACK, (50, 50, 600, 300), 2)
-
-                    for i, line in enumerate(help_text):
-                        text = myfont.render(line, True, BLACK)                        
-                        screen.blit(text, (60, 60 + i * 30))
-                    p.display.flip()
-                    continue
+            if show_help:
+                do_show_help()
+                continue
 
             if not update:
                 continue
@@ -1320,7 +1287,7 @@ def replayBadPositions(learningBase:LearningBase):
                 moveMade = False
                 lastMove = gs.moveLog[-1]
                 if animate:
-                    BS.animateMove(lastMove, screen, gs)
+                    BS.animateMove(lastMove, app.screen, gs)
 
                     delay(0.1)
                     animate = False
@@ -1373,23 +1340,23 @@ def replayBadPositions(learningBase:LearningBase):
                     lastMove = gs.moveLog[-1]
                     toHighlightSquares = [(lastMove.stopRow, lastMove.stopCol, setAlfa(p.Color("yellow"), 150)),
                                           (lastMove.startRow, lastMove.startCol, setAlfa(p.Color("yellow"), 150))]
-                BS.drawGameState(screen, gs, toHighlightCirclesColor=toHighlightCircle,
+                BS.drawGameState(app.screen, gs, toHighlightCirclesColor=toHighlightCircle,
                                  toHighlightSquareColor=toHighlightSquares,
                                  sqSelected=sqSelected)
 
             BS.update()
 
     p.event.clear()
-    main_menu.enable()
+    app.main_menu.enable()
 
+# play a game from a pgn file, with the player playing the best move and the computer playing one of the lines stored in the game
 def playModels():
-    global main_menu
 
     if positionParameters["filename"] is None:
         return
 
-    main_menu.disable()
-    main_menu.full_reset()
+    app.main_menu.disable()
+    app.main_menu.full_reset()
     playModelFiles( positionParameters["filename"],  positionParameters["color"])
     return
 
@@ -1399,7 +1366,7 @@ def playModelFiles(filename, humanColor):
           available lines stored in the game.
     '''
 
-    global screen, play_position
+    global play_position
 
     gamelist = pgngamelist.PgnGameList(filename)
 
@@ -1411,7 +1378,7 @@ def playModelFiles(filename, humanColor):
     BS.show_pgn = False
     BS.show_book=False
     BS.show_cpu = False
-    BS.clearCPU(screen)
+    BS.clearCPU(app.screen)
     
     help_text = [
             "Istruzioni:",
@@ -1426,25 +1393,17 @@ def playModelFiles(filename, humanColor):
         ]
     show_help = False
     def do_show_help():
-        p.draw.rect(screen, ORANGE, (50, 50, 600, 400))
-        p.draw.rect(screen, BLACK, (50, 50, 600, 400), 2)
-
-        for i, line in enumerate(help_text):
-            text = myfont.render(line, True, BLACK)                        
-            screen.blit(text, (60, 60 + i * 30))
-        p.display.flip()
+        glc.draw_help_overlay(help_text, height=400)
 
     if gamelist.isEmpty():
         text = "No positions found"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
-        main_menu.enable()
+        app.main_menu.enable()
         return
     
-    def engine_callback(text: str):
-        BS.drawCpu(screen, text)
 
     while running:
         gs = GameState()
@@ -1469,8 +1428,8 @@ def playModelFiles(filename, humanColor):
             gs.undoMove()
         
 
-        BS.setWhiteUp(screen, humanColor == "b")
-        BS.drawGameState(screen, gs, [], [], ())
+        BS.setWhiteUp(app.screen, humanColor == "b")
+        BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()
 
         currentMove = 0
@@ -1489,7 +1448,7 @@ def playModelFiles(filename, humanColor):
             if nextMove is None or stopCondition:  # game is over anyway
                 text = "Solved"
                 main_background()
-                BS.drawEndGameText(screen, gs, text)
+                BS.drawEndGameText(app.screen, gs, text)
                 BS.update()
                 delay(2 )
                 gameOver = True
@@ -1513,7 +1472,7 @@ def playModelFiles(filename, humanColor):
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
                         show_help = True         
-                        play_position = 1
+                        # play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False                        
@@ -1539,7 +1498,7 @@ def playModelFiles(filename, humanColor):
                                                ]
 
                             if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(screen, move.pieceMoved[0])
+                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
                                 move = move.promoteToPiece(piece)
 
                         # print(move.getChessNotation())
@@ -1587,17 +1546,11 @@ def playModelFiles(filename, humanColor):
 
                     if e.key == p.K_c:
                         # copy position to clibboard
-                        pyperclip.copy(gs.node.board().fen())                        
-                        text = "Position copied to clipboard"
-                        show_message(gs,text)
-                        delay(2 )
+                        glc.copy_to_clipboard(gs.node.board().fen(), "Position copied to clipboard", gs)
                     
                     if e.key == p.K_g:
                         # copy position to clibboard
-                        pyperclip.copy(gs.to_PgnString())
-                        text = "Game copied to clipboard"
-                        show_message(gs, text)
-                        delay(2)
+                        glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_s:  # evaluate score
                         gs.setEvaluation(analyzer.evaluatePosition(gs.node.board(), 5))
@@ -1609,16 +1562,13 @@ def playModelFiles(filename, humanColor):
                         mustSkip = True
                         break
                     if e.key == p.K_b:
-                        BS.show_book = not BS.show_book
-                        BS.drawBook(screen,gs)
+                        glc.toggle_book(gs)
 
                     if e.key == p.K_d:
-                        BS.show_pgn = not BS.show_pgn
-                        BS.drawPgn(screen,gs)
+                        glc.toggle_pgn(gs)
 
                     if e.key == p.K_e:  # Engine on /off
-                        BS.show_cpu = True
-                        UCIEngines.engine_on_off(gs.board(), engine_callback)
+                        glc.toggle_engine(gs)
 
                     if e.key == p.K_f:
                         whiteUp = not whiteUp
@@ -1636,7 +1586,7 @@ def playModelFiles(filename, humanColor):
                 moveMade = False
                 lastMove = gs.moveLog[-1] if len(gs.moveLog) > 0 else None
                 if animate and lastMove:
-                    BS.animateMove(lastMove, screen, gs)
+                    BS.animateMove(lastMove, app.screen, gs)
                     delay(0.1)
                     animate = False
 
@@ -1652,7 +1602,7 @@ def playModelFiles(filename, humanColor):
                     toHighlightSquares = [(lastMove.stopRow, lastMove.stopCol, setAlfa(p.Color("yellow"), 150)),
                                           (lastMove.startRow, lastMove.startCol, setAlfa(p.Color("yellow"), 150))]
 
-                BS.drawGameState(screen, gs, toHighlightCirclesColor=toHighlightCircle,
+                BS.drawGameState(app.screen, gs, toHighlightCirclesColor=toHighlightCircle,
                                  toHighlightSquareColor=toHighlightSquares,
                                  sqSelected=sqSelected)
 
@@ -1660,10 +1610,9 @@ def playModelFiles(filename, humanColor):
 
     p.event.clear()
     UCIEngines.stop_analysis()
-    main_menu.enable()
+    app.main_menu.enable()
 
 
-main_running = True
 current_base_label = None
 current_filename_label = None
 current_base_label2 = None
@@ -1680,9 +1629,6 @@ def update_base_display():
     current_base_label2.set_title(value)
     current_base_label3.set_title(value)
 
-   
-
-
 def update_filename_display():
     global current_filename_label, current_filename_label3, current_filename_label4, current_ChessComFile_label
     value = positionParameters.get("filename", "Nessuna selezionata")
@@ -1691,13 +1637,11 @@ def update_filename_display():
     current_filename_label4.set_title(value)
     current_ChessComFile_label.set_title(value)
 
-
 def quit_program():
     print ("quit program called\n")
-    global main_running
-    main_running = False 
+    app.main_running = False
 
-
+# create a new empty LearningBase with the name specified in positionParameters["filename"] and the parameters specified in positionParameters, and save it in the learningBases dictionary
 def createLearningBase():    
     global positionParameters
     # Verifica che filename non sia vuoto
@@ -1716,12 +1660,13 @@ def createLearningBase():
     learningBase.save()
 
     main_background()
-    BS.drawEndGameText(screen, None, f"learning base created")
+    BS.drawEndGameText(app.screen, None, f"learning base created")
     BS.update()
     delay(2 )
     return
 
-
+# add the games in the pgn file specified in positionParameters["filename"] to the LearningBase specified in positionParameters["base"],
+#  analyzing them with the parameters specified in positionParameters, and save the updated LearningBase
 def updateLearningBase():
     pgnFileName = positionParameters.get("filename", None)
     learningBaseName = positionParameters.get("base", None)
@@ -1729,7 +1674,7 @@ def updateLearningBase():
     if pgnFileName is None :
         text = "Please select a PGN file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1737,7 +1682,7 @@ def updateLearningBase():
     if learningBaseName is None:
         text = "Please select a base file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1745,7 +1690,7 @@ def updateLearningBase():
     if player is None or player == "":
         text = "Please enter a player name"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1755,15 +1700,16 @@ def updateLearningBase():
     analyzer.analyzePgn(pgnFileName, player, learningBase)
     text = f"Learning base {learningBaseName} updated with {pgnFileName}"
     main_background()
-    BS.drawEndGameText(screen, None, text)
+    BS.drawEndGameText(app.screen, None, text)
     BS.update()
 
+#transforms a pgn file into a set of positions to use with Brainmaster
 def unrollPgnAsLesson():
     pgnFileName = positionParameters.get("filename", None)
     if pgnFileName is None :
         text = "Please select a PGN file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1773,7 +1719,7 @@ def unrollPgnAsLesson():
     analyzer.unrollPgn_as_lesson(pgnFileName+".pgn", learningBase, positionParameters.get("color", "w")=="w")
         
     main_background()
-    BS.drawEndGameText(screen, None, f"Unroll {pgnFileName} as a lesson done")
+    BS.drawEndGameText(app.screen, None, f"Unroll {pgnFileName} as a lesson done")
     BS.update()
     delay(2)
     return
@@ -1783,7 +1729,7 @@ def unrollPGN():
     if pgnFileName is None :
         text = "Please select a PGN file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1793,7 +1739,7 @@ def unrollPGN():
     analyzer.unrollPgn(pgnFileName+".pgn", learningBase, positionParameters.get("color", "w")=="w")
         
     main_background()
-    BS.drawEndGameText(screen, None, "Unroll done")
+    BS.drawEndGameText(app.screen, None, "Unroll done")
     BS.update()
     delay(2)
     return
@@ -1807,15 +1753,15 @@ def readChessComGames():
     if pgnFileName is None :
         text = "Please select a PGN file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
-        delay(2 )
+        delay(2)
         return
     
     chess_com_download.load(positionParameters.get("player", None), pgnFileName, positionParameters.get("color",None))
         
     main_background()
-    BS.drawEndGameText(screen, None, "Games downloaded")
+    BS.drawEndGameText(app.screen, None, "Games downloaded")
     BS.update()
     delay(2)
 
@@ -1825,12 +1771,12 @@ def createCourse():
     Registers a new BrainMaster base, which is a LearningBase with a specific name.
     The name is taken from the positionParameters["base"] variable.
     '''
-    global screen, current_base_label2
+    global current_base_label2
     learningBaseName = positionParameters.get("base", None)
     if learningBaseName is None or learningBaseName == "":
         text = "Please select a base file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2)
         return
@@ -1838,7 +1784,7 @@ def createCourse():
     if not learningBaseName in learningBases:
         text = f"Base {learningBaseName} does not exist"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2)
         return
@@ -1846,8 +1792,140 @@ def createCourse():
     BrainMaster.add_to_BrainMaster(learningBaseName)
     text = f"Base {learningBaseName} added to Brainmaster"
     main_background()
-    BS.drawEndGameText(screen, None, text)
+    BS.drawEndGameText(app.screen, None, text)
     BS.update()
+
+
+id_course = None
+courses = None
+
+
+def make_choose_course( labels: List,
+            callback: Optional[Callable] = None):
+
+
+    def choose_course():
+        '''
+        Loads a game from a selected PGN file and lets the user choose which game to load.    
+        '''
+        global id_course, courses
+
+        courses = BrainMaster.list_courses()
+        total_courses = len(courses)
+        courses_per_page = 10
+        current_page = 0
+        total_pages = (total_courses + courses_per_page - 1) // courses_per_page
+
+        menu_running = True
+        surface = app.screen
+        def load_course_wrapper(N):
+            nonlocal menu_running, labels
+            global id_course
+            id_course = courses[N]
+            if callback:
+                callback(id_course)
+            for label in labels:
+                 if label:
+                       label.set_title(id_course)
+
+            menu_running = False
+
+        def cancel_load():
+            nonlocal menu_running
+            menu_running = False
+
+        def next_page():
+            nonlocal current_page
+            if current_page < total_pages-1:
+                current_page += 1
+                refresh_menu()
+
+        def prev_page():
+            nonlocal current_page
+            if current_page > 0:
+                current_page -= 1
+                refresh_menu()
+
+        def first_page():
+            nonlocal current_page
+            current_page = 0
+            refresh_menu()
+
+        def last_page():
+            nonlocal current_page
+            current_page = total_pages-1
+            refresh_menu()
+
+        _load_menu = pygame_menu.Menu('Select Course', app.W, app.H, theme=small_font_theme)
+        frame_width = 4 * 80 + 3 * 10  # 4 bottoni da 80px + 3 margini da 10px
+        frame_height = 50
+
+        def refresh_menu():
+            _load_menu.clear()
+            start = current_page * courses_per_page
+            end = min(start + courses_per_page, total_courses)
+            for i in range(start, end):
+                course = courses[i]
+                label = f"{i+1} {course}"
+                _load_menu.add.button(label, load_course_wrapper, i)
+
+            if total_courses > courses_per_page:
+                _load_menu.add.vertical_margin(10)
+                nav_buttons = []
+                #if current_page > 0:
+                nav_buttons.append(_load_menu.add.button('|<', first_page))
+                nav_buttons.append(_load_menu.add.button('<<', prev_page))
+
+                #if current_page < total_pages :
+                nav_buttons.append(_load_menu.add.button('>>', next_page))
+                nav_buttons.append(_load_menu.add.button('>|', last_page))
+
+
+                if nav_buttons:
+                    nav_frame = _load_menu.add.frame_h(frame_width, frame_height, align=ALIGN_CENTER)
+                    for b in nav_buttons:
+                        nav_frame.pack(b, margin=(10, 0))  # margine orizzontale tra pulsanti
+
+
+            _load_menu.add.vertical_margin(20)
+            _load_menu.add.button('Cancel', cancel_load)
+
+        refresh_menu()
+
+        while menu_running:
+            events = p.event.get()
+            for ev in events:
+                if ev.type == p.QUIT:
+                    p.quit()
+                    sys.exit()
+
+            surface.fill((0, 0, 0))
+            _load_menu.update(events)
+            _load_menu.draw(surface)
+            p.display.flip()
+    
+    
+        if id_course is not None:
+            main_background()
+            BS.drawEndGameText(app.screen, None, "Course selected")
+            BS.update()
+            delay(2)
+
+    return choose_course
+
+def addChooseCourse(menu):
+    '''
+    Adds a button to the menu that allows the user to choose a BrainMaster course.
+    The button will open a file selector dialog and update the positionParameters["base"] variable with the selected course.
+    '''
+    labels = []    
+    global id_course
+    choose_course = make_choose_course(labels)
+    chooseCourse = menu.add.button('Choose BrainMaster course', choose_course)
+    default_value = id_course
+    label = menu.add.button(default_value, choose_course, font_size=20, background_color=None, 
+                            selection_effect=pygame_menu.widgets.NoneSelection())
+    labels.append(label)
 
 
 def addChooseBaseFile(menu): 
@@ -1860,7 +1938,8 @@ def addChooseBaseFile(menu):
         "base", lambda x : x.replace("base_", "") , labels,DATA_FOLDER,".json", "Choose base file",None,"base_")
     menu.add.button('Choose base file', chooseBaseFile)
     default_value = str(positionParameters.get("base", "No selection"))
-    label = menu.add.button(default_value,chooseBaseFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
+    label = menu.add.button(default_value, chooseBaseFile,font_size=20, background_color=None,
+                            selection_effect=pygame_menu.widgets.NoneSelection())
     labels.append(label)
 
 
@@ -1873,7 +1952,9 @@ def addChoosePGNFile(menu):
     chooseModelFile = make_file_selector("filename", None , labels, pgngamelist.PGN_FOLDER, ".pgn", "Choose PGN file", None)
     menu.add.button('Choose PGN file', chooseModelFile)
     default_value = str(positionParameters.get("filename", "No selection"))
-    label = menu.add.button(default_value,chooseModelFile,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
+    label = menu.add.button(default_value, chooseModelFile, font_size=20,
+                           background_color=None,
+                           selection_effect=pygame_menu.widgets.NoneSelection())
     labels.append(label)
 
 
@@ -1892,11 +1973,10 @@ def save_game(gs:GameState):
     Saves the current game state to a file.
     The file name is taken from the positionParameters["filename"] variable.
     '''
-    global scren
     if positionParameters["filename"] is None:
         text = "Please select a PGN file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1904,20 +1984,18 @@ def save_game(gs:GameState):
     positionParameters["gameid"] = gamelist.save_game(gs, positionParameters["filename"], positionParameters["gameid"])
     
     main_background()
-    BS.drawEndGameText(screen, None, "Game saved")
+    BS.drawEndGameText(app.screen, None, "Game saved")
     BS.update()
     delay(2)
 
-
 def load_game(gs:GameState):
     '''
-    Loads a game from a selected PGN file and lets the user choose which game to load.    
+    Loads a game from a selected PGN file allowing the user to choose which game to load.
     '''
-    global scren
     if positionParameters["filename"] is None:
         text = "Please select a PGN file"
         main_background()
-        BS.drawEndGameText(screen, None, text)
+        BS.drawEndGameText(app.screen, None, text)
         BS.update()
         delay(2 )
         return
@@ -1929,7 +2007,7 @@ def load_game(gs:GameState):
     total_pages = (total_games + games_per_page - 1) // games_per_page
 
     menu_running = True
-    surface = screen
+    surface = app.screen
     def load_game_wrapper(N):
         nonlocal menu_running
         positionParameters["gameid"] = N
@@ -1962,7 +2040,7 @@ def load_game(gs:GameState):
         refresh_menu()
 
 
-    _load_menu = pygame_menu.Menu('Select Game', W, H, 
+    _load_menu = pygame_menu.Menu('Select Game', app.W, app.H, 
                              theme=small_font_theme)
     frame_width = 4 * 80 + 3 * 10  # 4 bottoni da 80px + 3 margini da 10px
     frame_height = 50
@@ -2021,17 +2099,13 @@ def load_game(gs:GameState):
         #gs.goToLastMove()
 
         main_background()
-        BS.drawEndGameText(screen, None, "Game selected")
+        BS.drawEndGameText(app.screen, None, "Game selected")
         BS.update()
         delay(2)
 
-
-
-
 def load_menu(GS:GameState):
-    global W,H
     menu_running = True
-    surface = screen
+    surface = app.screen
     def load_game_wrapper():
         nonlocal menu_running
         menu_running = False
@@ -2041,13 +2115,11 @@ def load_menu(GS:GameState):
         nonlocal menu_running
         menu_running = False
 
-    _load_menu = pygame_menu.Menu('Load Game', W, H, 
-                             theme=pygame_menu.themes.THEME_BLUE)
+    _load_menu = pygame_menu.Menu('Load Game', app.W, app.H, theme=pygame_menu.themes.THEME_BLUE)
     addChoosePGNFile(_load_menu)
     _load_menu.add.button('Load', load_game_wrapper)
     _load_menu.add.button('Cancel', cancel_load)
 
-      
     while menu_running:
         events = p.event.get()
         for ev in events:
@@ -2062,9 +2134,8 @@ def load_menu(GS:GameState):
 
 
 def save_menu(GS:GameState):
-    global W,H
     menu_running = True
-    surface = screen
+    surface = app.screen
     prev_pgn = positionParameters["filename"]
     def save_game_wrapper():
         nonlocal menu_running
@@ -2079,7 +2150,7 @@ def save_menu(GS:GameState):
         nonlocal menu_running
         menu_running = False
 
-    _save_menu = pygame_menu.Menu('Save Game', W, H, 
+    _save_menu = pygame_menu.Menu('Save Game', app.W, app.H,
                              theme=pygame_menu.themes.THEME_BLUE)
     addChoosePGNFile(_save_menu)
     _save_menu.add.text_input('White:', default=playParameters["white"] or "", onchange=make_updater("white",str,playParameters))
@@ -2108,20 +2179,14 @@ def save_menu(GS:GameState):
 
 
 def mainMenu(width,height, test: bool = False) -> None:
-    global clock
-    global main_menu
-    global screen
-    global FPS
-    global manager
-    global main_running
     global num_moves_to_show
     global current_base_label, current_base_label2,current_filename_label, current_base_label3, current_filename_label3, current_filename_label4
     global current_ChessComFile_label
 
-    clock = p.time.Clock()
+    app.clock = p.time.Clock()
 
     playParameters["elomax"] = False
-    surface = screen
+    surface = app.screen
     default_color_index = REVERSE_COLOR_MAP.get(positionParameters["color"], 0)
     setColorIndex = lambda val, idx: positionParameters.__setitem__("color", COLOR_MAP[int(val[0][1])])
 
@@ -2186,11 +2251,11 @@ def mainMenu(width,height, test: bool = False) -> None:
         CreateCourseMenu = pygame_menu.Menu(
             height=height,
             theme=pygame_menu.themes.THEME_BLUE,
-            title='Choose base',
+            title='Create course',
             width=width
         )        
         addChooseBaseFile(CreateCourseMenu)
-        CreateCourseMenu.add.button('Create course', createCourse)
+        CreateCourseMenu.add.button('Create', createCourse)
     
     BrainMasterMenu = None
     if config.base_url:
@@ -2200,7 +2265,7 @@ def mainMenu(width,height, test: bool = False) -> None:
             title='Exercise with Brainmaster',
             width=width
         )        
-        addChooseBaseFile(BrainMasterMenu)
+        addChooseCourse(BrainMasterMenu)
         BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
                     default=num_moves_to_show, increment=1)  # Aggiungi questa riga
         BrainMasterMenu.add.selector('Skip initial moves', [ ("No", 0),("Yes", 1)], default=play_position, onchange=make_selector_updater("play_position"))
@@ -2226,7 +2291,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         theme=pygame_menu.themes.THEME_BLUE,
         title='Create empty learning base',
         width=width
-    )  
+    )
     createBaseMenu.add.text_input('movesToAnalyze:', default=positionParameters["movesToAnalyze"] or "",onchange=make_updater("movesToAnalyze",int,positionParameters))
     createBaseMenu.add.text_input('blunderValue:', default=positionParameters["blunderValue"] or "", onchange=make_updater("blunderValue",int,positionParameters))
     createBaseMenu.add.text_input('ponderTime:', default=positionParameters["ponderTime"] or "",onchange=make_updater("ponderTime",float,positionParameters))
@@ -2241,7 +2306,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         theme=pygame_menu.themes.THEME_BLUE,
         title='Unroll a PGN into a learning base',
         width=width
-    )  
+    )
     addChoosePGNFile(unrollPGNMenu)
     unrollPGNMenu.add.selector('You play', [("White", "0"), ("Black", "1")], default=default_color_index if default_color_index<2 else 0, onchange=setColorIndex) 
     addChooseBaseFile(unrollPGNMenu)
@@ -2345,26 +2410,26 @@ def mainMenu(width,height, test: bool = False) -> None:
     toolsMenu.add.button('Setup', configureGame)
 
 
-    main_menu = pygame_menu.Menu('Chess Python', width, height,
+    app.main_menu = pygame_menu.Menu('Chess Python', width, height,
                                  theme=pygame_menu.themes.THEME_BLUE)
-    main_menu.add.button('Play against computer', playComputerMenu)
-    main_menu.add.button('Play between humans', humanPlay)
-    main_menu.add.button('Play a dataset', playDataSetMenu)
+    app.main_menu.add.button('Play against computer', playComputerMenu)
+    app.main_menu.add.button('Play between humans', humanPlay)
+    app.main_menu.add.button('Play a dataset', playDataSetMenu)
     if BrainMasterMenu:
-        main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
-    main_menu.add.button('Exercise by models', ExerciseModelsMenu)
-    main_menu.add.button('Tools', toolsMenu)
-    main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
+        app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
+    app.main_menu.add.button('Exercise by models', ExerciseModelsMenu)
+    app.main_menu.add.button('Tools', toolsMenu)
+    app.main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
 
-    main_menu.disable()
-    main_menu.full_reset()
-    main_menu.enable()
+    app.main_menu.disable()
+    app.main_menu.full_reset()
+    app.main_menu.enable()
 
     
 
-    while main_running:
+    while app.main_running:
         # Tick
-        clock.tick(FPS)
+        app.clock.tick(app.FPS)
 
         # Paint background
         main_background()
@@ -2372,16 +2437,16 @@ def mainMenu(width,height, test: bool = False) -> None:
         events = p.event.get()
         # for event in events:
         #     if event.type == p.QUIT:
-        #         main_running = False  # Esce dal loop principale
+        #         app.main_running = False  # Esce dal loop principale
 
 
         # Main menu
-        if main_menu.is_enabled():
-            main_menu.update(events)   # Gestisce gli eventi del menu
-            main_menu.draw(surface)    # Disegna il menu sulla finestra
-            #main_menu.mainloop(surface, main_background, disable_loop=test, fps_limit=FPS)
+        if app.main_menu.is_enabled():
+            app.main_menu.update(events)   # Gestisce gli eventi del menu
+            app.main_menu.draw(surface)    # Disegna il menu sulla finestra
+            #app.main_menu.mainloop(surface, main_background, disable_loop=test, fps_limit=FPS)
         else:
-            main_running = False  # Chiude il programma se il menu sparisce
+            app.main_running = False  # Chiude il programma se il menu sparisce
 
         # Flip surface
         p.display.flip()
@@ -2399,31 +2464,26 @@ def resource_path(relative_path):
 
 
 def runMain():
-    global myfont
     p.init()
-    
-    myfont = p.font.SysFont('Comic Sans MS', 20)
-    global screen
-    global W
-    global H
-    global manager
+
+    app.myfont = p.font.SysFont('Comic Sans MS', 20)
 
     book.open_book()
     UCIEngines.engine_open()
     try:
-        W, H = BS.init()
+        app.W, app.H = BS.init()
 
-        screen = p.display.set_mode((W, H))
-        screen.fill(p.Color("white"))
+        app.screen = p.display.set_mode((app.W, app.H))
+        app.screen.fill(p.Color("white"))
 
         p.display.set_caption('Chess trainer')
         Icon = p.image.load(resource_path('pic-chess.png'))
         p.display.set_icon(Icon)
 
 
-        manager = pygame_gui.UIManager((W, H))
+        app.manager = pygame_gui.UIManager((app.W, app.H))
 
-        mainMenu(W, H)
+        mainMenu(app.W, app.H)
 
         p.display.quit()
         p.quit()    

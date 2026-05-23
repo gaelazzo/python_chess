@@ -289,7 +289,7 @@ def drawBook(screen, gs: GameState):
     textY = padding
     lineSpacing = 2
     textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
-    for entry in book:
+    for entry in book[:10]:
         textY+= add_txt_line(entry.move.uci(), textY, myfont, screen, bookRect, padding, lineSpacing)
         
     update()
