@@ -78,10 +78,10 @@ class PgnGameList:
                     self.games.append(chess.pgn.Game())  # placeholder vuoto
                 self.games.append(new_game)
 
-            # Rewrite all games
-            with open(self.fName, "w", encoding="utf-8") as f:
-                for game in self.games:
-                    exporter = FileExporter(f)
-                    game.accept(exporter)
+        # Rewrite all games (sempre, anche per una partita nuova)
+        with open(self.fName, "w", encoding="utf-8") as f:
+            for game in self.games:
+                exporter = FileExporter(f)
+                game.accept(exporter)
 
         return N

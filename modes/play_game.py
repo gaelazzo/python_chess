@@ -248,6 +248,7 @@ def playAGame():
 
                     if e.key == p.K_l: # load a game
                         load_menu(gs)
+                        gs.goToLastMove()  # posiziona la partita caricata sull'ultima mossa (altrimenti resta a mossa 0)
                         moveMade = False # a move was made
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves
