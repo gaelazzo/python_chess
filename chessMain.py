@@ -144,15 +144,23 @@ def mainMenu(width,height, test: bool = False) -> None:
         title='Choose play params',
         width=width
     )    
-    playComputerMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Random", 2)], onchange=setPlayColor)
+    playColorSelector = playComputerMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Random", 2)], onchange=setPlayColor)
     playComputerMenu.add.range_slider('ELO', range_values=(1350, 2850), onchange=setPlayElo, default=2000, increment=50)
-    playComputerMenu.add.toggle_switch("ELO MAX", state_text=("Off", "On"), state_values=(False, True), 
+    playComputerMenu.add.toggle_switch("ELO MAX", state_text=("Off", "On"), state_values=(False, True),
                                        onchange=make_updater("elomax",bool,playParameters))
-    # playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,  
-    #                                   onchange=make_updater("num_moves_to_show",int), 
+    # playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,
+    #                                   onchange=make_updater("num_moves_to_show",int),
     #             default=state.num_moves_to_show)  # Aggiungi questa riga
 
-    playComputerMenu.add.button('Play', playGame)
+    def playComputerGame():
+        # onchange del selettore scatta solo quando il valore cambia: applico
+        # comunque il colore corrente, altrimenti col default (o dopo "Play
+        # between humans") whiteCPU/blackCPU resterebbero a False e il computer
+        # non muoverebbe.
+        setPlayColor(playColorSelector.get_value(), playColorSelector.get_index())
+        playGame()
+
+    playComputerMenu.add.button('Play', playComputerGame)
 
 
     solvePositionsMenu = pygame_menu.Menu(
