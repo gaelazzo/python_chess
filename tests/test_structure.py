@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 MODULES = [
     "app_context", "game_loop_common", "state", "menu_helpers",
-    "save_load", "learningbase_admin", "chessMain",
+    "save_load", "learningbase_admin", "notation", "chessMain",
     "modes.common", "modes.play_game", "modes.brainmaster",
     "modes.replay", "modes.models",
 ]

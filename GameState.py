@@ -401,6 +401,27 @@ class GameState:
             return ""
         return self.node.comment or ""
 
+    def goToNode(self, node) -> bool:
+        '''
+        Position the game on `node` (anywhere in the tree, including inside a
+        variation), rebuilding moveLog along the path from the root. Used to
+        jump straight to a move clicked in the notation view.
+        '''
+        if node is None:
+            return False
+        path = []
+        n = node
+        while n is not None and n.parent is not None:
+            path.append(n)
+            n = n.parent
+        path.reverse()
+        self.node = self.pgn
+        self.moveLog = []
+        self.evaluation = None
+        for nd in path:
+            self.makeChessMove(nd.move)
+        return True
+
     def whiteToMove(self)->chess.Color:
         return self.board().turn
 

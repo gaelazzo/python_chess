@@ -24,6 +24,7 @@ import pgngamelist
 from LearningBase import LearningBase, LearnPosition, learningBases
 from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
+import notation
 
 
 def playGame():
@@ -179,7 +180,6 @@ def playAGame():
 
     whiteCPU = playParameters["whiteCPU"]
     blackCPU = playParameters["blackCPU"]
-    analyzeMode = False
 
     if whiteCPU and not blackCPU:
         BS.setWhiteUp(app.screen, True)
@@ -207,6 +207,7 @@ def playAGame():
         help_text.insert(7, "- L Load game ")
         help_text.insert(8, "- N Annotate move (! ? !? ...)")
         help_text.insert(9, "- T Comment move (text)")
+        help_text.insert(10, "- V Notation panel (variations)")
     show_help = False
     def do_show_help():
         glc.draw_help_overlay(help_text, height=400)
@@ -311,8 +312,11 @@ def playAGame():
                         
 
                     if e.key == p.K_a:
-                        #quit
                         analyze = not analyze
+                        # esci dall'analisi -> ri-orienta subito la scacchiera
+                        # (altrimenti il lato cambierebbe solo alla mossa dopo)
+                        if not whiteCPU and not blackCPU and not analyze:
+                            BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
                     
                   
                     if e.key == p.K_c:  # copy to clipboard
@@ -353,6 +357,15 @@ def playAGame():
                             text = editComment(gs.getMoveComment())
                             if text is not None:
                                 gs.setMoveComment(text)
+                        continue
+
+                    if e.key == p.K_v and not whiteCPU and not blackCPU:
+                        # Pannello notazione: intera partita + varianti + annotazioni
+                        notation.show_notation(gs)
+                        moveMade = False
+                        animate = False
+                        validMoves = gs.stdValidMoves()
+                        BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
                         continue
 
                     if e.key == p.K_g:  # copy to clipboard

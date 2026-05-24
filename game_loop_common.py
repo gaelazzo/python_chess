@@ -28,12 +28,24 @@ def engine_callback(text: str) -> None:
 
 
 def draw_help_overlay(help_text, height: int = 400) -> None:
-    """Draw the right-click help panel over the board and flip the display."""
-    p.draw.rect(app.screen, _HELP_BG, (50, 50, 600, height))
-    p.draw.rect(app.screen, _HELP_FG, (50, 50, 600, height), 2)
+    """Draw the right-click help panel over the board and flip the display.
+
+    The panel is kept INSIDE the board area (its height is capped to the board
+    and the line spacing is shrunk to fit) so that the normal board redraw fully
+    clears it when the panel is dismissed -- otherwise a tall panel would spill
+    into the CPU strip below the board, which the board redraw doesn't repaint.
+    The `height` argument is kept for backwards-compatibility but ignored.
+    """
+    top = 50
+    n = max(1, len(help_text))
+    max_box = BS.BOARD_HEIGHT - top
+    line_step = min(30, max(16, (max_box - 20) // n))
+    box_h = min(n * line_step + 20, max_box)
+    p.draw.rect(app.screen, _HELP_BG, (50, top, 600, box_h))
+    p.draw.rect(app.screen, _HELP_FG, (50, top, 600, box_h), 2)
     for i, line in enumerate(help_text):
         text = app.myfont.render(line, True, _HELP_FG)
-        app.screen.blit(text, (60, 60 + i * 30))
+        app.screen.blit(text, (60, top + 10 + i * line_step))
     p.display.flip()
 
 
