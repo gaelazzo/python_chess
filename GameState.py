@@ -241,28 +241,38 @@ class GameState:
 
     
 
+    @staticmethod
+    def count_leaves(node) -> int:
+        '''
+        Number of leaf nodes (terminal lines) in `node`'s subtree; a node with no
+        variations counts as a single leaf. Used to weight the random choice of
+        the next move so that every leaf line is equiprobable -- only the number
+        of branches matters, not their depth.
+        '''
+        if not node.variations:
+            return 1
+        return sum(GameState.count_leaves(child) for child in node.variations)
+
     def makeNextMove(self):
-         '''
-             Make a random move from the variations stored in the game
-         '''
-         if self.node is None:
-             return None
-         if self.is_end():
-             return None
-         nVariations = len(self.node.variations)
-         if nVariations == 0:
-             return None
-         idx = random.randint(0, nVariations-1)
+        '''
+        Play a random move among the stored variations, weighting each candidate
+        by the number of leaf lines below it, so that every terminal line is
+        equally likely to be reached (e.g. a branch with 3 leaves is chosen 3/5
+        of the time against a sibling with 2 leaves).
+        '''
+        if self.node is None or self.is_end():
+            return None
+        children = self.node.variations
+        if not children:
+            return None
+        weights = [GameState.count_leaves(child) for child in children]
+        node = random.choices(children, weights=weights, k=1)[0]
+        if node.comment:
+            print(node.comment)
 
-         node = self.node.variations[idx]
-         if node.comment:
-             print(node.comment)
-
-         move:Move = Move.fromChessMove(node.move, self)
-
-         self.makeMove(move)
-
-         return move
+        move: Move = Move.fromChessMove(node.move, self)
+        self.makeMove(move)
+        return move
 
     def gotoFirstMove(self) -> bool:
             """
