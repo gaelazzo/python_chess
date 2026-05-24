@@ -39,3 +39,23 @@ def test_cannot_annotate_start_position():
     assert gs.setMoveNag(1) is False
     assert gs.clearMoveNags() is False
     assert gs.getMoveGlyphs() == []
+
+
+def test_set_and_get_move_comment():
+    gs = _game(["e2e4", "e7e5", "g1f3"])
+    assert gs.setMoveComment("develops the knight") is True
+    assert gs.getMoveComment() == "develops the knight"
+    gs.setMoveComment("")                 # empty clears it
+    assert gs.getMoveComment() == ""
+
+
+def test_cannot_comment_start_position():
+    gs = GameState()
+    assert gs.setMoveComment("x") is False
+    assert gs.getMoveComment() == ""
+
+
+def test_to_pgn_string_includes_comment():
+    gs = _game(["e2e4"])
+    gs.setMoveComment("good start")
+    assert "good start" in gs.to_PgnString()

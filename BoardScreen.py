@@ -399,7 +399,22 @@ def drawMoveLog(screen, gs):
 
     evaluation = gs.getEvaluation()
     if evaluation is not None:
-        textY+= add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, moveLogRect, padding, lineSpacing)        
+        textY+= add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, moveLogRect, padding, lineSpacing)
+
+    comment = gs.getMoveComment()
+    if comment:
+        textY += add_txt_line("Comment:", textY, font, screen, moveLogRect, padding, lineSpacing, color="yellow")
+        maxw = MOVE_LOG_WIDTH - 2 * padding
+        line = ""
+        for word in comment.split():
+            trial = (line + " " + word).strip()
+            if line and font.size(trial)[0] > maxw:
+                textY += add_txt_line(line, textY, font, screen, moveLogRect, padding, lineSpacing)
+                line = word
+            else:
+                line = trial
+        if line:
+            textY += add_txt_line(line, textY, font, screen, moveLogRect, padding, lineSpacing)
 
     update()
 

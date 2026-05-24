@@ -164,7 +164,13 @@ class GameState:
             for key, value in headers.items():
                 self.pgn.headers[key] = value
         return self.pgn
-        
+
+
+    def to_PgnString(self) -> str:
+        '''Export the whole game to a PGN string (headers, variations and
+        comments included).'''
+        exporter = chess.pgn.StringExporter(headers=True, variations=True, comments=True)
+        return self.getPgn().accept(exporter)
 
     def setHeader(self, header):
         self.header = header
@@ -378,6 +384,22 @@ class GameState:
         while len(glyphs) < len(self.moveLog):
             glyphs.append("")
         return glyphs[:len(self.moveLog)]
+
+    def setMoveComment(self, text: str) -> bool:
+        '''
+        Set the text comment (PGN comment) on the current move; an empty string
+        clears it. No-op (returns False) on the start position.
+        '''
+        if self.node is None or self.node.parent is None:
+            return False
+        self.node.comment = text or ""
+        return True
+
+    def getMoveComment(self) -> str:
+        '''Text comment attached to the current move ('' if none).'''
+        if self.node is None:
+            return ""
+        return self.node.comment or ""
 
     def whiteToMove(self)->chess.Color:
         return self.board().turn

@@ -115,6 +115,41 @@ def chooseAnnotation(current_nags):
     return chosen
 
 
+def editComment(current_text):
+    """Menu con campo di testo per il commento della mossa corrente.
+    Ritorna il testo inserito, o None se annullato."""
+    result = [None]
+    menu_running = True
+
+    menu = pygame_menu.Menu("Move comment", app.W, app.H, theme=pygame_menu.themes.THEME_DARK)
+    text_field = menu.add.text_input("> ", default=current_text or "", maxchar=200)
+
+    def save():
+        nonlocal menu_running
+        result[0] = text_field.get_value()
+        menu_running = False
+
+    def cancel():
+        nonlocal menu_running
+        menu_running = False
+
+    menu.add.button("Save", save)
+    menu.add.button("Cancel", cancel)
+
+    surface = app.screen
+    while menu_running:
+        events = p.event.get()
+        for ev in events:
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+        surface.fill((0, 0, 0))
+        menu.update(events)
+        menu.draw(surface)
+        p.display.flip()
+    return result[0]
+
+
 # Play a game against the engine or against another player, depending on the settings in playParameters
 def playAGame():
     gs:Optional[GameState] = GameState()
@@ -171,6 +206,7 @@ def playAGame():
         # disponibili solo senza computer (modalita' analisi)
         help_text.insert(7, "- L Load game ")
         help_text.insert(8, "- N Annotate move (! ? !? ...)")
+        help_text.insert(9, "- T Comment move (text)")
     show_help = False
     def do_show_help():
         glc.draw_help_overlay(help_text, height=400)
@@ -309,6 +345,14 @@ def playAGame():
                                 gs.clearMoveNags()
                             elif nag is not None:
                                 gs.setMoveNag(nag)
+                        continue
+
+                    if e.key == p.K_t and not whiteCPU and not blackCPU:
+                        # Commento testuale sull'ultima mossa (solo in analisi)
+                        if len(gs.moveLog) > 0:
+                            text = editComment(gs.getMoveComment())
+                            if text is not None:
+                                gs.setMoveComment(text)
                         continue
 
                     if e.key == p.K_g:  # copy to clipboard
