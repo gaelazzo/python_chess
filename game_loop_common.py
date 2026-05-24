@@ -1,7 +1,7 @@
 """Shared helpers for the in-game event loops.
 
 Extracted from the duplicated bodies of the four play/review loops in
-chessMain.py (playAGame, playBrainMasterSet, replayBadPositions, playModelFiles).
+chessMain.py (playAGame, playBrainMasterSet, solvePositionsFromBase, playOpeningLine).
 Only the genuinely identical leaf pieces live here; the per-mode control flow
 (move input, navigation, skip/solution, save/load) stays in each loop.
 

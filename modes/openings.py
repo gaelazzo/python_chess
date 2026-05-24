@@ -26,21 +26,23 @@ from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 
 
-# play a game from a pgn file, with the player playing the best move and the computer playing one of the lines stored in the game
-def playModels():
+# "Study openings": you must always play the best move while the computer replies
+# with one of the lines stored in the PGN (typically an opening repertoire).
+def playOpening():
 
     if positionParameters["filename"] is None:
         return
 
     app.main_menu.disable()
     app.main_menu.full_reset()
-    playModelFiles( positionParameters["filename"],  positionParameters["color"])
+    playOpeningLine( positionParameters["filename"],  positionParameters["color"])
     return
 
-def playModelFiles(filename, humanColor):
+def playOpeningLine(filename, humanColor):
     '''
-        Play a random game from a file, and the player must always play the best move, while the computer plays one of the
-          available lines stored in the game.
+        Play one line from the PGN: the trainee must always play the best move,
+        while the computer answers with one of the lines stored in the game
+        (typically an opening repertoire).
     '''
 
 

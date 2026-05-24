@@ -10,6 +10,8 @@ partite con varianti e annotazioni, e di **studiare** posizioni ed errori tramit
 ---
 
 ## Indice
+➡️ **Sei nuovo?** Parti da [Primi passi: ricette pratiche](#primi-passi-ricette-pratiche).
+
 1. [Avvio e requisiti](#1-avvio-e-requisiti)
 2. [Il menu principale](#2-il-menu-principale)
 3. [Le modalità](#3-le-modalità)
@@ -41,15 +43,77 @@ All'avvio appare il **menu principale**; ci si sposta con il **mouse** o le frec
 
 ---
 
+## Primi passi: ricette pratiche
+
+*Se è la prima volta che usi il programma, parti da qui: queste sono le attività
+più comuni, passo per passo.*
+
+### Ricetta 0 — Configurazione iniziale (una volta sola)
+1. **Tools → Setup → Choose engine**: seleziona il motore UCI (es. `stockfish.exe`)
+   dalla cartella `engines/`. Senza motore, analisi e gioco contro il computer non funzionano.
+2. *(Facoltativo)* **Choose book**: seleziona un libro di aperture `.bin` da `books/`.
+3. *(Facoltativo, per le lezioni)* compila **base_url** e **id studente** del servizio BrainMaster.
+
+### Ricetta A — Correggere i propri errori (come Bianco o come Nero)
+*Obiettivo: ripassare le posizioni in cui hai sbagliato nelle tue partite.*
+1. **Scarica le tue partite** — Tools → Download Chess.com games:
+   - *PGN file to create*: un nome, es. `mie_bianche`;
+   - *player*: il tuo username Chess.com;
+   - *Player color*: **White** per gli errori col Bianco (usa **Black** per quelli col Nero);
+   - **Download games**.
+2. **Crea una learning base vuota** — Tools → Create learning base:
+   - *filename*: es. `errori_bianco`;
+   - *blunderValue*: soglia d'errore in centesimi di pedone (es. `80` ≈ 0.8 di pedone peggio della mossa migliore);
+   - *movesToAnalyze*, *ponderTime*: quante mosse analizzare e quanto tempo dare al motore;
+   - **Create learning base**.
+3. **Popola la base con i tuoi errori** — Tools → Update learning base:
+   - *player*: il tuo username; *Choose PGN file*: `mie_bianche`; *Choose base file*: `errori_bianco`;
+   - **Update Learning Base** (il motore analizza le tue mosse e registra le posizioni sbagliate).
+4. **Ripassa** — Menu principale → Solve positions → *Choose base file*: `errori_bianco` → **Play**.
+   Ti vengono riproposte quelle posizioni: gioca la mossa giusta (**H** mostra la soluzione).
+5. Ripeti con **Player color = Black** per gli errori col Nero (in una base separata, es. `errori_nero`).
+
+### Ricetta B — Studiare un'apertura / creare "modelli"
+*Obiettivo: allenare un repertorio d'apertura.*
+- **Procurati il PGN dell'apertura**, in due modi:
+  - (a) copia un file `.pgn` esistente (con le linee dell'apertura) nella cartella `pgn/`; **oppure**
+  - (b) **costruiscilo tu**: *Play between humans*, gioca le mosse dell'apertura, aggiungi
+    **varianti** (gioca mosse alternative col mouse), eventualmente annota (**N**) e commenta
+    (**T**), poi **Salva (S)** in un file PGN.
+- **Allenati sul repertorio** — Menu principale → Study openings → *Choose PGN file*
+  (il tuo PGN) + *You play* (White/Black) → **Play**: il computer gioca le linee memorizzate
+  e tu devi trovare la mossa giusta.
+- **(In alternativa) trasformalo in base di studio** — Tools → Create learning base
+  (es. `apertura_x`) → Tools → **Unroll PGN file** (*Choose PGN* + *You play* il tuo colore
+  + *Choose base*) → poi ripassala con **Solve positions**.
+
+### Ricetta C — Analizzare una partita con varianti e annotazioni
+1. Menu principale → **Play between humans**.
+2. Carica una partita (**L**) oppure giocala; scorri con **←/→**.
+3. Prova mosse alternative **col mouse** → vengono aggiunte come varianti.
+4. Annota la qualità (**N**) e aggiungi commenti (**T**).
+5. Guarda tutto nel **pannello Notazione** (**V**); naviga con ←/→ e ↑/↓.
+6. **Salva (S)** o copia il PGN (**G**) per riprenderla in seguito.
+
+### Ricetta D — Lezioni a ripetizione spaziata (BrainMaster)
+*(Richiede `base_url` configurato in Setup.)*
+1. Crea una learning base (Ricetta A o B).
+2. Tools → **Create Course for BrainMaster** → *Choose base file* → **Create** (registra la
+   base come corso). *(In alternativa: Tools → Unroll PGN file as lesson.)*
+3. Menu principale → **BrainMaster lessons** → scegli il corso → **Exercise**: il servizio
+   decide quali posizioni riproporti e quando.
+
+---
+
 ## 2. Il menu principale
 
 | Voce | Cosa fa |
 |------|---------|
 | **Play against computer** | Gioca una partita contro il motore. |
 | **Play between humans** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (qui puoi inserire varianti e annotazioni). |
-| **Play a dataset** | Ripassa le posizioni (errori) salvate in una *learning base*. |
+| **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
 | **BrainMaster lessons** | Lezioni guidate dal servizio BrainMaster *(appare solo se hai configurato `base_url`)*. |
-| **Exercise by models** | Esercitati su partite "modello": devi trovare tu la mossa migliore. |
+| **Study openings** | Esercitati su partite "modello": devi trovare tu la mossa migliore. |
 | **Tools** | Creazione/aggiornamento di learning base, import PGN/Chess.com, Setup. |
 | **Quit** | Esce dal programma (anche premendo **`Q`** o chiudendo la finestra). |
 
@@ -70,7 +134,10 @@ Due umani giocano a turno sulla stessa scacchiera. Poiché **non c'è un motore 
 risponde**, questa è la modalità giusta per **analizzare**: puoi tornare indietro,
 provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
 
-### 3.3 Play a dataset
+### 3.3 Solve positions
+> **Una posizione, una mossa.** Ti viene proposta una posizione e devi giocare la
+> mossa giusta. Adatto a ripassare *qualsiasi cosa* (errori, tattica, finali…).
+
 Ripassa le posizioni salvate in una *learning base* (tipicamente i tuoi errori).
 Parametri:
 - **ECO (optional)**: filtra per codice di apertura;
@@ -86,8 +153,12 @@ Come sopra, ma le posizioni e l'ordine di ripasso sono suggeriti dal servizio
 **BrainMaster** (ripetizione spaziata). Scegli il **corso** e premi **Exercise**.
 *(Visibile solo se hai configurato `base_url` in Setup.)*
 
-### 3.5 Exercise by models
-Carichi un file PGN di partite "modello". Il computer gioca una delle linee
+### 3.5 Study openings
+> **Una linea intera.** Giochi tu l'intera sequenza dalla tua parte (le tue mosse
+> sono fisse), mentre il computer può rispondere con **varianti diverse** tra quelle
+> memorizzate. Tipico per **ripetere le aperture** / un repertorio.
+
+Carichi un file PGN di linee "modello". Il computer gioca una delle linee
 memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
 - **You play**: White / Black;
 - **Choose PGN file**: il file con le partite modello;
@@ -126,7 +197,7 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **T** | Aggiungi un commento testuale all'ultima mossa |
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
 
-> Nelle modalità di studio (Play a dataset / BrainMaster / Exercise by models) i comandi
+> Nelle modalità di studio (Solve positions / BrainMaster / Study openings) i comandi
 > sono simili ma orientati alla soluzione: **Q** esci, **C/G** copia, **E/B/D** pannelli,
 > **+** mostra qualche mossa in più (suggerimento), **H** mostra la soluzione.
 

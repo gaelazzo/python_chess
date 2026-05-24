@@ -27,17 +27,18 @@ from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 
 
-def replayBase():
+# "Solve positions": wrapper that launches the review on the selected base.
+def solvePositions():
     app.main_menu.disable()
     app.main_menu.full_reset()
-    replayBadPositions(learningBases[positionParameters["base"]])
+    solvePositionsFromBase(learningBases[positionParameters["base"]])
     return
 
 
-# study a set of positions taken from a LearningBase   
-def replayBadPositions(learningBase:LearningBase):
+# "Solve positions" engine: one move per position, taken from a LearningBase.
+def solvePositionsFromBase(learningBase:LearningBase):
     '''
-    Teaches maxErrorsToConsider = 10 positions at a time taken from a LearningBase. A Position is assumed to be learnt when
+    Reviews maxErrorsToConsider = 10 positions at a time taken from a LearningBase. A Position is assumed to be learnt when
       it is solved correctly 3 times in a row after a mistake, or correctly answered the first time.
     '''
 

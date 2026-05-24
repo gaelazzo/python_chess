@@ -10,6 +10,8 @@ lessons (optionally assisted by the *BrainMaster* AI service).
 ---
 
 ## Contents
+➡️ **New here?** Start with [Getting started: step-by-step recipes](#getting-started-step-by-step-recipes).
+
 1. [Getting started](#1-getting-started)
 2. [The main menu](#2-the-main-menu)
 3. [The modes](#3-the-modes)
@@ -41,15 +43,76 @@ On startup the **main menu** appears; navigate with the **mouse** or the arrow k
 
 ---
 
+## Getting started: step-by-step recipes
+
+*If this is your first time, start here: these are the most common tasks, step by step.*
+
+### Recipe 0 — First-time setup (once)
+1. **Tools → Setup → Choose engine**: select the UCI engine (e.g. `stockfish.exe`) from the
+   `engines/` folder. Without an engine, analysis and playing against the computer won't work.
+2. *(Optional)* **Choose book**: select a `.bin` opening book from `books/`.
+3. *(Optional, for lessons)* fill in **base_url** and **student id** for the BrainMaster service.
+
+### Recipe A — Correcting your own mistakes (as White or Black)
+*Goal: review the positions where you went wrong in your own games.*
+1. **Download your games** — Tools → Download Chess.com games:
+   - *PGN file to create*: a name, e.g. `my_white`;
+   - *player*: your Chess.com username;
+   - *Player color*: **White** for your White mistakes (use **Black** for Black ones);
+   - **Download games**.
+2. **Create an empty learning base** — Tools → Create learning base:
+   - *filename*: e.g. `white_errors`;
+   - *blunderValue*: mistake threshold in centipawns (e.g. `80` ≈ 0.8 pawns worse than the best move);
+   - *movesToAnalyze*, *ponderTime*: how many moves to analyse and how much time to give the engine;
+   - **Create learning base**.
+3. **Fill the base with your mistakes** — Tools → Update learning base:
+   - *player*: your username; *Choose PGN file*: `my_white`; *Choose base file*: `white_errors`;
+   - **Update Learning Base** (the engine analyses your moves and records the wrong positions).
+4. **Review** — Main menu → Solve positions → *Choose base file*: `white_errors` → **Play**.
+   Those positions are served back to you: play the right move (**H** reveals the solution).
+5. Repeat with **Player color = Black** for your Black mistakes (in a separate base, e.g. `black_errors`).
+
+### Recipe B — Studying an opening / creating "models"
+*Goal: train an opening repertoire.*
+- **Get the opening PGN**, in two ways:
+  - (a) copy an existing `.pgn` file (with the opening lines) into the `pgn/` folder; **or**
+  - (b) **build it yourself**: *Play between humans*, play the opening moves, add **variations**
+    (play alternative moves with the mouse), optionally annotate (**N**) and comment (**T**),
+    then **Save (S)** to a PGN file.
+- **Train on the repertoire** — Main menu → Study openings → *Choose PGN file* (your PGN)
+  + *You play* (White/Black) → **Play**: the computer plays the stored lines and you must find
+  the right move.
+- **(Alternatively) turn it into a study base** — Tools → Create learning base (e.g. `opening_x`)
+  → Tools → **Unroll PGN file** (*Choose PGN* + *You play* your colour + *Choose base*) → then
+  review it with **Solve positions**.
+
+### Recipe C — Analysing a game with variations and annotations
+1. Main menu → **Play between humans**.
+2. Load a game (**L**) or play it; step through with **←/→**.
+3. Try alternative moves **with the mouse** → they are added as variations.
+4. Annotate the quality (**N**) and add comments (**T**).
+5. See it all in the **Notation panel** (**V**); navigate with ←/→ and ↑/↓.
+6. **Save (S)** or copy the PGN (**G**) to resume it later.
+
+### Recipe D — Spaced-repetition lessons (BrainMaster)
+*(Requires `base_url` configured in Setup.)*
+1. Create a learning base (Recipe A or B).
+2. Tools → **Create Course for BrainMaster** → *Choose base file* → **Create** (registers the
+   base as a course). *(Alternatively: Tools → Unroll PGN file as lesson.)*
+3. Main menu → **BrainMaster lessons** → choose the course → **Exercise**: the service decides
+   which positions to serve you and when.
+
+---
+
 ## 2. The main menu
 
 | Item | What it does |
 |------|--------------|
 | **Play against computer** | Play a game against the engine. |
 | **Play between humans** | Two human players on the same board. This is also the **analysis mode** (where you can add variations and annotations). |
-| **Play a dataset** | Review the positions (mistakes) stored in a *learning base*. |
+| **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
 | **BrainMaster lessons** | Lessons driven by the BrainMaster service *(shown only if `base_url` is configured)*. |
-| **Exercise by models** | Practise on "model" games: you must find the best move yourself. |
+| **Study openings** | Practise on "model" games: you must find the best move yourself. |
 | **Tools** | Create/update learning bases, import PGN/Chess.com games, Setup. |
 | **Quit** | Exit the program (also with **`Q`** or by closing the window). |
 
@@ -70,7 +133,10 @@ Two humans move in turn on the same board. Since **there is no engine replying**
 this is the right mode to **analyse**: you can take moves back, try alternative moves
 (variations), annotate and comment them (see §5 and §6).
 
-### 3.3 Play a dataset
+### 3.3 Solve positions
+> **One position, one move.** You're given a position and must play the right move.
+> Good for reviewing *anything* (mistakes, tactics, endgames…).
+
 Review the positions stored in a *learning base* (typically your own mistakes).
 Parameters:
 - **ECO (optional)**: filter by opening code;
@@ -86,11 +152,15 @@ Same idea, but the positions and review order are suggested by the **BrainMaster
 service (spaced repetition). Choose the **course** and press **Exercise**.
 *(Visible only if `base_url` is configured in Setup.)*
 
-### 3.5 Exercise by models
-You load a PGN file of "model" games. The computer plays one of the stored lines and
+### 3.5 Study openings
+> **A whole line.** You play the entire sequence from your side (your moves are fixed),
+> while the computer may reply with **different variations** among the stored ones.
+> Typical for **drilling openings** / a repertoire.
+
+You load a PGN file of "model" lines. The computer plays one of the stored lines and
 **you must find the best move** at each turn.
 - **You play**: White / Black;
-- **Choose PGN file**: the file with the model games;
+- **Choose PGN file**: the file with the model lines;
 - **Skip initial moves** / **Num Moves to Show**: opening moves to show.
 
 ---
@@ -126,7 +196,7 @@ During a game (Play against computer / between humans) the following controls ap
 | **T** | Add a text comment to the last move |
 | **V** | Open the **Notation** panel (whole game + variations) |
 
-> In the study modes (Play a dataset / BrainMaster / Exercise by models) the controls
+> In the study modes (Solve positions / BrainMaster / Study openings) the controls
 > are similar but solution-oriented: **Q** quit, **C/G** copy, **E/B/D** panels,
 > **+** show a few more moves (hint), **H** reveal the solution.
 

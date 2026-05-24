@@ -55,9 +55,9 @@ from menu_helpers import (
 )
 from save_load import save_menu, load_menu
 from modes.play_game import playGame
-from modes.replay import replayBase
+from modes.replay import solvePositions
 from modes.brainmaster import playBrainMasterBase
-from modes.models import playModels
+from modes.openings import playOpening
 
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
@@ -155,40 +155,40 @@ def mainMenu(width,height, test: bool = False) -> None:
     playComputerMenu.add.button('Play', playGame)
 
 
-    playDataSetMenu = pygame_menu.Menu(
+    solvePositionsMenu = pygame_menu.Menu(
         height=height,
         theme=pygame_menu.themes.THEME_BLUE,
-        title='Base Options',
+        title='Solve positions',
         width=width
     )    
-    playDataSetMenu.add.text_input('ECO (optional)', default=positionParameters["eco"] or "", onchange=setPositionEco)
-    playDataSetMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Any", 2)], default=default_color_index,
+    solvePositionsMenu.add.text_input('ECO (optional)', default=positionParameters["eco"] or "", onchange=setPositionEco)
+    solvePositionsMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Any", 2)], default=default_color_index,
                                 onchange=setColorIndex)
-    addChooseBaseFile(playDataSetMenu)
+    addChooseBaseFile(solvePositionsMenu)
 
-    playDataSetMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
-    playDataSetMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int), 
+    solvePositionsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
+    solvePositionsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int), 
                                      value_format=lambda x: str(round(x, 0)),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
 
-    playDataSetMenu.add.button('Play', replayBase)
+    solvePositionsMenu.add.button('Play', solvePositions)
 
 
-    ExerciseModelsMenu = pygame_menu.Menu(
+    openingsMenu = pygame_menu.Menu(
         height=height,
         theme=pygame_menu.themes.THEME_BLUE,
-        title='Choose model games',
+        title='Study openings',
         width=width
     )
 
-    ExerciseModelsMenu.add.selector('You play', [("White", 0), ("Black", 1)],
+    openingsMenu.add.selector('You play', [("White", 0), ("Black", 1)],
                       default=default_color_index if default_color_index<2 else 0, onchange=setColorIndex)
-    ExerciseModelsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
+    openingsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
                                        onchange=make_updater("num_moves_to_show",int), 
                 default=state.num_moves_to_show)  # Aggiungi questa riga
-    addChoosePGNFile(ExerciseModelsMenu)
-    ExerciseModelsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
-    ExerciseModelsMenu.add.button('Play', playModels)
+    addChoosePGNFile(openingsMenu)
+    openingsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
+    openingsMenu.add.button('Play', playOpening)
 
     CreateCourseMenu = None
     if config.base_url:
@@ -356,10 +356,10 @@ def mainMenu(width,height, test: bool = False) -> None:
                                  theme=pygame_menu.themes.THEME_BLUE)
     app.main_menu.add.button('Play against computer', playComputerMenu)
     app.main_menu.add.button('Play between humans', humanPlay)
-    app.main_menu.add.button('Play a dataset', playDataSetMenu)
+    app.main_menu.add.button('Solve positions', solvePositionsMenu)
     if BrainMasterMenu:
         app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
-    app.main_menu.add.button('Exercise by models', ExerciseModelsMenu)
+    app.main_menu.add.button('Study openings', openingsMenu)
     app.main_menu.add.button('Tools', toolsMenu)
     app.main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
 
