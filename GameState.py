@@ -43,6 +43,29 @@ class Voce:
 
 voce = Voce()
 
+
+# --- Standard PGN annotation glyphs (NAGs) ---------------------------------
+# Uses the actual Unicode symbols on screen (a few may not render if the
+# move-log font lacks the glyph). The PGN file always stores the numeric NAG,
+# so the canonical glyph survives save/load regardless of the font.
+NAG_SYMBOL = {
+    1: "!", 2: "?", 3: "!!", 4: "??", 5: "!?", 6: "?!", 7: "□",
+    10: "=", 13: "∞", 14: "⩲", 15: "⩱", 16: "±", 17: "∓",
+    18: "+−", 19: "−+", 22: "⨀", 23: "⨀",
+}
+# Ordered (nag, label) choices shown in the annotation menu.
+NAG_CHOICES = [
+    (1, "!  good move"), (2, "?  mistake"), (3, "!! brilliant move"),
+    (4, "?? blunder"), (5, "!? interesting move"), (6, "?! dubious move"),
+    (7, "□  only move"),
+    (10, "=  equal position"), (13, "∞  unclear position"),
+    (14, "⩲  White slightly better"), (15, "⩱  Black slightly better"),
+    (16, "±  White better"), (17, "∓  Black better"),
+    (18, "+−  White winning"), (19, "−+  Black winning"),
+    (22, "⨀  zugzwang"),
+]
+
+
 class GameState:
 
      
@@ -316,6 +339,45 @@ class GameState:
         del self.moveLog[-1]
         self.evaluation = None
         
+
+    def setMoveNag(self, nag: int) -> bool:
+        '''
+        Set the (single) annotation glyph on the current move, REPLACING any
+        previous one -- a move's assessment is unique. A falsy nag (0/None)
+        just clears the annotation. No-op (returns False) on the start position,
+        which has no move to annotate.
+        '''
+        if self.node is None or self.node.parent is None:
+            return False
+        self.node.nags.clear()
+        if nag:
+            self.node.nags.add(nag)
+        return True
+
+    def clearMoveNags(self) -> bool:
+        '''Remove every annotation glyph from the current move.'''
+        if self.node is None or self.node.parent is None:
+            return False
+        self.node.nags.clear()
+        return True
+
+    def getMoveGlyphs(self) -> List[str]:
+        '''
+        Glyph string for EACH move in moveLog (same length, aligned by index);
+        '' means no annotation. Covers the whole current line (not just the last
+        move) so the move list can show the marks next to every move.
+        '''
+        line = []
+        n = self.node
+        while n is not None and n.parent is not None:
+            line.append(n)
+            n = n.parent
+        line.reverse()
+        glyphs = ["".join(NAG_SYMBOL[x] for x in sorted(node.nags) if x in NAG_SYMBOL)
+                  for node in line]
+        while len(glyphs) < len(self.moveLog):
+            glyphs.append("")
+        return glyphs[:len(self.moveLog)]
 
     def whiteToMove(self)->chess.Color:
         return self.board().turn

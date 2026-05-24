@@ -13,7 +13,7 @@ from app_context import app
 import game_loop_common as glc
 import state
 from state import playParameters, positionParameters, CIRCLE_COLOR
-from GameState import Move, GameState
+from GameState import Move, GameState, NAG_CHOICES
 import UCIEngines
 import BoardScreen as BS
 import analyzer
@@ -76,6 +76,45 @@ def chooseNextMove(gs:GameState)->chess.Move:
         p.display.flip()
     return selected_move
 
+
+def chooseAnnotation(current_nags):
+    """Menu dei glifi di annotazione (NAG) per l'ultima mossa.
+    Ritorna il NAG scelto, 0 per rimuovere tutte le annotazioni, o None se
+    annullato. I glifi gia' presenti sulla mossa sono marcati con '*'.
+    """
+    chosen = None
+    menu_running = True
+
+    def pick(nag):
+        nonlocal chosen, menu_running
+        chosen = nag
+        menu_running = False
+
+    theme = pygame_menu.themes.THEME_DARK.copy()
+    sym_font = p.font.match_font("Segoe UI Symbol,Cambria Math,DejaVu Sans")
+    if sym_font:
+        theme.widget_font = sym_font  # font che contiene i glifi di annotazione
+    menu = pygame_menu.Menu("Annotate last move", app.W, app.H, theme=theme)
+    for nag, label in NAG_CHOICES:
+        mark = "  *" if nag in current_nags else ""
+        menu.add.button(label + mark, pick, nag)
+    menu.add.button("(remove all)", pick, 0)
+    menu.add.button("Cancel", pick, None)
+
+    surface = app.screen
+    while menu_running:
+        events = p.event.get()
+        for ev in events:
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+        surface.fill((0, 0, 0))
+        menu.update(events)
+        menu.draw(surface)
+        p.display.flip()
+    return chosen
+
+
 # Play a game against the engine or against another player, depending on the settings in playParameters
 def playAGame():
     gs:Optional[GameState] = GameState()
@@ -129,7 +168,9 @@ def playAGame():
         ]
     if not whiteCPU and not blackCPU:
         # "Load game" compare solo senza computer (modalita' analisi)
+        # disponibili solo senza computer (modalita' analisi)
         help_text.insert(7, "- L Load game ")
+        help_text.insert(8, "- N Annotate move (! ? !? ...)")
     show_help = False
     def do_show_help():
         glc.draw_help_overlay(help_text, height=400)
@@ -258,6 +299,16 @@ def playAGame():
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves
                         BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+                        continue
+
+                    if e.key == p.K_n and not whiteCPU and not blackCPU:
+                        # Annota l'ultima mossa (solo in analisi, senza computer)
+                        if len(gs.moveLog) > 0:
+                            nag = chooseAnnotation(gs.node.nags)
+                            if nag == 0:
+                                gs.clearMoveNags()
+                            elif nag is not None:
+                                gs.setMoveNag(nag)
                         continue
 
                     if e.key == p.K_g:  # copy to clipboard

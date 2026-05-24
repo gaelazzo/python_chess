@@ -76,7 +76,9 @@ def init():
     global clock
 
     loadImages()
-    MOVELOGFONT = p.font.SysFont("Arial", 14, False, False)
+    # Segoe UI Symbol (Win) / Cambria Math cover the chess annotation glyphs
+    # (= ± ∓ ⩲ ⩱ ∞ □ ⨀); Arial does not. Fall back gracefully elsewhere.
+    MOVELOGFONT = p.font.SysFont("Segoe UI Symbol,Cambria Math,DejaVu Sans,Arial", 14, False, False)
     BOOKFONT = p.font.SysFont("Arial", 14, False, False)
     height = SCREEN_HEIGHT
     width = SCREEN_WIDTH
@@ -370,11 +372,12 @@ def drawMoveLog(screen, gs):
     moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
     moveLog = gs.moveLog
+    glyphs = gs.getMoveGlyphs()  # annotation glyph per move ('' if none)
     moveTexts = []  # [m.getChessNotation() for m in moveLog]
     for i in range(0, len(moveLog),2 ):
-        moveString = str(i//2 + 1)+"."+ moveLog[i].prettyChessNotation()
+        moveString = str(i//2 + 1)+"."+ moveLog[i].prettyChessNotation() + glyphs[i]
         if i +1 < len(moveLog):
-            moveString += " " + moveLog[i+1].prettyChessNotation()
+            moveString += " " + moveLog[i+1].prettyChessNotation() + glyphs[i+1]
         moveTexts.append(moveString)
     padding = 5
     textY = padding
