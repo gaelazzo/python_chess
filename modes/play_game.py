@@ -120,14 +120,16 @@ def playAGame():
             "- C Copy FEN to clipboard",
             "- G Copy PGN to clipboard ", 
             "- S Save game ",
-            "- L Load game ", 
             "- A Analyze mode",
-            "- F Flip board", 
+            "- F Flip board",
             "- R reset"
             "- E Engine ON/OFF",
-            "- B show/hide book", 
-            "- D show/hide moves"                        
+            "- B show/hide book",
+            "- D show/hide moves"
         ]
+    if not whiteCPU and not blackCPU:
+        # "Load game" compare solo senza computer (modalita' analisi)
+        help_text.insert(7, "- L Load game ")
     show_help = False
     def do_show_help():
         glc.draw_help_overlay(help_text, height=400)
@@ -246,9 +248,12 @@ def playAGame():
                     if e.key == p.K_e:  # Engine on /off
                         glc.toggle_engine(gs)
 
-                    if e.key == p.K_l: # load a game
+                    if e.key == p.K_l and not whiteCPU and not blackCPU:
+                        # Caricamento abilitato solo SENZA computer (modalita' analisi):
+                        # la partita parte dalla prima mossa e si scorre in avanti con
+                        # la freccia destra (chooseNextMove), esplorando le varianti.
+                        # Contro il computer il caricamento e' disabilitato.
                         load_menu(gs)
-                        gs.goToLastMove()  # posiziona la partita caricata sull'ultima mossa (altrimenti resta a mossa 0)
                         moveMade = False # a move was made
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves

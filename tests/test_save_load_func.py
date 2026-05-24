@@ -55,12 +55,11 @@ def test_save_new_game_then_reload_roundtrip(tmp_path, monkeypatch):
     assert [m.uci() for m in gs2.pgn.mainline_moves()] == MOVES
 
 
-def test_loaded_game_sits_at_move_zero_until_goToLastMove(tmp_path, monkeypatch):
+def test_loaded_game_starts_at_first_move(tmp_path, monkeypatch):
+    # A loaded game must sit at the first move (empty moveLog) so that, in
+    # analysis (human-vs-human), it can be stepped forward with chooseNextMove,
+    # exploring variations. (Load is disabled when playing vs the computer.)
     gs2 = _save_and_reload(tmp_path, monkeypatch, MOVES)
-    # Right after load the game sits at the start -- this is why play-vs-computer
-    # only showed the opening before playAGame started calling goToLastMove().
     assert gs2.moveLog == []
-    # goToLastMove (now applied after load in playAGame) exposes the whole game.
-    gs2.goToLastMove()
-    assert len(gs2.moveLog) == len(MOVES)
-    assert gs2.is_end()
+    assert not gs2.is_end()              # there are moves to step into
+    assert gs2.getNextMoves()            # chooseNextMove has something to offer
