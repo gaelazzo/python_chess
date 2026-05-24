@@ -376,9 +376,11 @@ def mainMenu(width,height, test: bool = False) -> None:
         main_background()
 
         events = p.event.get()
-        # for event in events:
-        #     if event.type == p.QUIT:
-        #         app.main_running = False  # Esce dal loop principale
+        for event in events:
+            if event.type == p.QUIT:
+                app.main_running = False          # chiusura finestra
+            elif event.type == p.KEYDOWN and event.key == p.K_q:
+                app.main_running = False          # 'q' esce dal programma
 
 
         # Main menu

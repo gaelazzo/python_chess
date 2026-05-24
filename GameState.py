@@ -415,11 +415,15 @@ class GameState:
             path.append(n)
             n = n.parent
         path.reverse()
-        self.node = self.pgn
         self.moveLog = []
         self.evaluation = None
+        # Rebuild moveLog directly. We deliberately do NOT replay via
+        # makeChessMove/_pgnMakeMove: that reads every move's comment aloud (TTS,
+        # blocking), making navigation take seconds when moves are annotated.
         for nd in path:
-            self.makeChessMove(nd.move)
+            self.node = nd.parent          # board context before this move
+            self.moveLog.append(Move.fromChessMove(nd.move, self))
+        self.node = node
         return True
 
     def whiteToMove(self)->chess.Color:

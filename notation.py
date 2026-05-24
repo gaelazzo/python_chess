@@ -9,16 +9,47 @@ from __future__ import annotations
 
 import sys
 
+import chess
 import pygame as p
 
 from app_context import app
 from GameState import NAG_SYMBOL
+import BoardScreen as BS
 
 MAIN_COLOR = (235, 235, 235)
 VAR_COLOR = (150, 165, 195)
 COMMENT_COLOR = (120, 200, 130)
 HILITE_BG = (60, 60, 105)
 BG_COLOR = (20, 20, 28)
+
+# Small board shown in the bottom-right corner (selected position).
+MINI_SQ = 28
+MINI_LIGHT = (236, 232, 210)
+MINI_DARK = (118, 150, 86)
+
+
+def _draw_mini_board(gs, scaled_pieces):
+    """Draw a small board of the current position (gs.node) in the bottom-right
+    corner. White at the bottom. `scaled_pieces` maps 'wP'/'bN'/... to images
+    pre-scaled to MINI_SQ."""
+    board = gs.board()          # computed once
+    if board is None:
+        return
+    sq = MINI_SQ
+    bw = 8 * sq
+    x0 = app.W - bw - 16
+    y0 = app.H - bw - 16
+    p.draw.rect(app.screen, (8, 8, 12), p.Rect(x0 - 4, y0 - 4, bw + 8, bw + 8))
+    for r in range(8):          # r=0 top (8th rank)
+        for c in range(8):      # c=0 left (file a)
+            rect = p.Rect(x0 + c * sq, y0 + r * sq, sq, sq)
+            p.draw.rect(app.screen, MINI_LIGHT if (r + c) % 2 == 0 else MINI_DARK, rect)
+            piece = board.piece_at(chess.square(c, 7 - r))
+            if piece is not None:
+                key = ("w" if piece.color else "b") + piece.symbol().upper()
+                img = scaled_pieces.get(key)
+                if img is not None:
+                    app.screen.blit(img, rect)
 
 
 def _glyph(node) -> str:
@@ -115,10 +146,13 @@ def show_notation(gs):
     header_font = p.font.SysFont("Arial", 14, bold=True)
     spans, total_h, line_h = _layout(notation_items(gs.pgn), font, app.W)
     max_scroll = max(0, total_h - app.H)
-    header = ("Notazione  --  <- / ->: mossa prec/succ  |  su/giu, rotella, PgUp/PgDn: scorri"
-              "  |  click: vai  |  V/Esc: chiudi")
+    header = ("Notazione  --  <- / ->: mossa prec/succ  |  su/giu: riga prec/succ"
+              "  |  PgUp/PgDn/rotella: scorri  |  click: vai  |  V/Esc: chiudi")
 
     move_nodes = [s[6] for s in spans if s[6] is not None]
+    move_xy = [(s[0], s[1], s[6]) for s in spans if s[6] is not None]   # (x, y, node)
+    mini_pieces = {k: p.transform.smoothscale(img, (MINI_SQ, MINI_SQ))
+                   for k, img in BS.IMAGES.items()}
     scroll = 0
 
     def ensure_visible(node):
@@ -138,9 +172,27 @@ def show_notation(gs):
         except ValueError:
             return -1
 
+    def select(node):
+        gs.goToNode(node)
+        ensure_visible(node)
+
     def goto(i):
-        gs.goToNode(move_nodes[i])
-        ensure_visible(move_nodes[i])
+        select(move_nodes[i])
+
+    def nav_line(direction):
+        """Move the selection to the nearest move on the previous/next line."""
+        cur = next(((x, y) for (x, y, nd) in move_xy if nd is gs.node), None)
+        if cur is None:
+            if move_xy:
+                select(move_xy[0][2] if direction > 0 else move_xy[-1][2])
+            return
+        cx, cy = cur
+        ys = [y for (x, y, nd) in move_xy if (y < cy if direction < 0 else y > cy)]
+        if not ys:
+            return
+        target_y = max(ys) if direction < 0 else min(ys)
+        best = min((t for t in move_xy if t[1] == target_y), key=lambda t: abs(t[0] - cx))
+        select(best[2])
 
     ensure_visible(gs.node)
     running = True
@@ -158,10 +210,10 @@ def show_notation(gs):
                 elif e.key == p.K_RIGHT and move_nodes:          # next move
                     i = current_index()
                     goto(0 if i < 0 else min(len(move_nodes) - 1, i + 1))
-                elif e.key == p.K_DOWN:
-                    scroll += line_h
-                elif e.key == p.K_UP:
-                    scroll -= line_h
+                elif e.key == p.K_DOWN and move_nodes:
+                    nav_line(+1)
+                elif e.key == p.K_UP and move_nodes:
+                    nav_line(-1)
                 elif e.key == p.K_PAGEDOWN:
                     scroll += app.H - line_h
                 elif e.key == p.K_PAGEUP:
@@ -193,4 +245,5 @@ def show_notation(gs):
         # header bar on top
         p.draw.rect(app.screen, (38, 38, 52), p.Rect(0, 0, app.W, 40))
         app.screen.blit(header_font.render(header, True, (210, 210, 170)), (16, 12))
+        _draw_mini_board(gs, mini_pieces)
         p.display.flip()

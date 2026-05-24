@@ -362,6 +362,10 @@ def playAGame():
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
                         # Pannello notazione: intera partita + varianti + annotazioni
                         notation.show_notation(gs)
+                        # il pannello disegna a tutto schermo: ripulisco prima di
+                        # ridisegnare la scacchiera (incluso lo strip CPU sotto)
+                        app.main_background()
+                        BS.clearCPU(app.screen)
                         moveMade = False
                         animate = False
                         validMoves = gs.stdValidMoves()
