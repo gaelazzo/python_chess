@@ -416,11 +416,12 @@ def playAGame():
                 # textsurface = app.myfont.render('Checkmate', False, p.Color("red"))
             else:
                 text = "Stalemate"
-            show_message(gs, text)            
-            app.delay(2 )
-            running = False
-            # textsurface = app.myfont.render('Stalemate', False, p.Color("red"))
-            # app.screen.blit(textsurface, (200, 100))
+            # Mostra il risultato ma NON chiudere la maschera: l'utente resta
+            # sulla posizione finale e chiude quando vuole (Q), cosi' puo'
+            # ancora salvare (S), tornare indietro (freccia sx) o resettare (R).
+            # gameOver viene ricalcolato a ogni giro, quindi undo/reset
+            # riprendono la partita; la mossa col mouse e' gia' bloccata.
+            show_message(gs, text)
 
         else:
             # Highlight squares when needed
