@@ -12,6 +12,7 @@ import chess.polyglot
 import random
 import pyttsx3
 import book
+from move_speech import expand_moves_for_speech
 
 
 class Voce:
@@ -115,8 +116,8 @@ class GameState:
         # self.goToLastMove()
 
     def leggiCommentoCorrente(self):
-        if self.node and self.node.comment:            
-            voce.leggi(self.node.comment)
+        if self.node and self.node.comment:
+            voce.leggi(expand_moves_for_speech(self.node.comment))
     
     def doNextMainMove(self)->bool:
         '''
