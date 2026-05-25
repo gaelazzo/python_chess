@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import sys
 
-import chess
 import pygame as p
 
 from app_context import app
@@ -21,35 +20,6 @@ VAR_COLOR = (150, 165, 195)
 COMMENT_COLOR = (120, 200, 130)
 HILITE_BG = (60, 60, 105)
 BG_COLOR = (20, 20, 28)
-
-# Small board shown in the bottom-right corner (selected position).
-MINI_SQ = 28
-MINI_LIGHT = (236, 232, 210)
-MINI_DARK = (118, 150, 86)
-
-
-def _draw_mini_board(gs, scaled_pieces):
-    """Draw a small board of the current position (gs.node) in the bottom-right
-    corner. White at the bottom. `scaled_pieces` maps 'wP'/'bN'/... to images
-    pre-scaled to MINI_SQ."""
-    board = gs.board()          # computed once
-    if board is None:
-        return
-    sq = MINI_SQ
-    bw = 8 * sq
-    x0 = app.W - bw - 16
-    y0 = app.H - bw - 16
-    p.draw.rect(app.screen, (8, 8, 12), p.Rect(x0 - 4, y0 - 4, bw + 8, bw + 8))
-    for r in range(8):          # r=0 top (8th rank)
-        for c in range(8):      # c=0 left (file a)
-            rect = p.Rect(x0 + c * sq, y0 + r * sq, sq, sq)
-            p.draw.rect(app.screen, MINI_LIGHT if (r + c) % 2 == 0 else MINI_DARK, rect)
-            piece = board.piece_at(chess.square(c, 7 - r))
-            if piece is not None:
-                key = ("w" if piece.color else "b") + piece.symbol().upper()
-                img = scaled_pieces.get(key)
-                if img is not None:
-                    app.screen.blit(img, rect)
 
 
 def _glyph(node) -> str:
@@ -140,19 +110,22 @@ def _layout(items, font, width):
 
 
 def show_notation(gs):
-    """Full-screen scrollable notation overlay. Clicking a move jumps the board
-    to that position. Closes with V / Esc."""
+    """Scrollable notation panel shown to the RIGHT of the board, so the board
+    stays visible while you browse. Clicking a move jumps the board to that
+    position; navigating with the keys updates the board live. Closes with
+    V / Esc."""
+    panel_x = BS.BOARD_WIDTH                 # board occupies the left strip
+    panel_w = app.W - BS.BOARD_WIDTH         # notation fills the rest, on the right
+    panel_h = app.H
+
     font = p.font.SysFont("Segoe UI Symbol,Cambria Math,Arial", 18)
-    header_font = p.font.SysFont("Arial", 14, bold=True)
-    spans, total_h, line_h = _layout(notation_items(gs.pgn), font, app.W)
-    max_scroll = max(0, total_h - app.H)
-    header = ("Notazione  --  <- / ->: mossa prec/succ  |  su/giu: riga prec/succ"
-              "  |  PgUp/PgDn/rotella: scorri  |  click: vai  |  V/Esc: chiudi")
+    header_font = p.font.SysFont("Arial", 13, bold=True)
+    spans, total_h, line_h = _layout(notation_items(gs.pgn), font, panel_w)
+    max_scroll = max(0, total_h - panel_h)
+    header = "Notazione -- click: vai | <-/->: mossa | su/giu: riga | rotella: scorri | V/Esc: chiudi"
 
     move_nodes = [s[6] for s in spans if s[6] is not None]
     move_xy = [(s[0], s[1], s[6]) for s in spans if s[6] is not None]   # (x, y, node)
-    mini_pieces = {k: p.transform.smoothscale(img, (MINI_SQ, MINI_SQ))
-                   for k, img in BS.IMAGES.items()}
     scroll = 0
 
     def ensure_visible(node):
@@ -162,8 +135,8 @@ def show_notation(gs):
             if nd is node:
                 if y - scroll < 52:
                     scroll = y - 52
-                elif y + h - scroll > app.H:
-                    scroll = y + h - app.H
+                elif y + h - scroll > panel_h:
+                    scroll = y + h - panel_h
                 break
 
     def current_index():
@@ -215,9 +188,9 @@ def show_notation(gs):
                 elif e.key == p.K_UP and move_nodes:
                     nav_line(-1)
                 elif e.key == p.K_PAGEDOWN:
-                    scroll += app.H - line_h
+                    scroll += panel_h - line_h
                 elif e.key == p.K_PAGEUP:
-                    scroll -= app.H - line_h
+                    scroll -= panel_h - line_h
                 elif e.key == p.K_HOME:
                     scroll = 0
                 elif e.key == p.K_END:
@@ -227,23 +200,27 @@ def show_notation(gs):
             elif e.type == p.MOUSEBUTTONDOWN and e.button == 1:
                 mx, my = e.pos
                 for (x, y, w, h, text, color, node) in spans:
-                    if node is not None and p.Rect(x, y - scroll, w, h).collidepoint(mx, my):
+                    if node is not None and p.Rect(panel_x + x, y - scroll, w, h).collidepoint(mx, my):
                         gs.goToNode(node)
                         running = False
                         break
 
         scroll = max(0, min(scroll, max_scroll))
 
+        # dark background, then the live board on the left (reflects the
+        # currently selected node) -- the board is no longer overwritten.
         app.screen.fill(BG_COLOR)
+        BS.redraw(app.screen, gs)
+
+        # notation panel on the right of the board
         for (x, y, w, h, text, color, node) in spans:
             sy = y - scroll
-            if sy + h < 0 or sy > app.H:
+            if sy + h < 0 or sy > panel_h:
                 continue
             if node is not None and node is gs.node:
-                p.draw.rect(app.screen, HILITE_BG, p.Rect(x - 2, sy, w + 4, h))
-            app.screen.blit(font.render(text, True, color), (x, sy))
-        # header bar on top
-        p.draw.rect(app.screen, (38, 38, 52), p.Rect(0, 0, app.W, 40))
-        app.screen.blit(header_font.render(header, True, (210, 210, 170)), (16, 12))
-        _draw_mini_board(gs, mini_pieces)
+                p.draw.rect(app.screen, HILITE_BG, p.Rect(panel_x + x - 2, sy, w + 4, h))
+            app.screen.blit(font.render(text, True, color), (panel_x + x, sy))
+        # header bar on top of the panel
+        p.draw.rect(app.screen, (38, 38, 52), p.Rect(panel_x, 0, panel_w, 40))
+        app.screen.blit(header_font.render(header, True, (210, 210, 170)), (panel_x + 12, 12))
         p.display.flip()
