@@ -365,56 +365,73 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
         clearPgn(screen)
 
 
-def drawMoveLog(screen, gs):    
+def drawMoveLog(screen, gs):
     movesPerRow = 3
     assert(MOVELOGFONT is not None)
     font:p.Font = MOVELOGFONT
     moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
-    moveLog = gs.moveLog
-    glyphs = gs.getMoveGlyphs()  # annotation glyph per move ('' if none)
-    moveTexts = []  # [m.getChessNotation() for m in moveLog]
-    for i in range(0, len(moveLog),2 ):
-        moveString = str(i//2 + 1)+"."+ moveLog[i].prettyChessNotation() + glyphs[i]
-        if i +1 < len(moveLog):
-            moveString += " " + moveLog[i+1].prettyChessNotation() + glyphs[i+1]
-        moveTexts.append(moveString)
-    padding = 5
-    textY = padding
-    lineSpacing = 2
 
-    header = gs.getHeader()
-    for i in range(0, len(header), 2):
-        key = header[i]
-        value = header[i + 1] if i + 1 < len(header) else ""
-        textY+= add_txt_line(f"{key}: {value}", textY, font, screen, moveLogRect, padding, lineSpacing)
-        
-    for i in range(0, len(moveTexts), movesPerRow):
-        text = ""
-        for j in range(movesPerRow):
-            if i+j < len(moveTexts):
-                text += moveTexts[i+j]+" "
-        #str(moveTexts[i])
-        textY+= add_txt_line(text, textY, font, screen, moveLogRect, padding, lineSpacing)
+    # Clip al rettangolo del pannello: un commento (o una lista mosse) lungo
+    # non puo' piu' sconfinare nei riquadri sottostanti, che questa funzione
+    # non ripulisce (era la causa del testo "fantasma" rimasto in basso).
+    prev_clip = screen.get_clip()
+    screen.set_clip(moveLogRect)
+    try:
+        moveLog = gs.moveLog
+        glyphs = gs.getMoveGlyphs()  # annotation glyph per move ('' if none)
+        moveTexts = []  # [m.getChessNotation() for m in moveLog]
+        for i in range(0, len(moveLog),2 ):
+            moveString = str(i//2 + 1)+"."+ moveLog[i].prettyChessNotation() + glyphs[i]
+            if i +1 < len(moveLog):
+                moveString += " " + moveLog[i+1].prettyChessNotation() + glyphs[i+1]
+            moveTexts.append(moveString)
+        padding = 5
+        textY = padding
+        lineSpacing = 2
 
-    evaluation = gs.getEvaluation()
-    if evaluation is not None:
-        textY+= add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, moveLogRect, padding, lineSpacing)
+        header = gs.getHeader()
+        for i in range(0, len(header), 2):
+            key = header[i]
+            value = header[i + 1] if i + 1 < len(header) else ""
+            textY+= add_txt_line(f"{key}: {value}", textY, font, screen, moveLogRect, padding, lineSpacing)
 
-    comment = gs.getMoveComment()
-    if comment:
-        textY += add_txt_line("Comment:", textY, font, screen, moveLogRect, padding, lineSpacing, color="yellow")
-        maxw = MOVE_LOG_WIDTH - 2 * padding
-        line = ""
-        for word in comment.split():
-            trial = (line + " " + word).strip()
-            if line and font.size(trial)[0] > maxw:
-                textY += add_txt_line(line, textY, font, screen, moveLogRect, padding, lineSpacing)
-                line = word
-            else:
-                line = trial
-        if line:
-            textY += add_txt_line(line, textY, font, screen, moveLogRect, padding, lineSpacing)
+        for i in range(0, len(moveTexts), movesPerRow):
+            text = ""
+            for j in range(movesPerRow):
+                if i+j < len(moveTexts):
+                    text += moveTexts[i+j]+" "
+            #str(moveTexts[i])
+            textY+= add_txt_line(text, textY, font, screen, moveLogRect, padding, lineSpacing)
+
+        evaluation = gs.getEvaluation()
+        if evaluation is not None:
+            textY+= add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, moveLogRect, padding, lineSpacing)
+
+        comment = gs.getMoveComment()
+        if comment:
+            textY += add_txt_line("Comment:", textY, font, screen, moveLogRect, padding, lineSpacing, color="yellow")
+            maxw = MOVE_LOG_WIDTH - 2 * padding
+            lines = []
+            line = ""
+            for word in comment.split():
+                trial = (line + " " + word).strip()
+                if line and font.size(trial)[0] > maxw:
+                    lines.append(line)
+                    line = word
+                else:
+                    line = trial
+            if line:
+                lines.append(line)
+            # tieni solo le righe che entrano nel pannello; se troncato, "..."
+            lineHeight = font.get_height() + lineSpacing
+            maxLines = max(0, (MOVE_LOG_HEIGHT - textY) // lineHeight)
+            if len(lines) > maxLines:
+                lines = lines[:max(0, maxLines - 1)] + ["..."]
+            for ln in lines:
+                textY += add_txt_line(ln, textY, font, screen, moveLogRect, padding, lineSpacing)
+    finally:
+        screen.set_clip(prev_clip)
 
     update()
 
