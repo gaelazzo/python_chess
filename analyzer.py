@@ -163,9 +163,9 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
     board.push(moveMade) # restores the move
     
    
-def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None):    
+def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None):
     pg = PgnAnalyzer(playerName, pgnFileName, learningBase)
-    pg.analyzeDataBase(start_from,skip_player)
+    pg.analyzeDataBase(start_from,skip_player, progress=progress)
     
 
 
@@ -193,7 +193,7 @@ class PgnAnalyzer:
         pass
 
  
-    def analyzeDataBase(self, start_from:int=0, skip_player:Optional[str]=None):
+    def analyzeDataBase(self, start_from:int=0, skip_player:Optional[str]=None, progress=None):
         n_games = 0
         if start_from>0:
             while n_games < start_from:
@@ -215,7 +215,9 @@ class PgnAnalyzer:
 
             if game is None:
                 break
-            n_games +=1            
+            n_games +=1
+            if progress is not None:
+                progress(n_games)
             self.analyzeGame(game, colorToAnalyze)
             if n_games % 50 == 0:
                 self.learningBase.save()

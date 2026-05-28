@@ -58,6 +58,7 @@ from modes.play_game import playGame
 from modes.replay import solvePositions
 from modes.brainmaster import playBrainMasterBase
 from modes.openings import playOpening
+from modes.improve import buildImproveMenu
 
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
@@ -362,6 +363,7 @@ def mainMenu(width,height, test: bool = False) -> None:
 
     app.main_menu = pygame_menu.Menu('Chess Python', width, height,
                                  theme=pygame_menu.themes.THEME_BLUE)
+    app.main_menu.add.button('Migliora dalle tue partite', buildImproveMenu(width, height))
     app.main_menu.add.button('Play against computer', playComputerMenu)
     app.main_menu.add.button('Play between humans', humanPlay)
     app.main_menu.add.button('Solve positions', solvePositionsMenu)

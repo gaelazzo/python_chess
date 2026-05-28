@@ -11,6 +11,7 @@ from shutil import rmtree  # Per la cancellazione ricorsiva
 
 import requests as requests
 import pgngamelist
+from typing import Optional
 
 import re
 
@@ -65,7 +66,7 @@ def cached_json_get(url, cache_path):
         return json_data
 
 
-def load(user_name:str,  output_file:str, color:str):
+def load(user_name:str,  output_file:str, color:str, max_games:Optional[int]=None):
     output_dir = os.path.join(pgngamelist.PGN_FOLDER, output_file)
     os.makedirs(pgngamelist.PGN_FOLDER, exist_ok=True)
 
@@ -79,21 +80,27 @@ def load(user_name:str,  output_file:str, color:str):
         if archives is None:
             print(f"User {user_name} does not exist")
             return
-        pgns = []
-        for archive in archives:
+
+        # Dal mese piu' recente all'indietro: si tengono solo le partite del
+        # colore richiesto e ci si ferma a max_games (None = tutte). Cosi' si
+        # scaricano solo gli archivi necessari e si analizzano le partite piu'
+        # recenti (non gli errori di anni fa).
+        kept = []
+        for archive in reversed(archives):
             print(archive)
             json_data = cached_json_get(archive, cache_path)
-
-            for game in json_data['games']:
-                pgns.append(game['pgn'])
+            for game in reversed(json_data.get('games', [])):
+                pgn = game['pgn']
+                if color is not None and color != get_player_color(pgn, user_name):
+                    continue
+                kept.append(pgn)
+                if max_games is not None and len(kept) >= max_games:
+                    break
+            if max_games is not None and len(kept) >= max_games:
+                break
 
         with open(output_dir, 'w', encoding='utf-8') as f:
-            for pgn in pgns:
-                player_color = get_player_color(pgn, user_name)
-                if color is not None:
-                    if color!= player_color:
-                        continue
-
+            for pgn in kept:
                 f.write(pgn)
                 f.write('\n' * 2)
 
