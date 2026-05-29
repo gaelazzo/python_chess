@@ -1,0 +1,6 @@
+{
+  // Usa l'interprete del venv del progetto (Windows): import e IntelliSense
+  // di pygame / chess / pygame_menu vengono risolti correttamente.
+  "python.defaultInterpreterPath": "${workspaceFolder}/env/Scripts/python.exe",
+  "python.terminal.activateEnvironment": true
+}

@@ -1,0 +1,26 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Avvia/debugga l'app. cwd sulla root: l'app carica immagini e data/
+      // con percorsi relativi, quindi DEVE partire dalla cartella del progetto.
+      "name": "Avvia Chess (chessMain.py)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/chessMain.py",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    },
+    {
+      // Esegue/debugga il file Python attualmente aperto (utile per script e test).
+      "name": "File Python corrente",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${file}",
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": true
+    }
+  ]
+}
