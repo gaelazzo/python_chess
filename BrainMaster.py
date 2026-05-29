@@ -192,7 +192,7 @@ def ask_for_quiz(id_course:str, id_student:str):
                 }
     
     '''
-    url = f'{config.base_url}suggest_test'
+    url = f'{config.base_url}suggest_action'
     # I dati che vuoi inviare al servizio
     payload = {
         'id_course': id_course,
