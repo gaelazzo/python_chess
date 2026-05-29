@@ -63,11 +63,14 @@ def updateInfoStats(board:chess.Board, learningBase:LearningBase):
 
 def getRandomPositions(learningBase:LearningBase, filter=None)->List [LearnPosition]:
     """
-        Gets a randomized filtered subset of the given learning base
+        Gets a filtered subset of the given learning base, ordinato per priorita':
+        gli errori piu' ricorrenti (ntry) e piu' gravi (severity) finiscono in
+        FONDO alla lista, cosi' il consumatore (che fa pop()) li allena per primi.
+        A parita' di priorita' l'ordine e' casuale (varieta' tra le sessioni).
         Args:
             leaningBase: the database of positions
             filter: an object with the fields to match
-        Returns: 
+        Returns:
             List of positions
     """
     l:List [LearnPosition] = []
@@ -83,7 +86,10 @@ def getRandomPositions(learningBase:LearningBase, filter=None)->List [LearnPosit
         if row.skip:
             continue
         l.append(row)
-    random.shuffle(l)
+    random.shuffle(l)                                  # tiebreak casuale
+    # priorita' = (quante volte l'hai SBAGLIATA, gravita'); la piu' alta in
+    # fondo, cosi' il consumatore che fa pop() la allena per prima.
+    l.sort(key=lambda pos: (pos.ntry - pos.successful, pos.severity))
     return l
 
 
@@ -142,7 +148,7 @@ def assume_good_move(game:chess.pgn.Game, board:chess.Board,  learningBase:Learn
     learningBase.updatePosition(moveMade.uci(), goodMove.uci(), game,board)    
     board.push(moveMade) # restores the move
     
-def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:LearningBase, goodMove:str):
+def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:LearningBase, goodMove:str, severity:int=0):
     """
         Analyze last move made in a game
         Args:
@@ -150,16 +156,17 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
             board: board position AFTER the move was made
             learningBase: the learning base to update
             goodMove: the right move to do
+            severity: calo di valutazione (cp) dell'errore (per la priorita' in pratica)
         Returns:
             updates the stats
     """
-    moveMade:chess.Move = board.pop()  
+    moveMade:chess.Move = board.pop()
 
     # res = engine.analyse(board, chess.engine.Limit(time=learningBase.ponderTime), info=chess.engine.INFO_PV)
     # goodMove = res["pv"][0] # the move choosen by the engine
 
-    learningBase.updatePosition(moveMade.uci(), goodMove, game, board)
-    
+    learningBase.updatePosition(moveMade.uci(), goodMove, game, board, severity=severity)
+
     board.push(moveMade) # restores the move
     
    
@@ -364,22 +371,22 @@ class PgnAnalyzer:
 
             
             if annotation is not None and bestMove is not None:  # this refers to previous move!!!
-                if annotation.pov(colorToAnalyze) < (prevScore - self.blunderValue):                    
-                    updatePosition(game, board, self.learningBase, bestMove)
+                if annotation.pov(colorToAnalyze) < (prevScore - self.blunderValue):
+                    updatePosition(game, board, self.learningBase, bestMove, severity=self.blunderValue)
                     return board  # score has dropped more than the threeshold, the stats are to be reevaluated
 
             if len(node.nags)>0 and bestMove is not None:
                 if chess.pgn.NAG_MISTAKE in node.nags or \
                             chess.pgn.NAG_BLUNDER in node.nags or \
                             chess.pgn.NAG_DUBIOUS_MOVE in node.nags:
-                        updatePosition(game, board, self.learningBase, bestMove)
+                        updatePosition(game, board, self.learningBase, bestMove, severity=self.blunderValue)
                         return board
 
-           
+
             evaluation, nextBestMove = self.getPositionEvaluation(board,colorToAnalyze)
 
             if evaluation < (prevScore - self.blunderValue) and bestMove is not None: # bestMove could be None if this is the start of a handicap Game
-                updatePosition(game, board, self.learningBase, bestMove)  # score has dropped more than the threeshold,
+                updatePosition(game, board, self.learningBase, bestMove, severity=int(prevScore - evaluation))  # entita' del calo = gravita'
                 return board
             
             prevScore = evaluation

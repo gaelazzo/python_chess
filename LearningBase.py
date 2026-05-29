@@ -58,6 +58,7 @@ class LearnPosition:
     serie:int = 0
     skip:bool    =False
     idquiz: Optional[int] = None
+    severity:int = 0   # peggior calo di valutazione (cp) visto per questo errore
 
     def to_PgnString(self) -> str:
         pgn_game  =  self.to_Pgn()
@@ -110,7 +111,8 @@ class LearnPosition:
             ok = data["ok"],
             move = data["move"],
             gamedate= parse_date(data["gamedate"]) if data["gamedate"] else None,
-            idquiz=int(data["idquiz"]) if "idquiz" in data.keys()  and data["idquiz"] != "" else None
+            idquiz=int(data["idquiz"]) if "idquiz" in data.keys()  and data["idquiz"] != "" else None,
+            severity=int(data.get("severity") or 0),   # default 0 per le basi vecchie (colonna assente)
         )
 
 
@@ -267,7 +269,7 @@ class LearningBase:
 
 
     @classmethod
-    def create_first_position(cls, zobrist:int,board:ChessBoard, game:PgnGame, goodMove:str, moveMade:str)->LearnPosition:
+    def create_first_position(cls, zobrist:int,board:ChessBoard, game:PgnGame, goodMove:str, moveMade:str, severity:int=0)->LearnPosition:
         '''
             Create a position when it is not yet in the learning base
         '''
@@ -285,13 +287,14 @@ class LearningBase:
                 move = moveMade,
                 moves=moves,
                 successful=0,
-                ntry=0,            
+                ntry=0,
                 skip=False,
                 serie=0,
                 white=game.headers["White"],
                 black=game.headers["Black"],
                 gamedate=gamedate,
-                idquiz=None
+                idquiz=None,
+                severity=severity
             )
         
     
@@ -380,7 +383,7 @@ class LearningBase:
         return None
 
 
-    def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:ChessBoard):
+    def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:ChessBoard, severity:int=0):
         """
             Analyze last move made in a game
             Args:
@@ -388,21 +391,23 @@ class LearningBase:
                 goodMove: the right move choosen by the engine
                 game: pgn game being analyzed
                 board: current chess game (BEFORE the move is played)
+                severity: calo di valutazione (cp) di questo errore; si tiene il peggiore
             Returns:
                 True if a good move was played, also updates the statistics on the position played
-        """        
+        """
         zobrist:int = polyglot.zobrist_hash(board)
 
-        if  zobrist not in self.positions:        
-            position = LearningBase.create_first_position(zobrist, board, game, goodMove, moveMade)
+        if  zobrist not in self.positions:
+            position = LearningBase.create_first_position(zobrist, board, game, goodMove, moveMade, severity=severity)
             self.positions[zobrist] = position
             # position["skip"] = "S" if board.uci(goodMove) == board.uci(badMove) else "N"
 
         else:
             position = self.positions[zobrist]
+            position.severity = max(position.severity, severity)   # ricorrenza: tieni il calo peggiore
             if moveMade == goodMove:
                 moveMade = position.ok # assume is the right one in order to correctly update the stats
-        
+
         gamedate:date  = string_to_date(game.headers["Date"]) if "Date" in game.headers else date.today()
 
         return LearningBase.updatePositionStats(position, moveMade, gamedate)
