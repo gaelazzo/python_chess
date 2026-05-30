@@ -299,17 +299,75 @@ def addChooseCourse(menu):
     labels.append(label)
 
 
-def addChooseBaseFile(menu): 
+def make_base_selector(key, labels, callback=None):
+    '''
+    Ritorna un callable che apre un piccolo pygame_menu elencando solo i file
+    base_*.json di DATA_FOLDER come pulsanti. Piu' pulito di un file-dialog
+    OS-style quando solo quei file sono scelte valide (niente piu' lessons_*
+    e altri file mostrati per sbaglio).
+    '''
+    def choose():
+        try:
+            entries = sorted(
+                os.path.splitext(f)[0].replace("base_", "")
+                for f in os.listdir(DATA_FOLDER)
+                if f.startswith("base_") and f.endswith(".json")
+            )
+        except OSError:
+            entries = []
+
+        menu = pygame_menu.Menu("Choose base file", app.W, app.H, theme=small_font_theme)
+        if not entries:
+            menu.add.label("Nessuna learning base trovata in data/.")
+
+        def pick(name):
+            if key:
+                positionParameters[key] = name
+            for lbl in labels:
+                if lbl:
+                    lbl.set_title(name)
+            if callback:
+                callback(name)
+            menu.disable()
+
+        for name in entries:
+            menu.add.button(name, pick, name)
+        menu.add.button("Cancel", menu.disable)
+
+        surface = app.screen
+        clock = p.time.Clock()
+        menu.enable()
+        while menu.is_enabled():
+            events = p.event.get()
+            for ev in events:
+                if ev.type == p.QUIT:
+                    p.quit()
+                    sys.exit()
+                if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
+                    menu.disable()
+            menu.update(events)
+            if not menu.is_enabled():
+                break
+            surface.fill((0, 0, 0))
+            menu.draw(surface)
+            p.display.flip()
+            clock.tick(app.FPS or 60)
+
+    return choose
+
+
+def addChooseBaseFile(menu):
     '''
     Adds a button to the menu that allows the user to choose a base file.
-    The button will open a file selector dialog and update the positionParameters["base"] variable with the selected file.
+    The button opens a small pygame_menu listing only base_*.json files from
+    DATA_FOLDER (no more lessons_* or unrelated files) and updates
+    positionParameters["base"] with the selected one.
     '''
     labels = []
-    chooseBaseFile = make_file_selector(
-        "base", lambda x : x.replace("base_", "") , labels,DATA_FOLDER,".json", "Choose base file",None,"base_")
+    chooseBaseFile = make_base_selector("base", labels)
     menu.add.button('Choose base file', chooseBaseFile)
     default_value = str(positionParameters.get("base", "No selection"))
-    label = menu.add.button(default_value, chooseBaseFile,font_size=20, background_color=None,
+    label = menu.add.button(default_value, chooseBaseFile, font_size=20, background_color=None,
                             selection_effect=pygame_menu.widgets.NoneSelection())
     labels.append(label)
 
