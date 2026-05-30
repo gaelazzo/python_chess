@@ -8,5 +8,7 @@
     "Threads": 12,
     "SyzygyPath": "D:\\ChessBase\\Tablebases\\6;D:\\ChessBase\\Tablebases\\345"
   },
+  "maxErrorsToConsider": 10,
+  "correctsToLearn": 3,
   "engine_usebook": false
 }

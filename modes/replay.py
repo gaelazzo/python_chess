@@ -13,6 +13,7 @@ from app_context import app
 import game_loop_common as glc
 import state
 from state import playParameters, positionParameters, CIRCLE_COLOR
+from config import config
 from GameState import Move, GameState
 import UCIEngines
 import BoardScreen as BS
@@ -38,8 +39,11 @@ def solvePositions():
 # "Solve positions" engine: one move per position, taken from a LearningBase.
 def solvePositionsFromBase(learningBase:LearningBase):
     '''
-    Reviews maxErrorsToConsider = 10 positions at a time taken from a LearningBase. A Position is assumed to be learnt when
-      it is solved correctly 3 times in a row after a mistake, or correctly answered the first time.
+    Reviews positions from a LearningBase as a dynamic session of at most
+    config.maxErrorsToConsider active positions. A position enters when seen and
+    leaves either immediately (correct on the first try) or after
+    config.correctsToLearn consecutive correct answers following a mistake. Both
+    are program-wide settings (Setup menu, persisted in config.json).
     '''
 
     
@@ -55,7 +59,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
     gameOver = False
     errorsMade= [] # tells how many mistakes for every position
     numberOfErrors = []
-    maxErrorsToConsider = 10
+    maxErrorsToConsider = config.maxErrorsToConsider
     if len(ll)==0:
         text = "No positions found"
         app.main_background()
@@ -315,12 +319,12 @@ def solvePositionsFromBase(learningBase:LearningBase):
                             # print(f"wrong move, appending new error position")
                             currentElement = len(errorsMade)
                             errorsMade.append(pos)
-                            numberOfErrors.append(3)
+                            numberOfErrors.append(config.correctsToLearn)
                             isNewPosition = False
 
                         else:
-                            # print(f"wrong move, setting n.of error = 3")
-                            numberOfErrors[currentElement] = 3
+                            # print(f"wrong move, setting n.of error = correctsToLearn")
+                            numberOfErrors[currentElement] = config.correctsToLearn
 
             # Highlight squares when needed
             if currentMove >= len(moves) and engineMove == 0:

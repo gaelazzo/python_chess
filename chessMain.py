@@ -176,7 +176,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     addChooseBaseFile(solvePositionsMenu)
 
     solvePositionsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
-    solvePositionsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int), 
+    solvePositionsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int),
                                      value_format=lambda x: str(round(x, 0)),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
 
@@ -344,6 +344,18 @@ def mainMenu(width,height, test: bool = False) -> None:
     labels.append(label)
 
     # configureGame.add.text_input('engine:', default=config.engine or "", onchange=combine_onchange(make_updater("engine",str,config), restart_engine))
+
+    # Parametri della sessione "Solve positions" (program-wide, salvati in config.json).
+    # NB: uso target_module=config (setattr su SimpleNamespace) invece del 3o positional
+    # target_dict, che con un SimpleNamespace fallirebbe silenziosamente.
+    configureGame.add.range_slider('Max errors in session', range_values=(2, 30), increment=1,
+                                   onchange=combine_onchange(make_updater("maxErrorsToConsider", int, target_module=config), save_config),
+                                   value_format=lambda x: str(int(round(x, 0))),
+                                   default=config.maxErrorsToConsider)
+    configureGame.add.range_slider('Corrects to learn', range_values=(1, 10), increment=1,
+                                   onchange=combine_onchange(make_updater("correctsToLearn", int, target_module=config), save_config),
+                                   value_format=lambda x: str(int(round(x, 0))),
+                                   default=config.correctsToLearn)
 
     toolsMenu = pygame_menu.Menu(
         height=height,

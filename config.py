@@ -28,7 +28,9 @@ DEFAULT_CONFIG = {
         "Hash": "1024",
         "Threads": "4",
         "SyzygyPath": ""
-    }
+    },
+    "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
+    "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
 }
 
 import os
@@ -46,7 +48,9 @@ DEFAULT_CONFIG = {
         "Hash": "1024",
         "Threads": "4",
         "SyzygyPath": ""
-    }
+    },
+    "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
+    "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
 }
 
 def load_config():
