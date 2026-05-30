@@ -1,43 +1,25 @@
+"""Persistent program configuration (loaded from / saved to config.json).
+
+Espone un SimpleNamespace `config` popolato all'import fondendo `config.json`
+con `DEFAULT_CONFIG` (le chiavi mancanti vengono aggiunte al file). Il path di
+`config.json` e' ancorato alla cartella dello script/eseguibile, cosi' funziona
+indipendentemente dalla directory di lancio (e supporta i bundle PyInstaller).
+"""
 import os
 import json
 import sys
-
+from types import SimpleNamespace
 
 
 def get_base_path():
-    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    """Cartella dello script Python o dell'eseguibile PyInstaller."""
+    if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
-    else:
-        return os.path.dirname(os.path.abspath(__file__))
+    return os.path.dirname(os.path.abspath(__file__))
+
 
 BASE_PATH = get_base_path()
 CONFIG_FILE = os.path.join(BASE_PATH, "config.json")
-
-#CONFIG_FILE = os.path.join(os.getcwd(), "config.json")
-from types import SimpleNamespace
-
-config = None
-
-DEFAULT_CONFIG = {
-    "base_url": "",
-    "id_student": "",
-    "engine": "stockfish.exe",
-    "book": "",
-    "engine_options": {
-        "Hash": "1024",
-        "Threads": "4",
-        "SyzygyPath": ""
-    },
-    "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
-    "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
-}
-
-import os
-import json
-from types import SimpleNamespace
-
-CONFIG_FILE = "config.json"
 
 DEFAULT_CONFIG = {
     "base_url": "",
@@ -47,14 +29,17 @@ DEFAULT_CONFIG = {
     "engine_options": {
         "Hash": "1024",
         "Threads": "4",
-        "SyzygyPath": ""
+        "SyzygyPath": "",
     },
     "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
     "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
 }
 
+config = None
+
+
 def load_config():
-    """Legge la configurazione dal file JSON e la carica come oggetto, completando i valori mancanti"""
+    """Legge config.json e popola `config`, completando le chiavi mancanti dai default."""
     global config
     try:
         if os.path.exists(CONFIG_FILE):
@@ -63,18 +48,17 @@ def load_config():
         else:
             data = {}
 
-        # Unisce i default con i dati letti
         merged = DEFAULT_CONFIG.copy()
         merged.update(data)
 
-        # Gestisce i sotto-dizionari come engine_options
+        # Sotto-dizionari (engine_options): default + override utente.
         engine_options = DEFAULT_CONFIG["engine_options"].copy()
         engine_options.update(data.get("engine_options", {}))
         merged["engine_options"] = engine_options
 
         config = SimpleNamespace(**merged)
 
-        # (opzionale) salva di nuovo il file per aggiornare con i default mancanti
+        # Riscrive il file per propagare le chiavi di default mancanti.
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(merged, f, indent=2, ensure_ascii=False)
 
@@ -83,15 +67,13 @@ def load_config():
         config = SimpleNamespace(**DEFAULT_CONFIG)
 
 
-
 def save_config():
-    """Salva la configurazione come JSON"""
-    global config
+    """Salva la configurazione corrente come JSON."""
     try:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config.__dict__, f, indent=4)
     except Exception:
         pass
 
-load_config()
 
+load_config()

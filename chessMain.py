@@ -179,6 +179,8 @@ def mainMenu(width,height, test: bool = False) -> None:
     solvePositionsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int),
                                      value_format=lambda x: str(round(x, 0)),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
+    solvePositionsMenu.add.selector('Practice order', [("Priority", "priority"), ("Random", "random")],
+                                    default=0, onchange=make_selector_updater("practice_order"))
 
     solvePositionsMenu.add.button('Play', solvePositions)
 

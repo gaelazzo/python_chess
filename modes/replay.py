@@ -49,7 +49,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
     
 
     # ll is a copy (not a deep copy) of data in the csv, not the same structure
-    ll = analyzer.getRandomPositions(learningBase, positionParameters)
+    ll = analyzer.getPositions(learningBase, positionParameters, order=state.practice_order)
 
     running = True
     sqSelected = ()

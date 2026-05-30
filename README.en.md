@@ -34,6 +34,8 @@ Launch the program with:
 python chessMain.py
 ```
 
+Or from **VS Code**: open the folder and press **F5** (the "Avvia Chess" launch config is included in `.vscode/launch.json` with the correct cwd).
+
 For full functionality you'll want (configurable via **Tools → Setup**, see §8):
 - a **UCI engine** (e.g. Stockfish) in the `engines/` folder — used for analysis and for playing against the computer;
 - (optional) a **Polyglot opening book** (`.bin`) in the `books/` folder;
@@ -53,7 +55,27 @@ On startup the **main menu** appears; navigate with the **mouse** or the arrow k
 2. *(Optional)* **Choose book**: select a `.bin` opening book from `books/`.
 3. *(Optional, for lessons)* fill in **base_url** and **student id** for the BrainMaster service.
 
-### Recipe A — Correcting your own mistakes (as White or Black)
+### Main recipe — *Improve from your games* (wizard)
+*The fastest way to train on your own mistakes from Chess.com games:
+the wizard automates the steps that Recipes A/B do by hand.*
+1. Main menu → **Migliora dalle tue partite** ("Improve from your games").
+2. Fill in:
+   - **Chess.com user**: your username;
+   - **Games**: *White*, *Black* or *Both* (filters the download by colour);
+   - **Games (count)**: *Last 500 / 1000 / 2000 / All* (only the monthly archives needed are
+     fetched, newest first — useful if you have thousands of games);
+   - **Focus**: *Tactics*, *Openings* or *Both* (different parameter presets under the hood);
+   - **Accuracy**: *Quick / Balanced / Thorough* (engine time vs depth).
+3. **Start** — a progress screen shows `N/M` while the engine analyses. At the end you get
+   **Train tactics / openings** buttons that jump straight into *Solve positions* on the
+   newly-created base.
+4. Later sessions resume from Main menu → **Solve positions** by picking the base
+   `<user>_tactics` or `<user>_openings` (persisted in `data/`).
+
+> The wizard is **idempotent**: re-running it after playing more games adds only the new
+> mistakes (deduped by zobrist position).
+
+### Recipe A — Correcting your own mistakes (manual flow, as White or Black)
 *Goal: review the positions where you went wrong in your own games.*
 1. **Download your games** — Tools → Download Chess.com games:
    - *PGN file to create*: a name, e.g. `my_white`;
@@ -108,6 +130,7 @@ On startup the **main menu** appears; navigate with the **mouse** or the arrow k
 
 | Item | What it does |
 |------|--------------|
+| **Migliora dalle tue partite** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
 | **Play against computer** | Play a game against the engine. |
 | **Play between humans** | Two human players on the same board. This is also the **analysis mode** (where you can add variations and annotations). |
 | **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
@@ -120,7 +143,30 @@ On startup the **main menu** appears; navigate with the **mouse** or the arrow k
 
 ## 3. The modes
 
-### 3.1 Play against computer
+### 3.1 Improve from your games (wizard)
+> **Guided path.** From minimal input (Chess.com username + 4 selectors) the wizard does
+> everything: downloads games, creates/updates learning bases, analyses them with
+> auto-chosen presets, and drops you straight into local practice.
+
+Parameters:
+- **Chess.com user** — your username.
+- **Games** — *White* / *Black* / *Both* (filters the download).
+- **Games (count)** — *Last 500 / 1000 / 2000 / All*. Only the monthly archives needed are
+  fetched, newest first; designed for players with tens of thousands of games (e.g. bullet/blitz)
+  who don't want to revisit ancient mistakes.
+- **Focus** — *Tactics*, *Openings* or *Both*. These are **two distinct analyses** with
+  different parameters under the hood: tactics scans the whole game with a high blunder
+  threshold (only real blunders); openings looks at the first moves with `useBook=True`,
+  so book moves are never flagged and you find the deviations that worsen the evaluation.
+  Picking *Both* runs the engine **twice** over the same games (one pass per focus).
+- **Accuracy** — *Quick / Balanced / Thorough*: presets for `ponderTime`, `blunderValue`,
+  `movesToAnalyze`, tuned per focus.
+
+When the analysis ends you get **Train tactics / openings** buttons that drop you into
+*Solve positions* on the `<user>_tactics` or `<user>_openings` base (see §3.4). The bases
+persist in `data/`; later sessions resume directly from *Solve positions* by picking the base.
+
+### 3.2 Play against computer
 Set the parameters and press **Play**:
 - **You play**: White / Black / Random (which side you take);
 - **ELO**: engine strength (1350–2850);
@@ -128,12 +174,12 @@ Set the parameters and press **Play**:
 
 Move with the mouse; the computer replies automatically.
 
-### 3.2 Play between humans (analysis)
+### 3.3 Play between humans (analysis)
 Two humans move in turn on the same board. Since **there is no engine replying**,
 this is the right mode to **analyse**: you can take moves back, try alternative moves
 (variations), annotate and comment them (see §5 and §6).
 
-### 3.3 Solve positions
+### 3.4 Solve positions
 > **One position, one move.** You're given a position and must play the right move.
 > Good for reviewing *anything* (mistakes, tactics, endgames…).
 
@@ -143,16 +189,32 @@ Parameters:
 - **You play**: White / Black / Any;
 - **Choose base file**: pick the learning base;
 - **Skip initial moves** / **Num Moves to Show**: how many opening moves to show before asking you to move.
+- **Practice order**:
+  - *Priority* (default) — sorts by priority `(times you got the position wrong, severity)`:
+    the most recurring and most severe come first. The reordering only has a real effect
+    if the position counters are **differentiated**: typically in openings (positions recur
+    across your games) and in tactics after a fresh analysis (the *severity* field gets
+    populated from the eval drop). On a brand-new base where all positions have the same
+    counters, this is indistinguishable from Random.
+  - *Random* — plain `random.shuffle`, no sorting; useful for variety and for "flat" bases
+    where priority cannot differentiate.
 
 A position is shown: **play the move you think is correct**. The program tells you
 whether it's right; press **H** to reveal the solution.
 
-### 3.4 BrainMaster lessons
+> **Review session.** *Solve positions* keeps a "live" session with at most
+> `maxErrorsToConsider` active positions (default 10, configurable in **Setup**). A position
+> enters when proposed; it leaves **immediately** if you solve it on the first try, otherwise
+> after `correctsToLearn` consecutive correct answers (default 3, configurable in Setup) once
+> you've missed it. Fully learned positions (`serie ≥ 5` over the whole history, not just the
+> current session) are **excluded from the base for life**.
+
+### 3.5 BrainMaster lessons
 Same idea, but the positions and review order are suggested by the **BrainMaster**
 service (spaced repetition). Choose the **course** and press **Exercise**.
 *(Visible only if `base_url` is configured in Setup.)*
 
-### 3.5 Study openings
+### 3.6 Study openings
 > **A whole line.** You play the entire sequence from your side (your moves are fixed),
 > while the computer may reply with **different variations** among the stored ones.
 > Typical for **drilling openings** / a repertoire.
@@ -200,6 +262,10 @@ During a game (Play against computer / between humans) the following controls ap
 > are similar but solution-oriented: **Q** quit, **C/G** copy, **E/B/D** panels,
 > **+** show a few more moves (hint), **H** reveal the solution.
 
+> **End of game.** On checkmate / stalemate the result message stays on screen and the
+> view **does not auto-close**: you can still **save (S)**, **take back the last move (←)**,
+> **reset (R)** or quit (**Q**) whenever you want.
+
 ---
 
 ## 5. Analysing a game
@@ -235,9 +301,10 @@ programs.
 
 ## 6. The Notation panel
 
-Press **`V`** (in Play between humans) to open a full-screen view of the **whole game**:
-the main line and **tree-indented variations**, with glyphs and comments. A **mini board**
-in the bottom-right corner shows the selected position.
+Press **`V`** (in Play between humans) to open a panel **alongside the board** showing the
+**whole game**: main line and **tree-indented variations**, with glyphs and comments. The
+board stays visible on the left and **updates live** to follow the selected move in the
+panel (no more corner mini-board — the real board acts as the preview).
 
 | Control | Action |
 |---------|--------|
@@ -247,8 +314,8 @@ in the bottom-right corner shows the selected position.
 | **click on a move** | Jump to that position (closes the panel) |
 | **V** / **Esc** | Close the panel |
 
-As you navigate, the highlighted move and the mini board update; on closing, the main
-board stays on the selected move.
+On closing, the main board stays on the selected move. While the panel is open the board
+is not clickable for piece moves: you navigate from the panel.
 
 ---
 
@@ -272,7 +339,7 @@ board stays on the selected move.
 | **Unroll PGN file** | Turn a PGN into a set of **positions** inside a learning base. |
 | **Unroll PGN file as lesson** | Same, but as a **lesson** (for review / BrainMaster). |
 | **Create Course for BrainMaster** | Register a learning base as a BrainMaster **course** *(if `base_url` is configured)*. |
-| **Setup** | Configure: `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book). |
+| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Max errors in session** (capacity of the *Solve positions* session, default 10) and **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3). |
 
 ---
 
@@ -369,6 +436,7 @@ A dataclass representing a study position. Each CSV row corresponds to one `Lear
 | `serie` | `int` | Current streak counter (positive = consecutive successes, negative = mistakes) |
 | `skip` | `bool` | Position "learned", to be skipped during review |
 | `idquiz` | `Optional[int]` | Associated quiz id (optional) |
+| `severity` | `int` | Worst eval drop (cp) observed for this mistake — used to prioritise in *Solve positions*. Populated by analysis (`analyzeGame`) as `prevScore - evaluation`; on repeated encounters the max wins. Defaults to `0` for bases loaded from a CSV without the column (backward-compatible). |
 
 `LearnPosition` also offers PGN conversion methods (`to_Pgn`, `to_PgnString`) and a
 `from_dict` constructor (used to read CSV rows).
@@ -378,8 +446,28 @@ A dataclass representing a study position. Each CSV row corresponds to one `Lear
 When the user plays a move, `updatePositionStats` updates the position:
 - increments `ntry` and updates `firstTry`/`lastTry`;
 - if the move matches `ok`, increments `successful` and the success `serie`; after
-  **5 consecutive successes** (`serie >= 5`) the position is marked as learned (`skip = True`);
+  **5 consecutive successes** (`serie >= 5`) the position is marked as learned (`skip = True`)
+  and excluded **for life** from the base;
 - if the move is wrong, `serie` becomes negative (resetting any positive streak).
+
+Separately, within a **session of *Solve positions*** there is a second countdown: a
+mistake-position leaves **the current session** only after `config.correctsToLearn`
+consecutive correct answers (default 3, configurable in Setup). The session holds at most
+`config.maxErrorsToConsider` active positions (default 10). The two thresholds are
+independent: `correctsToLearn` rules leaving the **session**, `serie >= 5` rules permanent
+exclusion from the base.
+
+### Priority in *Solve positions*
+
+`analyzer.getPositions(learningBase, filter, order)` returns the not-yet-learned positions
+ordered by `order`:
+- `"priority"` — `random.shuffle` (tiebreak) + stable `sort` by
+  `(ntry - successful, severity)`. The highest priority ends up at the tail of the list and
+  the consumer in `solvePositionsFromBase` serves it first via `pop()`. Effective only if
+  `ntry` / `successful` / `severity` differ across positions (see §3.4).
+- `"random"` — plain `random.shuffle`, no sorting.
+
+The mode is picked in the *Solve positions* menu (*Practice order* selector).
 
 ---
 
@@ -396,8 +484,9 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `menu_helpers.py` | Menu builders (file selectors, callbacks, etc.) |
 | `save_load.py` | Game saving/loading and related menus |
 | `learningbase_admin.py` | Learning-base creation/update, PGN/Chess.com import |
-| `notation.py` | Notation panel (tree view + mini board) |
-| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `models` (+ `common`) |
+| `notation.py` | Notation panel (tree view next to the board) |
+| `move_speech.py` | Expands SAN moves in TTS-read comments (`Qe4` → "Queen to e4") |
+| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `improve` (wizard), `openings` (+ `common`) |
 | `GameState.py` | Game state, PGN tree, moves, annotations |
 | `BoardScreen.py` | Board and panel rendering |
 | `UCIEngines.py`, `book.py` | UCI engine and opening book |

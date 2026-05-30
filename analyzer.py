@@ -61,15 +61,21 @@ def updateInfoStats(board:chess.Board, learningBase:LearningBase):
     return res
 
 
-def getRandomPositions(learningBase:LearningBase, filter=None)->List [LearnPosition]:
+def getPositions(learningBase:LearningBase, filter=None, order:str="priority")->List [LearnPosition]:
     """
-        Gets a filtered subset of the given learning base, ordinato per priorita':
-        gli errori piu' ricorrenti (ntry) e piu' gravi (severity) finiscono in
-        FONDO alla lista, cosi' il consumatore (che fa pop()) li allena per primi.
-        A parita' di priorita' l'ordine e' casuale (varieta' tra le sessioni).
+        Returns a filtered list of positions from the learning base.
+
+        `order`:
+          - "priority" (default): la piu' alta (ntry-successful, severity) finisce
+            in FONDO alla lista, cosi' il consumatore che fa pop() allena per prime
+            le posizioni piu' ricorrenti/gravi. Tiebreak casuale tra pari priorita'.
+          - "random": solo random.shuffle, niente ordinamento. Adatto a basi appena
+            create dove le posizioni hanno gli stessi contatori e per la varieta'.
+
         Args:
-            leaningBase: the database of positions
-            filter: an object with the fields to match
+            learningBase: the database of positions
+            filter: an object with the fields to match (eco, color)
+            order: "priority" | "random"
         Returns:
             List of positions
     """
@@ -86,10 +92,10 @@ def getRandomPositions(learningBase:LearningBase, filter=None)->List [LearnPosit
         if row.skip:
             continue
         l.append(row)
-    random.shuffle(l)                                  # tiebreak casuale
-    # priorita' = (quante volte l'hai SBAGLIATA, gravita'); la piu' alta in
-    # fondo, cosi' il consumatore che fa pop() la allena per prima.
-    l.sort(key=lambda pos: (pos.ntry - pos.successful, pos.severity))
+    random.shuffle(l)
+    if order == "priority":
+        # sort stabile: lo shuffle precedente fa da tiebreak tra pari priorita'.
+        l.sort(key=lambda pos: (pos.ntry - pos.successful, pos.severity))
     return l
 
 

@@ -34,6 +34,8 @@ Avvia il programma con:
 python chessMain.py
 ```
 
+Oppure da **VS Code**: apri la cartella e premi **F5** (la config "Avvia Chess" è inclusa in `.vscode/launch.json` e parte già con la cwd corretta).
+
 Per funzionare al meglio servono (configurabili da **Tools → Setup**, vedi §8):
 - un **motore UCI** (es. Stockfish) nella cartella `engines/` — usato per l'analisi e per il gioco contro il computer;
 - (opzionale) un **libro di aperture** Polyglot (`.bin`) nella cartella `books/`;
@@ -54,7 +56,26 @@ più comuni, passo per passo.*
 2. *(Facoltativo)* **Choose book**: seleziona un libro di aperture `.bin` da `books/`.
 3. *(Facoltativo, per le lezioni)* compila **base_url** e **id studente** del servizio BrainMaster.
 
-### Ricetta A — Correggere i propri errori (come Bianco o come Nero)
+### Ricetta principale — *Migliora dalle tue partite* (wizard)
+*La via più rapida per allenarsi sui propri errori a partire dalle partite Chess.com:
+il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
+1. Menu principale → **Migliora dalle tue partite**.
+2. Compila:
+   - **Utente Chess.com**: il tuo username;
+   - **Giochi**: *White*, *Black* o *Both* (filtra il download per colore);
+   - **Partite**: *Ultime 500/1000/2000/Tutte* (scarica solo gli archivi mensili necessari, partendo dai più recenti — utile se hai migliaia di partite);
+   - **Focus**: *Tattica*, *Aperture* o *Entrambi* (preset di parametri diversi sotto il cofano);
+   - **Accuratezza**: *Quick / Balanced / Thorough* (tempo del motore vs profondità).
+3. **Start** — vedi una schermata di avanzamento `N/M` mentre il motore analizza. A fine analisi
+   compaiono i pulsanti **Allena tattica / aperture** che entrano direttamente in *Solve positions*
+   sulla base appena creata.
+4. Le sessioni successive si riprendono da Menu principale → **Solve positions** scegliendo
+   la base `<utente>_tactics` o `<utente>_openings` (persistente in `data/`).
+
+> Il wizard è **idempotente**: rilanciarlo con partite nuove aggiunge gli errori nuovi senza
+> duplicare quelli già presenti (deduplica per posizione zobrist).
+
+### Ricetta A — Correggere i propri errori (flusso manuale, come Bianco o come Nero)
 *Obiettivo: ripassare le posizioni in cui hai sbagliato nelle tue partite.*
 1. **Scarica le tue partite** — Tools → Download Chess.com games:
    - *PGN file to create*: un nome, es. `mie_bianche`;
@@ -109,6 +130,7 @@ più comuni, passo per passo.*
 
 | Voce | Cosa fa |
 |------|---------|
+| **Migliora dalle tue partite** | Wizard guidato: scarica le tue partite Chess.com → trova errori (tattica/aperture) → propone subito la pratica locale. La via più rapida per allenare i propri errori (vedi §3.1). |
 | **Play against computer** | Gioca una partita contro il motore. |
 | **Play between humans** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (qui puoi inserire varianti e annotazioni). |
 | **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
@@ -121,7 +143,32 @@ più comuni, passo per passo.*
 
 ## 3. Le modalità
 
-### 3.1 Play against computer
+### 3.1 Migliora dalle tue partite (wizard)
+> **Via guidata.** Da un input minimo (username Chess.com + 4 selettori) il wizard fa
+> tutto: scarica le partite, crea/aggiorna le learning base, le analizza con preset
+> scelti automaticamente, e ti porta direttamente nella pratica locale.
+
+Parametri:
+- **Utente Chess.com** — il tuo username.
+- **Giochi** — *White* / *Black* / *Both* (filtra il download).
+- **Partite** — *Ultime 500 / 1000 / 2000 / Tutte*. Scarica solo gli archivi mensili necessari,
+  partendo dai più recenti; pensato per chi ha decine di migliaia di partite (es. bullet/lampo)
+  e non vuole rivedere errori di anni fa.
+- **Focus** — *Tattica*, *Aperture* o *Entrambi*. Tattica e aperture sono **due analisi
+  distinte** con parametri diversi sotto il cofano: la tattica esamina tutta la partita con
+  soglia alta (solo veri blunder); le aperture solo le prime mosse con `useBook=True`, così
+  le mosse da libro non vengono segnalate e si trovano le deviazioni che peggiorano la
+  valutazione. Selezionando *Entrambi* il motore gira **due volte** sulle stesse partite
+  (una passata per focus).
+- **Accuratezza** — *Quick / Balanced / Thorough*: preset di `ponderTime`, `blunderValue`,
+  `movesToAnalyze` adatti a ciascun focus.
+
+A fine analisi compaiono i pulsanti **Allena tattica / aperture** che entrano in
+*Solve positions* sulla base `<utente>_tactics` o `<utente>_openings` (vedi §3.4). Le basi
+restano persistenti in `data/`: nelle sessioni successive si entra direttamente da
+*Solve positions* scegliendo la base.
+
+### 3.2 Play against computer
 Imposta i parametri e premi **Play**:
 - **You play**: White / Black / Random (con chi giochi tu);
 - **ELO**: forza del motore (1350–2850);
@@ -129,12 +176,12 @@ Imposta i parametri e premi **Play**:
 
 Muovi con il mouse; il computer risponde automaticamente.
 
-### 3.2 Play between humans (analisi)
+### 3.3 Play between humans (analisi)
 Due umani giocano a turno sulla stessa scacchiera. Poiché **non c'è un motore che
 risponde**, questa è la modalità giusta per **analizzare**: puoi tornare indietro,
 provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
 
-### 3.3 Solve positions
+### 3.4 Solve positions
 > **Una posizione, una mossa.** Ti viene proposta una posizione e devi giocare la
 > mossa giusta. Adatto a ripassare *qualsiasi cosa* (errori, tattica, finali…).
 
@@ -144,16 +191,32 @@ Parametri:
 - **You play**: White / Black / Any;
 - **Choose base file**: scegli la learning base;
 - **Skip initial moves** / **Num Moves to Show**: quante mosse iniziali mostrare prima di chiederti la mossa.
+- **Practice order**:
+  - *Priority* (default) — ordina per priorità `(quante volte hai sbagliato la posizione, gravità)`:
+    le più ricorrenti e più gravi prima. Effetto reale solo se i contatori delle posizioni sono
+    **differenziati**: tipicamente nelle aperture (le posizioni si ripetono nelle tue partite) e
+    nella tattica dopo una nuova analisi (la *gravità* viene popolata dal calo di valutazione).
+    Su una base appena creata dove tutte le posizioni hanno gli stessi contatori, l'effetto è
+    indistinguibile da Random.
+  - *Random* — solo `random.shuffle`, niente ordinamento; utile per varietà e per le basi
+    "piatte" dove la priorità non differenzia.
 
 Ti viene mostrata una posizione: **gioca la mossa che ritieni corretta**. Il programma
 ti dice se è giusta; con **H** puoi vedere la soluzione.
 
-### 3.4 BrainMaster lessons
+> **Sessione di ripasso.** *Solve positions* mantiene una sessione "viva" con al più
+> `maxErrorsToConsider` posizioni attive (default 10, configurabile in **Setup**). Una posizione
+> entra quando viene proposta; esce **subito** se la risolvi al primo tentativo, oppure dopo
+> `correctsToLearn` corrette consecutive (default 3, configurabile in Setup) se la sbagli almeno
+> una volta. Le posizioni totalmente apprese (`serie ≥ 5` sull'intera storia, non solo nella
+> sessione) vengono **escluse a vita** dalla base.
+
+### 3.5 BrainMaster lessons
 Come sopra, ma le posizioni e l'ordine di ripasso sono suggeriti dal servizio
 **BrainMaster** (ripetizione spaziata). Scegli il **corso** e premi **Exercise**.
 *(Visibile solo se hai configurato `base_url` in Setup.)*
 
-### 3.5 Study openings
+### 3.6 Study openings
 > **Una linea intera.** Giochi tu l'intera sequenza dalla tua parte (le tue mosse
 > sono fisse), mentre il computer può rispondere con **varianti diverse** tra quelle
 > memorizzate. Tipico per **ripetere le aperture** / un repertorio.
@@ -201,6 +264,10 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 > sono simili ma orientati alla soluzione: **Q** esci, **C/G** copia, **E/B/D** pannelli,
 > **+** mostra qualche mossa in più (suggerimento), **H** mostra la soluzione.
 
+> **Fine partita.** A scacco matto / stallo il messaggio resta a schermo e la maschera **non
+> si chiude automaticamente**: puoi ancora **salvare (S)**, **annullare l'ultima mossa (←)**,
+> **resettare (R)**, o uscire (**Q**) quando vuoi.
+
 ---
 
 ## 5. Analizzare una partita
@@ -236,9 +303,11 @@ PGN) restano nella partita e si ritrovano riaprendola, anche in altri programmi 
 
 ## 6. Il pannello Notazione
 
-Premi **`V`** (in Play between humans) per aprire una vista a schermo intero con
+Premi **`V`** (in Play between humans) per **affiancare** alla scacchiera un pannello con
 **l'intera partita**: linea principale e **varianti indentate ad albero**, con glifi e
-commenti. In basso a destra una **mini-scacchiera** mostra la posizione selezionata.
+commenti. La scacchiera resta visibile a sinistra e **si aggiorna in tempo reale** seguendo
+la mossa selezionata nel pannello (niente più mini-scacchiera d'angolo: la board vera fa
+da anteprima).
 
 | Comando | Azione |
 |---------|--------|
@@ -248,8 +317,8 @@ commenti. In basso a destra una **mini-scacchiera** mostra la posizione selezion
 | **clic su una mossa** | Vai a quella posizione (chiude il pannello) |
 | **V** / **Esc** | Chiudi il pannello |
 
-Navigando, la mossa evidenziata e la mini-scacchiera si aggiornano; alla chiusura la
-scacchiera principale resta sulla mossa selezionata.
+Alla chiusura la scacchiera principale resta sulla mossa selezionata. Mentre il pannello è
+aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello.
 
 ---
 
@@ -273,7 +342,7 @@ scacchiera principale resta sulla mossa selezionata.
 | **Unroll PGN file** | Trasforma un PGN in un insieme di **posizioni** dentro una learning base. |
 | **Unroll PGN file as lesson** | Come sopra, ma come **lezione** (per il ripasso/BrainMaster). |
 | **Create Course for BrainMaster** | Registra una learning base come **corso** BrainMaster *(se `base_url` configurato)*. |
-| **Setup** | Configura: `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture). |
+| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Max errors in session** (capacità della sessione di *Solve positions*, default 10) e **Corrects to learn** (corrette consecutive per uscire dalla sessione dopo un errore, default 3). |
 
 ---
 
@@ -371,6 +440,7 @@ Dataclass che rappresenta una posizione di studio. Ogni riga del CSV corrisponde
 | `serie` | `int` | Contatore della serie corrente (positivo = successi consecutivi, negativo = errori) |
 | `skip` | `bool` | Posizione "imparata", da saltare nel ripasso |
 | `idquiz` | `Optional[int]` | Identificativo del quiz associato (opzionale) |
+| `severity` | `int` | Peggior calo di valutazione (cp) osservato per questo errore — usato per la priorità in *Solve positions*. Popolato dall'analisi (`analyzeGame`) come `prevScore - evaluation`; sui campioni rivisti vince il massimo. Default `0` per le basi caricate da CSV senza la colonna (retro-compatibilità). |
 
 `LearnPosition` offre anche metodi di conversione verso PGN (`to_Pgn`, `to_PgnString`)
 e da dizionario (`from_dict`, usato per leggere le righe del CSV).
@@ -381,8 +451,27 @@ Quando l'utente gioca una mossa, `updatePositionStats` aggiorna la posizione:
 - incrementa `ntry` e aggiorna `firstTry`/`lastTry`;
 - se la mossa coincide con `ok`, incrementa `successful` e la `serie` di successi;
   raggiunti **5 successi consecutivi** (`serie >= 5`) la posizione viene marcata come
-  imparata (`skip = True`);
+  imparata (`skip = True`) ed esclusa **a vita** dalla base;
 - se la mossa è errata, la `serie` diventa negativa (azzerando l'eventuale streak positivo).
+
+Distintamente, dentro una **sessione di *Solve positions*** vale anche un secondo countdown:
+una posizione-errore esce **dalla sessione corrente** solo dopo `config.correctsToLearn`
+risposte corrette consecutive (default 3, configurabile dal menu Setup). La sessione tiene
+al più `config.maxErrorsToConsider` posizioni attive (default 10). Le due soglie sono
+indipendenti: `correctsToLearn` regola l'uscita dalla **sessione**, `serie >= 5` regola
+l'esclusione **definitiva** dalla base.
+
+### Priorità in *Solve positions*
+
+`analyzer.getPositions(learningBase, filter, order)` restituisce le posizioni non ancora
+imparate ordinandole secondo `order`:
+- `"priority"` — `random.shuffle` (tiebreak) + `sort` stabile per
+  `(ntry - successful, severity)`. La più alta finisce in fondo, e il consumatore in
+  `solvePositionsFromBase` la serve per prima via `pop()`. La differenziazione effettiva
+  richiede che `ntry`/`successful`/`severity` non siano uguali per tutte (vedi §3.4).
+- `"random"` — solo `random.shuffle`, niente ordinamento.
+
+La modalità si sceglie nel menu *Solve positions* (selettore *Practice order*).
 
 ---
 
@@ -399,8 +488,9 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `menu_helpers.py` | Costruttori dei menu (selettori file, callback, ecc.) |
 | `save_load.py` | Salvataggio/caricamento partite e relativi menu |
 | `learningbase_admin.py` | Creazione/aggiornamento learning base, import PGN/Chess.com |
-| `notation.py` | Pannello Notazione (vista albero + mini-scacchiera) |
-| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `models` (+ `common`) |
+| `notation.py` | Pannello Notazione (vista albero affiancata alla scacchiera) |
+| `move_speech.py` | Espande le mosse SAN nei commenti TTS (`Qe4` → "Queen to e4") |
+| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `improve` (wizard), `openings` (+ `common`) |
 | `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni |
 | `BoardScreen.py` | Disegno della scacchiera e dei pannelli |
 | `UCIEngines.py`, `book.py` | Motore UCI e libro di aperture |

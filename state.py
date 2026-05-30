@@ -57,6 +57,7 @@ small_font_theme.widget_font_size = 18
 # --- Reassigned session scalars (access as state.<name> so writes propagate) ---
 num_moves_to_show = 4
 play_position = 1  # 1 = skip initial stored moves, 0 = play them all
+practice_order = "priority"  # "priority" | "random"  -- ordinamento in Solve positions
 
 # Selected BrainMaster course (set from the course-chooser menu).
 id_course = None
