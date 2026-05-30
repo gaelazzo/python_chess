@@ -190,10 +190,10 @@ Parametri:
 - **ECO (optional)**: filtra per codice di apertura;
 - **You play**: White / Black / Any;
 - **Choose base file**: scegli la learning base;
-- **Skip initial moves** *(il nome del campo è un po' opaco)*:
-  - *Yes* (default) — salta la sequenza di mosse che precede la posizione-errore e ti
+- **Lead-in moves**:
+  - *Skip* (default) — salta la sequenza di mosse che precede la posizione-errore e ti
     mostra subito la posizione da risolvere;
-  - *No* — il programma rigioca **tutta la sequenza di mosse della partita originale**
+  - *Replay* — il programma rigioca **tutta la sequenza di mosse della partita originale**
     fino alla posizione, così "entri nel contesto" prima di rispondere (utile soprattutto
     per le aperture).
 - **Num Moves to Show**: numero di mosse di **continuazione** che il programma gioca *dopo*
@@ -233,9 +233,9 @@ Carichi un file PGN di linee "modello". Il computer gioca una delle linee
 memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
 - **You play**: White / Black;
 - **Choose PGN file**: il file con le partite modello;
-- **Skip initial moves** e **Num Moves to Show**: stessa semantica di *Solve positions*
-  (§3.4) — *Skip initial moves = Yes* salta la sequenza di lead-in e parte dalla posizione,
-  *No* la rigioca tutta; *Num Moves to Show* è il numero di mosse di continuazione mostrate
+- **Lead-in moves** e **Num Moves to Show**: stessa semantica di *Solve positions*
+  (§3.4) — *Skip* salta la sequenza di lead-in e parte dalla posizione, *Replay* la
+  rigioca tutta; *Num Moves to Show* è il numero di mosse di continuazione mostrate
   dopo una risposta corretta.
 
 ---

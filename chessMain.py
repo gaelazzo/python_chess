@@ -175,7 +175,7 @@ def mainMenu(width,height, test: bool = False) -> None:
                                 onchange=setColorIndex)
     addChooseBaseFile(solvePositionsMenu)
 
-    solvePositionsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
+    solvePositionsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     solvePositionsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int),
                                      value_format=lambda x: str(round(x, 0)),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
@@ -198,7 +198,7 @@ def mainMenu(width,height, test: bool = False) -> None:
                                        onchange=make_updater("num_moves_to_show",int), 
                 default=state.num_moves_to_show)  # Aggiungi questa riga
     addChoosePGNFile(openingsMenu)
-    openingsMenu.add.selector('Skip initial moves', [("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
+    openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     openingsMenu.add.button('Play', playOpening)
 
     CreateCourseMenu = None
@@ -223,7 +223,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         addChooseCourse(BrainMasterMenu)
         BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
                     default=state.num_moves_to_show, increment=1)  # Aggiungi questa riga
-        BrainMasterMenu.add.selector('Skip initial moves', [ ("No", 0),("Yes", 1)], default=state.play_position, onchange=make_selector_updater("play_position"))
+        BrainMasterMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
         BrainMasterMenu.add.button('Exercise', playBrainMasterBase)
 
 
