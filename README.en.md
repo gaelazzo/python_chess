@@ -188,7 +188,14 @@ Parameters:
 - **ECO (optional)**: filter by opening code;
 - **You play**: White / Black / Any;
 - **Choose base file**: pick the learning base;
-- **Skip initial moves** / **Num Moves to Show**: how many opening moves to show before asking you to move.
+- **Skip initial moves** *(the field name is a bit opaque)*:
+  - *Yes* (default) — skips the lead-in move sequence and drops you straight onto the
+    mistake-position to solve;
+  - *No* — the program **replays the original game's move sequence** up to the position,
+    so you "step into" the context before answering (especially useful for openings).
+- **Num Moves to Show**: number of **continuation** moves the program plays *after* you
+  answer correctly, to show how the game should proceed with correct play. `0` = no
+  continuation.
 - **Practice order**:
   - *Priority* (default) — sorts by priority `(times you got the position wrong, severity)`:
     the most recurring and most severe come first. The reordering only has a real effect
@@ -223,7 +230,10 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
 **you must find the best move** at each turn.
 - **You play**: White / Black;
 - **Choose PGN file**: the file with the model lines;
-- **Skip initial moves** / **Num Moves to Show**: opening moves to show.
+- **Skip initial moves** and **Num Moves to Show**: same semantics as *Solve positions*
+  (§3.4) — *Skip initial moves = Yes* skips the lead-in and starts at the position, *No*
+  replays it; *Num Moves to Show* is the number of continuation moves shown after a
+  correct answer.
 
 ---
 
