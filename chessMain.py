@@ -180,7 +180,8 @@ def mainMenu(width,height, test: bool = False) -> None:
                                      value_format=lambda x: str(round(x, 0)),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
     solvePositionsMenu.add.selector('Practice order', [("Priority", "priority"), ("Random", "random")],
-                                    default=0, onchange=make_selector_updater("practice_order"))
+                                    default=(0 if state.practice_order == "priority" else 1),
+                                    onchange=make_selector_updater("practice_order"))
 
     solvePositionsMenu.add.button('Play', solvePositions)
 

@@ -200,14 +200,13 @@ Parametri:
   che hai risposto correttamente, per farti vedere come dovrebbe proseguire la partita col
   gioco giusto. `0` = nessuna continuazione.
 - **Practice order**:
-  - *Priority* (default) — ordina per priorità `(quante volte hai sbagliato la posizione, gravità)`:
-    le più ricorrenti e più gravi prima. Effetto reale solo se i contatori delle posizioni sono
-    **differenziati**: tipicamente nelle aperture (le posizioni si ripetono nelle tue partite) e
-    nella tattica dopo una nuova analisi (la *gravità* viene popolata dal calo di valutazione).
-    Su una base appena creata dove tutte le posizioni hanno gli stessi contatori, l'effetto è
-    indistinguibile da Random.
-  - *Random* — solo `random.shuffle`, niente ordinamento; utile per varietà e per le basi
-    "piatte" dove la priorità non differenzia.
+  - *Random* (default) — solo `random.shuffle`, le posizioni escono in ordine casuale.
+    Default perché su basi reali (in particolare le aperture) la priorità tende a saturare
+    la sessione su poche posizioni a `wrong` molto alto (es. le prime mosse di un'apertura
+    ripetute decine di volte nelle tue partite).
+  - *Priority* — ordina per priorità `(quante volte hai sbagliato la posizione, gravità)`:
+    le più ricorrenti e più gravi prima. Modalità "drill" — utile quando vuoi forzare la
+    chiusura delle posizioni più sbagliate, accettando che la sessione si concentri su quelle.
 
 Ti viene mostrata una posizione: **gioca la mossa che ritieni corretta**. Il programma
 ti dice se è giusta; con **H** puoi vedere la soluzione.

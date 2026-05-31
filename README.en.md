@@ -198,14 +198,13 @@ Parameters:
   answer correctly, to show how the game should proceed with correct play. `0` = no
   continuation.
 - **Practice order**:
-  - *Priority* (default) — sorts by priority `(times you got the position wrong, severity)`:
-    the most recurring and most severe come first. The reordering only has a real effect
-    if the position counters are **differentiated**: typically in openings (positions recur
-    across your games) and in tactics after a fresh analysis (the *severity* field gets
-    populated from the eval drop). On a brand-new base where all positions have the same
-    counters, this is indistinguishable from Random.
-  - *Random* — plain `random.shuffle`, no sorting; useful for variety and for "flat" bases
-    where priority cannot differentiate.
+  - *Random* (default) — plain `random.shuffle`, positions come up in random order. Default
+    because on real bases (especially openings) priority tends to saturate the session on a
+    few positions with very high `wrong` (e.g. the first moves of an opening repeated dozens
+    of times across your games).
+  - *Priority* — sorts by priority `(times you got the position wrong, severity)`: the most
+    recurring and most severe come first. "Drill" mode — useful when you want to force the
+    closure of the worst positions, accepting that the session focuses on them.
 
 A position is shown: **play the move you think is correct**. The program tells you
 whether it's right; press **H** to reveal the solution.
