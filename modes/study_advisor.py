@@ -52,9 +52,14 @@ class ECOStat:
 
     @property
     def score(self) -> float:
-        # punti persi (loss=1, draw=0.5). Frequenza x perdite, in versione
-        # "punti persi assoluti": ECO con tante partite-perse vanno in cima.
-        return self.losses + 0.5 * self.draws
+        # Deficit = punti persi SOTTO la soglia del 50% (= "expected score" pari).
+        # Cosi' le aperture in cui vinci >=50% hanno deficit 0 e spariscono dalla
+        # classifica indipendentemente dal volume; quelle in cima sono quelle in
+        # cui sotto-performi davvero. Privilegia la sotto-performance reale invece
+        # del puro volume.
+        expected = 0.5 * self.num_games
+        actual = self.wins + 0.5 * self.draws
+        return max(0.0, expected - actual)
 
 
 def _user_outcome(result: str, user_color: str) -> Optional[str]:
@@ -115,7 +120,9 @@ def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOS
     stats = [ECOStat(eco=eco, num_games=d["games"], wins=d["wins"],
                      draws=d["draws"], losses=d["losses"])
              for eco, d in by_eco.items()]
-    stats.sort(key=lambda s: (-s.score, -s.num_games, s.eco))   # score desc, poi freq desc, poi alfabetico
+    # Ordine: deficit desc (sotto-performance), poi volume desc (a parita' di
+    # deficit privilegia le aperture giocate piu' spesso), poi alfabetico.
+    stats.sort(key=lambda s: (-s.score, -s.num_games, s.eco))
     return stats
 
 
@@ -269,8 +276,9 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
         # title
         app.screen.blit(title_font.render(header, True, FG), (margin_x, top_title))
         # hint
-        hint = ("Riga 1 = priorita' piu' alta (giochi spesso e perdi spesso). "
-                "Click su una riga -> analizzo le partite di quell'apertura e ti porto subito ad allenarle.")
+        hint = ("Riga 1 = priorita' piu' alta. Score = 'Deficit' = punti persi SOTTO il 50%: "
+                "se vinci >=50% in un'apertura il deficit e' 0 (qualsiasi sia il volume). "
+                "Click su una riga -> analizzo le partite di quell'apertura e ti porto ad allenarle.")
         app.screen.blit(hint_font.render(hint, True, (200, 200, 200)), (margin_x, top_hint))
         # column header
         cols = [
@@ -280,7 +288,7 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
             (margin_x + 230,   "D"),
             (margin_x + 280,   "L"),
             (margin_x + 340,   "Win%"),
-            (margin_x + 420,   "Score"),
+            (margin_x + 420,   "Deficit"),
         ]
         for x, label in cols:
             app.screen.blit(hdr_font.render(label, True, HDR), (x, top_header))
