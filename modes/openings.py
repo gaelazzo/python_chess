@@ -86,8 +86,12 @@ def playOpeningLine(filename, humanColor):
     # Toolbar (fase 2): stesso pattern degli altri mode.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
+    # NB: Undo NON e' esposto come pulsante in Study openings: il mode e' un
+    # esercizio "trova-la-mossa-giusta", non free play, e gs.undoMove()
+    # interagisce in modo non intuitivo con la sequenza (stopCondition / auto-
+    # moves dell'avversario), facendo "saltare" passi della soluzione. La
+    # scorciatoia tastiera Z/Left resta disponibile per uso volontario.
     toolbar = Toolbar([
-        ToolbarAction("Undo",  "Undo (Z / Left arrow)",                   _post_key(p.K_LEFT)),
         ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
         ToolbarAction("Eval",  "Evaluate position (S)",                   _post_key(p.K_s)),
         ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
