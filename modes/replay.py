@@ -17,6 +17,7 @@ from config import config
 from GameState import Move, GameState
 import UCIEngines
 import BoardScreen as BS
+from toolbar import Toolbar, ToolbarAction
 import analyzer
 import analyzer as AN
 import BrainMaster
@@ -81,6 +82,31 @@ def solvePositionsFromBase(learningBase:LearningBase):
     show_help = False
     BS.clearCPU(app.screen)
 
+    # Toolbar (fase 2): stesso pattern di play_game -- ogni pulsante posta
+    # la stessa scorciatoia da tastiera, cosi' il codice di gestione resta
+    # singolo. Alcuni pulsanti hanno predicato `enabled` che legge le variabili
+    # di stato dell'inner loop (humanCanPlay, updateStats).
+    # NOTA: humanCanPlay/updateStats sono locali e riassegnati durante il loop;
+    # le lambda li risolvono al call time, quindi vedono sempre il valore corrente.
+    def _post_key(key, mod=0):
+        return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
+    toolbar = Toolbar([
+        ToolbarAction("Sol",   "Show solution (H)",                       _post_key(p.K_h),
+                      enabled=lambda: not updateStats),
+        ToolbarAction("+Mov",  "Show more continuation moves (+) -- after a correct answer",
+                                                                          _post_key(p.K_KP_PLUS),
+                      enabled=lambda: not humanCanPlay),
+        ToolbarAction("Next",  "Next position (N) -- after a correct answer",
+                                                                          _post_key(p.K_n),
+                      enabled=lambda: not humanCanPlay),
+        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
+        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
+        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
+        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
+        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
+        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
+    ])
+
     def do_show_help():
         glc.draw_help_overlay(help_text, height=300)
 
@@ -133,6 +159,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
        
 
         while running and not mustSkip:
+            time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
             update  = False
             updateStats = False
 
@@ -180,20 +207,24 @@ def solvePositionsFromBase(learningBase:LearningBase):
                     engineMove = engineMove-1
 
             for e in p.event.get():
+                app.manager.process_events(e)
+                if toolbar.process_event(e):
+                    update = True
+                    continue
                 update = True
                 if e.type == p.QUIT:
-                    running = False            
+                    running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
-                        show_help = True            
+                        show_help = True
                         # play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
-                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay:
+                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
                     mustSkip = True
                     break
-                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay:
+                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
                     row, col = BS.getRowColFromLocation(p.mouse.get_pos())
 
                     if sqSelected == (row, col) or col >= 8 or row>=8: # user clicked same square or in move log
@@ -277,11 +308,16 @@ def solvePositionsFromBase(learningBase:LearningBase):
                 
 
             
+            toolbar.update(time_delta)
+
             if show_help:
                 do_show_help()
                 continue
 
             if not update:
+                # Frame idle: ridisegniamo la toolbar (per i tooltip on-hover) e flippiamo.
+                toolbar.draw(app.screen)
+                p.display.update()
                 continue
 
             if moveMade and not mustSkip:
@@ -345,7 +381,9 @@ def solvePositionsFromBase(learningBase:LearningBase):
                                  toHighlightSquareColor=toHighlightSquares,
                                  sqSelected=sqSelected)
 
+            toolbar.draw(app.screen)
             BS.update()
 
+    toolbar.kill()
     p.event.clear()
     app.main_menu.enable()
