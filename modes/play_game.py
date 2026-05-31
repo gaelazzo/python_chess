@@ -16,6 +16,7 @@ from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState, NAG_CHOICES
 import UCIEngines
 import BoardScreen as BS
+from toolbar import Toolbar, ToolbarAction
 import analyzer
 import BrainMaster
 from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, unlock_new_lesson
@@ -183,8 +184,33 @@ def playAGame():
 
     if whiteCPU and not blackCPU:
         BS.setWhiteUp(app.screen, True)
-    
+
     BS.clearCPU(app.screen)
+
+    # Toolbar in alto: ogni pulsante posta la stessa scorciatoia da tastiera
+    # corrispondente, cosi' il codice dei KEYDOWN gestisce tutto e non duplichiamo
+    # logica. Le scorciatoie restano funzionanti in parallelo.
+    def _post_key(key):
+        return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key))
+    _is_analysis = lambda: (not whiteCPU) and (not blackCPU)
+    toolbar = Toolbar([
+        ToolbarAction("Undo",  "Undo (Left arrow)",                       _post_key(p.K_LEFT)),
+        ToolbarAction("Next",  "Next move (Right arrow)",                 _post_key(p.K_RIGHT)),
+        ToolbarAction("Save",  "Save game (S)",                           _post_key(p.K_s)),
+        ToolbarAction("Anal",  "Analyze mode toggle (A)",                 _post_key(p.K_a)),
+        ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
+        ToolbarAction("Reset", "Reset game (R)",                          _post_key(p.K_r)),
+        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
+        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
+        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
+        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
+        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
+        ToolbarAction("Load",  "Load game (L) -- analysis only",          _post_key(p.K_l), enabled=_is_analysis),
+        ToolbarAction("Annot", "Annotate last move (N) -- analysis only", _post_key(p.K_n), enabled=_is_analysis),
+        ToolbarAction("Cmnt",  "Comment last move (T) -- analysis only",  _post_key(p.K_t), enabled=_is_analysis),
+        ToolbarAction("Notat", "Notation panel (V) -- analysis only",     _post_key(p.K_v), enabled=_is_analysis),
+        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
+    ])
 
     help_text = [
             "Istruzioni:",
@@ -214,6 +240,7 @@ def playAGame():
 
 
     while running:
+        time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar/manager
         update = False
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
@@ -227,18 +254,24 @@ def playAGame():
                 update=True
 
         else:
-            for e in p.event.get():                
+            for e in p.event.get():
+                app.manager.process_events(e)
+                if toolbar.process_event(e):
+                    update = True
+                    continue
                 update = True
                 if e.type == p.QUIT:
                     running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
-                        show_help = True                                                
+                        show_help = True
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
-                        
+
                 elif e.type == p.MOUSEBUTTONDOWN  and e.button == 1 and not gameOver:
+                    if toolbar.pointer_in_toolbar(e.pos):
+                        continue                 # click sulla toolbar, non sulla board
                     #tak
                     row,col = BS.getRowColFromLocation(p.mouse.get_pos())
                     update = True
@@ -376,9 +409,10 @@ def playAGame():
                         glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_f:
+                        # Flip della scacchiera: NON impostare moveMade=True, altrimenti
+                        # il blocco "if moveMade" chiama setWhiteUp che reimposta
+                        # l'orientamento in base al turno e annulla la flip.
                         BS.flipBoard(app.screen)
-                        moveMade = True
-                        animate = False
 
                     if e.key == p.K_r:
                         gs = GameState()
@@ -390,11 +424,17 @@ def playAGame():
                             
                 
 
+        toolbar.update(time_delta)
+
         if show_help:
                 do_show_help()
                 continue
-        
+
         if not update:
+            # Frame idle: ridisegniamo comunque la toolbar (per le animazioni
+            # del tooltip on-hover) e flippiamo il display.
+            toolbar.draw(app.screen)
+            p.display.update()
             continue
 
         if moveMade:
@@ -441,8 +481,10 @@ def playAGame():
                              toHighlightSquareColor=toHighlightSquares,
                              sqSelected=sqSelected)
 
+        toolbar.draw(app.screen)
         BS.update()
-    
+
+    toolbar.kill()
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()

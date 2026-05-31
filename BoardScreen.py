@@ -21,10 +21,16 @@ SQ_SIZE = BOARD_HEIGHT / DIMENSION
 MAX_FPS = 60
 factor = 2.0
 IMAGES:Dict[str,p.Surface] = {}
+
+# Fascia in alto per la toolbar dei pulsanti-icona. Tutto il resto (scacchiera +
+# pannelli + striscia CPU) scende di TOOLBAR_HEIGHT.
+TOOLBAR_HEIGHT = 40
+BOARD_Y = TOOLBAR_HEIGHT
+
 MOVE_LOG_HEIGHT = BOARD_HEIGHT
 MOVE_LOG_WIDTH = 250
 MOVE_LOG_X = BOARD_WIDTH
-MOVE_LOG_Y = 0
+MOVE_LOG_Y = TOOLBAR_HEIGHT
 whiteUp = False
 
 ANALYSYS_PANEL_HEIGHT = BOARD_HEIGHT
@@ -33,20 +39,20 @@ ANALYSYS_PANEL_WIDTH = MOVE_LOG_WIDTH
 BOOK_HEIGHT = 2* (BOARD_HEIGHT // 3)
 BOOK_WIDTH = ANALYSYS_PANEL_WIDTH
 BOOK_X = BOARD_WIDTH + MOVE_LOG_WIDTH
-BOOK_Y = 0
+BOOK_Y = TOOLBAR_HEIGHT
 
 PGN_HEIGHT = BOARD_HEIGHT - BOOK_HEIGHT
 PGN_WIDTH = ANALYSYS_PANEL_WIDTH
 PGN_X = BOARD_WIDTH + MOVE_LOG_WIDTH
-PGN_Y = BOOK_HEIGHT
+PGN_Y = BOOK_HEIGHT + TOOLBAR_HEIGHT
 
 CPU_WIDTH = ANALYSYS_PANEL_WIDTH+BOARD_WIDTH+ANALYSYS_PANEL_WIDTH
 CPU_HEIGHT = BOARD_HEIGHT // 3
 CPU_X = 0
-CPU_Y = BOARD_HEIGHT
+CPU_Y = BOARD_HEIGHT + TOOLBAR_HEIGHT
 
 SCREEN_WIDTH = BOARD_WIDTH + MOVE_LOG_WIDTH + ANALYSYS_PANEL_WIDTH
-SCREEN_HEIGHT = BOARD_HEIGHT+ CPU_HEIGHT
+SCREEN_HEIGHT = BOARD_HEIGHT + CPU_HEIGHT + TOOLBAR_HEIGHT
 
 clock:Optional[p.time.Clock] = None
 
@@ -109,14 +115,14 @@ def choosePromotion(screen, color):
     startCol = 2
     # Bishop, Knight, Rook, Queen
     p.draw.rect(screen, p.Color("lightyellow"),
-                p.Rect(startCol * SQ_SIZE, 3 * SQ_SIZE, 4 * SQ_SIZE, 2 * SQ_SIZE))
+                p.Rect(startCol * SQ_SIZE, BOARD_Y + 3 * SQ_SIZE, 4 * SQ_SIZE, 2 * SQ_SIZE))
     myfont = p.font.SysFont('Comic Sans MS', 20)
     textsurface = myfont.render('Choose piece to promote to', False, p.Color("black"))
-    screen.blit(textsurface, (startCol * SQ_SIZE, 3 * SQ_SIZE))
+    screen.blit(textsurface, (startCol * SQ_SIZE, BOARD_Y + 3 * SQ_SIZE))
 
     for i in range(4):
         piece = color + pieces[i]
-        screen.blit(IMAGES[piece], p.Rect((startCol + i) * SQ_SIZE, 4 * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+        screen.blit(IMAGES[piece], p.Rect((startCol + i) * SQ_SIZE, BOARD_Y + 4 * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
     while True:
         for e in p.event.get():
@@ -127,16 +133,21 @@ def choosePromotion(screen, color):
                 col = int(location[0] // SQ_SIZE) - startCol
                 if not (0 <= col <= 3):
                     return None
-                row = int(location[1] // SQ_SIZE)
+                row = int((location[1] - BOARD_Y) // SQ_SIZE)
                 if row != 4:
                     return None
                 return color + pieces[col]
         update()
 
 def getRowColFromLocation(location):
+    # Click sopra la fascia board (es. nella toolbar) -> coordinate fuori scacchiera
+    # cosi' i chiamanti (che gia' filtrano col>=8 / row>=8) lo ignorano in sicurezza.
+    y = location[1] - BOARD_Y
+    if y < 0:
+        return 8, 8
     col = adjustedCol(int(location[0] // SQ_SIZE))
-    row = adjustedRow(int(location[1] // SQ_SIZE))
-    return row,col
+    row = adjustedRow(int(y // SQ_SIZE))
+    return row, col
 
 def resource_path(relative_path):
     """Restituisce il path assoluto, compatibile con PyInstaller."""
@@ -158,7 +169,7 @@ def drawBoard(screen):
     for r in range(DIMENSION):
         for c in range(DIMENSION):
             color = colors[(r + c) % 2]
-            p.draw.rect(screen, color, p.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+            p.draw.rect(screen, color, p.Rect(c * SQ_SIZE, BOARD_Y + r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 
 def drawPieces(screen, board: GameState):
@@ -173,7 +184,7 @@ def drawPieces(screen, board: GameState):
         for c in range(DIMENSION):
             piece = board.piece_at(r, c)
             if piece != "--":
-                    screen.blit(IMAGES[piece], p.Rect(adjustedCol(c) * SQ_SIZE, adjustedRow(r) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+                    screen.blit(IMAGES[piece], p.Rect(adjustedCol(c) * SQ_SIZE, BOARD_Y + adjustedRow(r) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 def redraw(screen, board):
         drawBoard(screen)
@@ -188,7 +199,7 @@ def drawEndGameText(screen, board, text,size=32):
     redraw(screen, board)
     font = p.font.SysFont("Helvetica", size, True, False)
     textObject = font.render(text, False, p.Color("Gray"))
-    textLocation = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move((BOARD_WIDTH - textObject.get_width()) / 2,
+    textLocation = p.Rect(0, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT).move((BOARD_WIDTH - textObject.get_width()) / 2,
                                                                 (BOARD_HEIGHT - textObject.get_height()) / 2)
     screen.blit(textObject, textLocation)
     textObject = font.render(text, False, p.Color("Black"))
@@ -260,13 +271,13 @@ def draw_polygon_alpha(surface, color, points):
 def highlightCircles(screen, squares):
     for s in squares:
         draw_circle_alpha(screen, s[2], (adjustedRow(s[1]) * SQ_SIZE + SQ_SIZE // 2,
-                                                      adjustedCol(s[0]) * SQ_SIZE + SQ_SIZE // 2), SQ_SIZE // 4)
+                                                      BOARD_Y + adjustedCol(s[0]) * SQ_SIZE + SQ_SIZE // 2), SQ_SIZE // 4)
 
 
 def highlightSquaresColor(screen, squares):
     for s in squares:
         draw_rect_alpha(screen, s[2],
-                        p.Rect(adjustedRow(s[1]) * SQ_SIZE, adjustedCol(s[0]) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+                        p.Rect(adjustedRow(s[1]) * SQ_SIZE, BOARD_Y + adjustedCol(s[0]) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 def add_txt_line(t: str, text_y: int, font, screen, move_log_rect, padding, line_spacing, color="white") -> int:
     text_object = font.render(t, True, p.Color(color))
@@ -348,7 +359,7 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
     if sqSelected != ():
         p.draw.rect(screen, p.Color("lightgreen"),
                     p.Rect(adjustedRow(sqSelected[1]) * SQ_SIZE,
-                           adjustedCol(sqSelected[0]) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+                           BOARD_Y + adjustedCol(sqSelected[0]) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
     highlightCircles(screen, toHighlightCirclesColor)
     highlightSquaresColor(screen, toHighlightSquareColor)
@@ -454,23 +465,23 @@ def animateMove(move, screen, board:GameState):
         drawPieces(screen, board)
 
         color = colors[(move.stopRow + move.stopCol) % 2]
-        endSquare = p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, adjustedRow(move.stopRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE)
+        endSquare = p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, BOARD_Y + adjustedRow(move.stopRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE)
         p.draw.rect(screen, color, endSquare)
 
         if move.pieceCaptured != "--":
             if move.enPassant:
                 enPassantRow = (move.stopRow + 1) if move.pieceCaptured[0] == "b" else move.stopRow - 1
-                endSquare = p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, adjustedRow(enPassantRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE)
+                endSquare = p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, BOARD_Y + adjustedRow(enPassantRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE)
 
             screen.blit(IMAGES[move.pieceCaptured], endSquare)
 
         #  if move.pieceMoved != "--":
-        screen.blit(IMAGES[move.pieceMoved], p.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+        screen.blit(IMAGES[move.pieceMoved], p.Rect(c * SQ_SIZE, BOARD_Y + r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
         update()
         clock.tick(MAX_FPS)
 
     color = colors[(adjustedRow(move.stopRow) + adjustedCol(move.stopCol)) % 2]
-    p.draw.rect(screen, color, p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, adjustedRow(move.stopRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+    p.draw.rect(screen, color, p.Rect(adjustedCol(move.stopCol) * SQ_SIZE, BOARD_Y + adjustedRow(move.stopRow) * SQ_SIZE, SQ_SIZE, SQ_SIZE))
     drawPieces(screen, board)
     update()
 
