@@ -119,57 +119,64 @@ def make_file_selector(
             allowed_suffixes=[file_type],
             allow_picking_directories=False
         )
-        
-        while True:
-            time_delta = app.clock.tick(60) / 1000.0
 
-            for event in p.event.get():
-                if event.type == p.QUIT:
-                    quit()
-                if event.type == p.WINDOWCLOSE or event.type == pygame_gui.UI_WINDOW_CLOSE:
-                    return
+        # try/finally garantisce kill() su ogni uscita: senza, pygame_gui mantiene
+        # il dialog in app.manager e altri loop che chiamano manager.draw_ui (es. la
+        # toolbar in-gioco) lo ridipingerebbero come "finestra fantasma" sopra la
+        # scacchiera.
+        try:
+            while True:
+                time_delta = app.clock.tick(60) / 1000.0
 
-                if event.type == pygame_gui.UI_BUTTON_PRESSED:
-                    if event.ui_element == file_selection.ok_button:
-                        selected = file_selection.current_file_path
-                        file_name_with_ext  = os.path.basename(selected)
-                        file_name, file_extension = os.path.splitext(file_name_with_ext) # <-- NUOVO
-
-                        if prefix and not file_name.startswith(prefix):
-                             # Il file non è valido: mostriamo un messaggio e non usciamo
-                            # print(f"Errore: Il file '{file_name}' non inizia con 'base_'. Seleziona un file valido.")
-                            # Potresti anche visualizzare un messaggio popup all'utente
-                            # ad esempio con pygame_gui.windows.UIMessageWindow
-                            pygame_gui.windows.UIMessageWindow(
-                                html_message=f"The selected file is not valid:<br><b>{file_name}</b><br>it must start with {prefix}.",
-                                window_title="Invalid file selection",
-                                manager=app.manager,
-                                rect=p.Rect(app.W // 4, app.H // 4, app.W // 2, app.H // 2) # Posizione e dimensione del popup
-                            )     
-                            continue
-
-
-                        file_name = fileNameTranformer(file_name) if fileNameTranformer else file_name
-                        if key:
-                            positionParameters[key] = file_name
-
-                        for label in labels:
-                            if label:
-                                label.set_title(file_name)
-
-                        if callback:
-                            callback(selected)
-
-                        return
-                    elif event.ui_element == file_selection.cancel_button:
+                for event in p.event.get():
+                    if event.type == p.QUIT:
+                        quit()
+                    if event.type == p.WINDOWCLOSE or event.type == pygame_gui.UI_WINDOW_CLOSE:
                         return
 
-                app.manager.process_events(event)
+                    if event.type == pygame_gui.UI_BUTTON_PRESSED:
+                        if event.ui_element == file_selection.ok_button:
+                            selected = file_selection.current_file_path
+                            file_name_with_ext  = os.path.basename(selected)
+                            file_name, file_extension = os.path.splitext(file_name_with_ext) # <-- NUOVO
 
-            app.manager.update(time_delta)
-            app.screen.blit(background, (0, 0))
-            app.manager.draw_ui(app.screen)
-            p.display.update()
+                            if prefix and not file_name.startswith(prefix):
+                                 # Il file non è valido: mostriamo un messaggio e non usciamo
+                                # print(f"Errore: Il file '{file_name}' non inizia con 'base_'. Seleziona un file valido.")
+                                # Potresti anche visualizzare un messaggio popup all'utente
+                                # ad esempio con pygame_gui.windows.UIMessageWindow
+                                pygame_gui.windows.UIMessageWindow(
+                                    html_message=f"The selected file is not valid:<br><b>{file_name}</b><br>it must start with {prefix}.",
+                                    window_title="Invalid file selection",
+                                    manager=app.manager,
+                                    rect=p.Rect(app.W // 4, app.H // 4, app.W // 2, app.H // 2) # Posizione e dimensione del popup
+                                )
+                                continue
+
+
+                            file_name = fileNameTranformer(file_name) if fileNameTranformer else file_name
+                            if key:
+                                positionParameters[key] = file_name
+
+                            for label in labels:
+                                if label:
+                                    label.set_title(file_name)
+
+                            if callback:
+                                callback(selected)
+
+                            return
+                        elif event.ui_element == file_selection.cancel_button:
+                            return
+
+                    app.manager.process_events(event)
+
+                app.manager.update(time_delta)
+                app.screen.blit(background, (0, 0))
+                app.manager.draw_ui(app.screen)
+                p.display.update()
+        finally:
+            file_selection.kill()
 
     return choose_file
 
