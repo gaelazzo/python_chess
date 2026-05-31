@@ -198,10 +198,13 @@ def mainMenu(width,height, test: bool = False) -> None:
         width=width
     )
 
-    openingsMenu.add.selector('You play', [("White", 0), ("Black", 1)],
-                      default=default_color_index if default_color_index<2 else 0, onchange=setColorIndex)
+    # NB: nessun selettore "You play" in Study openings: il colore del lato
+    # che si esercita viene RILEVATO automaticamente dal contenuto del PGN
+    # (vedi detect_user_color_from_pgn in modes/openings.py). Le PGN di
+    # repertorio hanno una struttura "una sola continuazione del lato proprio,
+    # tante varianti del lato opponente": basta guardare la prima variante.
     openingsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
-                                       onchange=make_updater("num_moves_to_show",int), 
+                                       onchange=make_updater("num_moves_to_show",int),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
     addChoosePGNFile(openingsMenu)
     openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))

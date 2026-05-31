@@ -227,8 +227,11 @@ service (spaced repetition). Choose the **course** and press **Exercise**.
 
 You load a PGN file of "model" lines. The computer plays one of the stored lines and
 **you must find the best move** at each turn.
-- **You play**: White / Black;
 - **Choose PGN file**: the file with the model lines;
+- (The colour you play is **auto-detected from the PGN content**: in a Black
+  repertoire, Black's moves have a single continuation and White's moves have
+  variations — the first variation found determines the side. If the file has
+  no variations, defaults to White.)
 - **Lead-in moves** and **Num Moves to Show**: same semantics as *Solve positions*
   (§3.4) — *Skip* skips the lead-in and starts at the position, *Replay* replays it;
   *Num Moves to Show* is the number of continuation moves shown after a correct answer.

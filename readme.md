@@ -229,8 +229,11 @@ Come sopra, ma le posizioni e l'ordine di ripasso sono suggeriti dal servizio
 
 Carichi un file PGN di linee "modello". Il computer gioca una delle linee
 memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
-- **You play**: White / Black;
 - **Choose PGN file**: il file con le partite modello;
+- (Il colore che giochi viene **rilevato automaticamente dal contenuto del PGN**:
+  in un repertorio per il Nero le mosse del Nero hanno una sola continuazione e quelle
+  del Bianco hanno varianti — la prima variante incontrata determina il lato. Se il
+  file non contiene varianti, default Bianco.)
 - **Lead-in moves** e **Num Moves to Show**: stessa semantica di *Solve positions*
   (§3.4) — *Skip* salta la sequenza di lead-in e parte dalla posizione, *Replay* la
   rigioca tutta; *Num Moves to Show* è il numero di mosse di continuazione mostrate

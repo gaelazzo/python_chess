@@ -1,3 +1,5 @@
+import os
+import re
 import sys
 import random
 from dataclasses import dataclass
@@ -27,16 +29,52 @@ from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 
 
+# Euristica: nelle PGN di repertorio d'apertura il lato che si esercita ha le
+# proprie mosse fisse (mainline) mentre l'opponente ha varianti. La PRIMA
+# variante incontrata nel testo del file ci dice quale lato sta "ramificando":
+#   (N... mossa  -> variante del NERO (l'opponente e' Nero) -> giochiamo Bianco
+#   (N.  mossa   -> variante del BIANCO (opponente Bianco) -> giochiamo Nero
+_FIRST_VARIATION_RE = re.compile(r'\(\s*(\d+)\s*(\.\.\.|\.)\s*[A-Za-z]')
+
+
+def detect_user_color_from_pgn(pgn_path: str) -> Optional[str]:
+    """Rileva il colore dell'utente leggendo il testo grezzo del PGN.
+    Ritorna 'w', 'b' o None se non si trovano varianti."""
+    try:
+        with open(pgn_path, encoding='utf-8', errors='replace') as f:
+            text = f.read()
+    except OSError:
+        return None
+    m = _FIRST_VARIATION_RE.search(text)
+    if not m:
+        return None
+    # group(2) == '...' -> variante del Nero -> utente gioca Bianco
+    return 'w' if m.group(2) == '...' else 'b'
+
+
 # "Study openings": you must always play the best move while the computer replies
 # with one of the lines stored in the PGN (typically an opening repertoire).
 def playOpening():
-
-    if positionParameters["filename"] is None:
+    filename = positionParameters.get("filename")
+    if filename is None:
         return
+
+    # Auto-rileva il colore dell'utente dal contenuto del PGN. Fallback a Bianco
+    # se il file non contiene varianti (es. una sola linea, niente da dedurre).
+    pgn_path = os.path.join(pgngamelist.PGN_FOLDER, filename + ".pgn")
+    detected = detect_user_color_from_pgn(pgn_path)
+    human_color = detected or "w"
 
     app.main_menu.disable()
     app.main_menu.full_reset()
-    playOpeningLine( positionParameters["filename"],  positionParameters["color"])
+    if detected is None:
+        # informativa: nessuna variante trovata, parto da Bianco di default
+        app.main_background()
+        BS.drawEndGameText(app.screen, None,
+                           f"Colore non rilevabile dal PGN -- gioco Bianco di default", size=18)
+        BS.update()
+        app.delay(2)
+    playOpeningLine(filename, human_color)
     return
 
 def playOpeningLine(filename, humanColor):
@@ -83,7 +121,8 @@ def playOpeningLine(filename, humanColor):
         app.main_menu.enable()
         return
 
-    BS.set_context_label(f"Apertura: {filename}")
+    color_label = {"w": "Bianco", "b": "Nero"}.get(humanColor, "?")
+    BS.set_context_label(f"Apertura: {filename} ({color_label})")
 
     # Toolbar (fase 2): stesso pattern degli altri mode.
     def _post_key(key, mod=0):
