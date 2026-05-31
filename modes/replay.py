@@ -47,7 +47,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
     are program-wide settings (Setup menu, persisted in config.json).
     '''
 
-    
+    BS.set_context_label(f"Allenando: {learningBase.filename or '?'}")
 
     # ll is a copy (not a deep copy) of data in the csv, not the same structure
     ll = analyzer.getPositions(learningBase, positionParameters, order=state.practice_order)
@@ -385,5 +385,6 @@ def solvePositionsFromBase(learningBase:LearningBase):
             BS.update()
 
     toolbar.kill()
+    BS.set_context_label(None)
     p.event.clear()
     app.main_menu.enable()

@@ -83,6 +83,8 @@ def playOpeningLine(filename, humanColor):
         app.main_menu.enable()
         return
 
+    BS.set_context_label(f"Apertura: {filename}")
+
     # Toolbar (fase 2): stesso pattern degli altri mode.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
@@ -321,6 +323,7 @@ def playOpeningLine(filename, humanColor):
             BS.update()
 
     toolbar.kill()
+    BS.set_context_label(None)
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()

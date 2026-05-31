@@ -89,8 +89,9 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     '''
     ll:List[LearnPositionSimplified]= []
     result: Dict[str, AnswerData] = {}
-    
-    
+
+    BS.set_context_label(f"BrainMaster: {state.id_course or '?'}")
+
     # ll is a copy (not a deep copy) of data in the LearningBase
     for q in questions:
         ll.append(LearnPositionSimplified.fromQuestionData(q))
@@ -429,6 +430,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
             BS.update()
 
     toolbar.kill()
+    BS.set_context_label(None)
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()

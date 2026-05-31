@@ -63,6 +63,26 @@ show_book = True
 show_pgn = True
 show_cpu = True
 
+# Etichetta di contesto mostrata in cima al move log (es. "Allenando: c96" o
+# "Apertura: openings.pgn") e replicata nel caption della finestra. Settata
+# dai vari mode all'ingresso e azzerata in uscita. None = nessuna etichetta.
+context_label: Optional[str] = None
+_DEFAULT_CAPTION = 'Chess trainer'
+
+
+def set_context_label(label: Optional[str]) -> None:
+    """Imposta l'etichetta di contesto (move log + caption finestra).
+    Passa None per resettare (tipicamente in finally a fine mode)."""
+    global context_label
+    context_label = label
+    try:
+        if label:
+            p.display.set_caption(f"{_DEFAULT_CAPTION} -- {label}")
+        else:
+            p.display.set_caption(_DEFAULT_CAPTION)
+    except p.error:
+        pass   # display non ancora inizializzato (es. test headless)
+
 def getFactor():
     global factor
     return factor
@@ -400,6 +420,11 @@ def drawMoveLog(screen, gs):
         padding = 5
         textY = padding
         lineSpacing = 2
+
+        # Etichetta di contesto (cosa sto allenando): se presente, prima riga
+        # in ciano cosi' si stacca dai normali header di partita.
+        if context_label:
+            textY += add_txt_line(context_label, textY, font, screen, moveLogRect, padding, lineSpacing, color="cyan")
 
         header = gs.getHeader()
         for i in range(0, len(header), 2):
