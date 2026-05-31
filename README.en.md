@@ -186,7 +186,6 @@ this is the right mode to **analyse**: you can take moves back, try alternative 
 Review the positions stored in a *learning base* (typically your own mistakes).
 Parameters:
 - **ECO (optional)**: filter by opening code;
-- **You play**: White / Black / Any;
 - **Choose base file**: pick the learning base;
 - **Lead-in moves**:
   - *Skip* (default) — skips the lead-in move sequence and drops you straight onto the

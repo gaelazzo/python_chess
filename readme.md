@@ -188,7 +188,6 @@ provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
 Ripassa le posizioni salvate in una *learning base* (tipicamente i tuoi errori).
 Parametri:
 - **ECO (optional)**: filtra per codice di apertura;
-- **You play**: White / Black / Any;
 - **Choose base file**: scegli la learning base;
 - **Lead-in moves**:
   - *Skip* (default) — salta la sequenza di mosse che precede la posizione-errore e ti

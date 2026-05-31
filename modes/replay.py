@@ -49,8 +49,14 @@ def solvePositionsFromBase(learningBase:LearningBase):
 
     BS.set_context_label(f"Allenando: {learningBase.filename or '?'}")
 
+    # Filter locale: ECO da positionParameters (se l'utente lo ha digitato nel
+    # menu), color=None sempre. Il colore-al-tratto e' gia' implicito nella base
+    # (rimosso dal menu come selettore separato), e positionParameters["color"]
+    # potrebbe essere stato settato da altri menu (Download chess.com/lichess)
+    # senza che l'utente intenda filtrare la pratica.
+    filter_ = {"eco": positionParameters.get("eco"), "color": None}
     # ll is a copy (not a deep copy) of data in the csv, not the same structure
-    ll = analyzer.getPositions(learningBase, positionParameters, order=state.practice_order)
+    ll = analyzer.getPositions(learningBase, filter_, order=state.practice_order)
 
     running = True
     sqSelected = ()

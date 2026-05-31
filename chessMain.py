@@ -172,8 +172,12 @@ def mainMenu(width,height, test: bool = False) -> None:
         width=width
     )    
     solvePositionsMenu.add.text_input('ECO (optional)', default=positionParameters["eco"] or "", onchange=setPositionEco)
-    solvePositionsMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Any", 2)], default=default_color_index,
-                                onchange=setColorIndex)
+    # NB: nessun selettore di colore in Solve positions. Una base ha gia' un suo
+    # colore-al-tratto implicito (es. una base tattica da analyzePgn ha posizioni
+    # col turno del giocatore analizzato; una base di repertorio d'apertura ha
+    # posizioni col colore per cui e' stata costruita). Filtrare ulteriormente
+    # qui esclude soltanto posizioni utili. Il filtro ECO resta per drillare un
+    # sottoinsieme specifico.
     addChooseBaseFile(solvePositionsMenu)
 
     solvePositionsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
