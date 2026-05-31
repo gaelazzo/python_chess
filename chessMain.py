@@ -46,7 +46,7 @@ import state
 from state import playParameters, positionParameters, COLOR_MAP, REVERSE_COLOR_MAP, CIRCLE_COLOR, small_font_theme
 from learningbase_admin import (
     createLearningBase, updateLearningBase, unrollPgnAsLesson,
-    unrollPGN, readChessComGames, createCourse,
+    unrollPGN, readChessComGames, readLichessGames, createCourse,
 )
 from menu_helpers import (
     make_updater, make_selector_updater, make_bool_selector_updater,
@@ -301,6 +301,24 @@ def mainMenu(width,height, test: bool = False) -> None:
     chessComMenu.add.button('Download games', readChessComGames)
 
 
+    lichessMenu = pygame_menu.Menu(
+        height=height,
+        theme=pygame_menu.themes.THEME_BLUE,
+        title='download lichess games',
+        width=width
+    )
+    labels_l = []
+    chooseNewPgn_l = make_file_selector("filename", None, labels_l, pgngamelist.PGN_FOLDER + "/newfile.pgn", ".pgn", "Select PGN file (existing or new)", create=True)
+    lichessMenu.add.button('PGN file (existing or new)', chooseNewPgn_l)
+    default_value_l = str(positionParameters.get("filename", "Nessuna selezionata"))
+    label_l = lichessMenu.add.button(default_value_l, chooseNewPgn_l, font_size=20, background_color=None, selection_effect=pygame_menu.widgets.NoneSelection())
+    labels_l.append(label_l)
+    lichessMenu.add.text_input('player:', default=positionParameters["player"] or "", onchange=make_updater("player", str, positionParameters))
+    lichessMenu.add.selector('Player color', [("White", 0), ("Black", 1), ("Any", 2)], default=default_color_index, onchange=setColorIndex)
+
+    lichessMenu.add.button('Download games', readLichessGames)
+
+
     def combine_onchange(first_fn, second_fn):
         def combined(*args, **kwargs):
             first_fn(*args, **kwargs)
@@ -368,6 +386,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         width=width
     )  
     toolsMenu.add.button('Download Chess.com games', chessComMenu)
+    toolsMenu.add.button('Download lichess games', lichessMenu)
     toolsMenu.add.button("Create learning base", createBaseMenu)
     toolsMenu.add.button('Update learning base', updateLearningBaseMenu)
     toolsMenu.add.button('Unroll PGN file', unrollPGNMenu)

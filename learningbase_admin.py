@@ -8,6 +8,7 @@ from app_context import app
 import BoardScreen as BS
 import analyzer
 import chess_com_download
+import lichess_download
 import BrainMaster
 from LearningBase import LearningBase, learningBases
 from state import positionParameters
@@ -129,7 +130,34 @@ def readChessComGames():
         return
     
     chess_com_download.load(positionParameters.get("player", None), pgnFileName, positionParameters.get("color",None))
-        
+
+    app.main_background()
+    BS.drawEndGameText(app.screen, None, "Games downloaded")
+    BS.update()
+    app.delay(2)
+
+
+def readLichessGames():
+    '''
+    Scarica incrementalmente le partite lichess dell'utente nel PGN scelto.
+    Stessi parametri di readChessComGames (filename, player, color) presi da
+    positionParameters; dedup automatica nel modulo lichess_download.
+    '''
+    pgnFileName = positionParameters.get("filename", None)
+    if pgnFileName is None:
+        text = "Please select a PGN file"
+        app.main_background()
+        BS.drawEndGameText(app.screen, None, text)
+        BS.update()
+        app.delay(2)
+        return
+
+    lichess_download.load(
+        positionParameters.get("player", None),
+        pgnFileName,
+        positionParameters.get("color", None),
+    )
+
     app.main_background()
     BS.drawEndGameText(app.screen, None, "Games downloaded")
     BS.update()
