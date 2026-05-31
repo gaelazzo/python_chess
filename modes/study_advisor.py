@@ -27,6 +27,9 @@ import BoardScreen as BS
 from state import positionParameters, small_font_theme
 import pgngamelist
 from menu_helpers import make_updater, addChoosePGNFile
+import analyzer
+from LearningBase import LearningBase, learningBases
+from modes.replay import solvePositionsFromBase
 
 
 # ---------------------------------------------------------------------------
@@ -189,42 +192,60 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
             return
         color_label = {"w": "Bianco", "b": "Nero", None: "Entrambi"}[color]
         header = f"Studio prioritario per {user} ({color_label}) — {sum(s.num_games for s in stats)} partite, {len(stats)} ECO"
-        _show_results(stats, header)
+        _show_results(stats, header, user, color, pgn_path)
     finally:
         p.event.clear()
         if app.main_menu is not None and not app.main_menu.is_enabled():
             app.main_menu.enable()
 
 
-def _show_results(stats: List[ECOStat], header: str) -> None:
-    """Schermata custom con tabella ranked degli ECO. Esc / Q chiude."""
+def _show_results(stats: List[ECOStat], header: str, user: str,
+                  color: Optional[str], pgn_path: str) -> None:
+    """Schermata custom con tabella ranked degli ECO.
+    Click su una riga -> avvia analisi mirata su quell'ECO e poi pratica.
+    Esc / Q chiude e torna al menu.
+    """
     BG = (20, 20, 28)
     FG = (235, 235, 235)
     HDR = (180, 200, 255)
     LOSE_COLOR = (240, 150, 130)
     WIN_COLOR = (170, 240, 170)
+    TOP_HIGHLIGHT = (255, 220, 90)     # banner sul #1
+    ROW_HOVER_BG = (45, 45, 70)
 
     title_font = p.font.SysFont("Arial", 22, bold=True)
+    hint_font = p.font.SysFont("Arial", 14, italic=True)
     hdr_font = p.font.SysFont("Arial", 16, bold=True)
     row_font = p.font.SysFont("Consolas,DejaVu Sans Mono,Courier", 16)
     info_font = p.font.SysFont("Arial", 14)
 
-    line_h = row_font.get_linesize() + 4
+    line_h = row_font.get_linesize() + 6
     margin_x = 24
     top_title = 16
-    top_header = 56
-    top_rows = 84
+    top_hint = 44
+    top_header = 76
+    top_rows = 104
 
-    visible_rows = max(1, (app.H - top_rows - 30) // line_h)
+    visible_rows = max(1, (app.H - top_rows - 36) // line_h)
     scroll = 0
     max_scroll = max(0, len(stats) - visible_rows)
 
+    def row_at(pos):
+        x, y = pos
+        if y < top_rows or y >= top_rows + visible_rows * line_h:
+            return None
+        return scroll + (y - top_rows) // line_h
+
     running = True
+    clicked_eco: Optional[str] = None
+    mouse_pos = (0, 0)
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
                 p.quit()
                 sys.exit()
+            elif e.type == p.MOUSEMOTION:
+                mouse_pos = e.pos
             elif e.type == p.KEYDOWN:
                 if e.key in (p.K_ESCAPE, p.K_q):
                     running = False
@@ -239,11 +260,18 @@ def _show_results(stats: List[ECOStat], header: str) -> None:
             elif e.type == p.MOUSEWHEEL:
                 scroll = max(0, min(max_scroll, scroll - e.y * 3))
             elif e.type == p.MOUSEBUTTONDOWN and e.button == 1:
-                running = False    # un click chiude la schermata
+                idx = row_at(e.pos)
+                if idx is not None and 0 <= idx < len(stats):
+                    clicked_eco = stats[idx].eco
+                    running = False
 
         app.screen.fill(BG)
         # title
         app.screen.blit(title_font.render(header, True, FG), (margin_x, top_title))
+        # hint
+        hint = ("Riga 1 = priorita' piu' alta (giochi spesso e perdi spesso). "
+                "Click su una riga -> analizzo le partite di quell'apertura e ti porto subito ad allenarle.")
+        app.screen.blit(hint_font.render(hint, True, (200, 200, 200)), (margin_x, top_hint))
         # column header
         cols = [
             (margin_x,         "ECO"),
@@ -257,6 +285,12 @@ def _show_results(stats: List[ECOStat], header: str) -> None:
         for x, label in cols:
             app.screen.blit(hdr_font.render(label, True, HDR), (x, top_header))
 
+        # hover row
+        hover_idx = row_at(mouse_pos)
+        if hover_idx is not None and 0 <= hover_idx - scroll < visible_rows and hover_idx < len(stats):
+            y = top_rows + (hover_idx - scroll) * line_h
+            p.draw.rect(app.screen, ROW_HOVER_BG, p.Rect(margin_x - 4, y - 2, app.W - 2*margin_x + 8, line_h - 2))
+
         # rows
         for i in range(visible_rows):
             idx = scroll + i
@@ -264,6 +298,9 @@ def _show_results(stats: List[ECOStat], header: str) -> None:
                 break
             s = stats[idx]
             y = top_rows + i * line_h
+            # banner "ti consiglio questa" sul primo
+            if idx == 0:
+                p.draw.rect(app.screen, TOP_HIGHLIGHT, p.Rect(margin_x - 10, y - 2, 4, line_h - 2))
             row_color = LOSE_COLOR if s.win_rate < 0.45 else (WIN_COLOR if s.win_rate > 0.55 else FG)
             cells = [
                 (margin_x,         f"{idx+1:>3}. {s.eco}"),
@@ -280,9 +317,95 @@ def _show_results(stats: List[ECOStat], header: str) -> None:
         # info bar in basso
         bar_y = app.H - 28
         info = (f"  {scroll+1}-{min(scroll+visible_rows, len(stats))} di {len(stats)}   "
-                f"|   ↑/↓ PgUp/PgDn rotella: scorri   |   Esc/Q/click: chiudi")
+                f"|   ↑/↓ PgUp/PgDn rotella: scorri   |   click su una riga: studia quell'apertura   |   Esc/Q: chiudi")
         p.draw.rect(app.screen, (38, 38, 52), p.Rect(0, bar_y - 4, app.W, 32))
         app.screen.blit(info_font.render(info, True, (210, 210, 170)), (margin_x, bar_y))
 
         p.display.flip()
         app.clock.tick(30)
+
+    if clicked_eco is not None:
+        _run_focused_analysis(clicked_eco, user, color, pgn_path)
+
+
+# ---------------------------------------------------------------------------
+# Analisi mirata su una singola apertura, poi pratica
+# ---------------------------------------------------------------------------
+
+def _count_games_with_eco(pgn_path: str, username: str, eco: str,
+                          color: Optional[str]) -> int:
+    """Conta le partite che soddisfano il filtro (per il denominatore N/M)."""
+    n = 0
+    target = eco.upper()
+    username_lower = (username or "").lower()
+    with open(pgn_path, encoding="utf-8", errors="replace") as fh:
+        while True:
+            try:
+                h = chess.pgn.read_headers(fh)
+            except Exception:
+                break
+            if h is None:
+                break
+            if (h.get("ECO") or "").strip().upper() != target:
+                continue
+            w = (h.get("White") or "").lower()
+            b = (h.get("Black") or "").lower()
+            if w == username_lower:
+                user_color = "w"
+            elif b == username_lower:
+                user_color = "b"
+            else:
+                continue
+            if color is not None and user_color != color:
+                continue
+            n += 1
+    return n
+
+
+def _run_focused_analysis(eco: str, user: str, color: Optional[str],
+                          pgn_path: str) -> None:
+    """Analizza le sole partite con ECO indicato, costruisce/aggiorna una base
+    dedicata e propone subito la pratica via solvePositionsFromBase."""
+    # preset openings/Balanced (stesso del wizard)
+    base_name = f"{user}_{eco}"
+    moves_to_analyze = 16
+    blunder_value = 80
+    ponder_time = 0.5
+    use_book = True
+
+    lb = learningBases.get(base_name)
+    if lb is None:
+        lb = LearningBase(moves_to_analyze, blunder_value, ponder_time, use_book)
+        lb.setFileName(base_name)
+        learningBases[base_name] = lb
+        lb.save()
+    else:
+        lb.movesToAnalyze = moves_to_analyze
+        lb.blunderValue = blunder_value
+        lb.ponderTime = ponder_time
+        lb.useBook = use_book
+
+    total = _count_games_with_eco(pgn_path, user, eco, color)
+    if total == 0:
+        _message(f"Nessuna partita {eco} per '{user}' nel PGN.")
+        return
+
+    def progress_cb(n):
+        app.main_background()
+        BS.drawEndGameText(app.screen, None, f"{eco}: analizzo {n}/{total}", size=24)
+        p.event.pump()
+
+    # analyzePgn si aspetta il nome relativo a PGN_FOLDER
+    pgn_name = os.path.basename(pgn_path)
+    analyzer.analyzePgn(pgn_name, user, lb, progress=progress_cb, eco=eco)
+    lb.save()
+
+    if not lb.positions:
+        _message(f"Nessuna posizione-errore trovata per {eco}.")
+        return
+
+    # Pratica subito sulla base mirata
+    positionParameters["base"] = base_name
+    positionParameters["eco"] = None        # filtro ECO gia' applicato a livello di base
+    positionParameters["color"] = color
+    solvePositionsFromBase(lb)

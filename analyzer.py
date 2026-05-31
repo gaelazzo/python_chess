@@ -176,8 +176,9 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
     board.push(moveMade) # restores the move
     
    
-def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None):
-    pg = PgnAnalyzer(playerName, pgnFileName, learningBase)
+def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None):
+    """`eco` (es. "B01"): se non None, filtra alle sole partite con quell'ECO header."""
+    pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco)
     pg.analyzeDataBase(start_from,skip_player, progress=progress)
     
 
@@ -187,16 +188,18 @@ class PgnAnalyzer:
         Analyze games of  a player, using and updating a specified learningBase, that contains positions found
     '''
 
-    def __init__(self, playerName:str, filename:str, learningBase:LearningBase):
+    def __init__(self, playerName:str, filename:str, learningBase:LearningBase, eco:Optional[str]=None):
         '''
             Args:
             playerName: the name of the player to analyze
             pgnfile: the name of the pgn file to analyze
             learningBase: the learning base to update
+            eco: se non None, filtra alle sole partite con quell'ECO (case-insensitive)
         '''
         pathcomplete = os.path.join(pgngamelist.PGN_FOLDER, filename)
         self.pgn = open(pathcomplete, encoding='utf-8')
         self.player = playerName
+        self.eco_filter = eco.upper() if eco else None
         self.movesToAnalyze = learningBase.movesToAnalyze
         self.engine = None
         self.blunderValue = learningBase.blunderValue
@@ -245,6 +248,11 @@ class PgnAnalyzer:
             game = chess.pgn.read_game(self.pgn)
             if game is None:
                 return None, True
+            # Filtro ECO opzionale: salta le partite con un ECO diverso da quello richiesto.
+            if self.eco_filter is not None:
+                eco_h = (game.headers.get("ECO") or "").strip().upper()
+                if eco_h != self.eco_filter:
+                    continue
             if self.player is None:
                 return game, True
             if game.headers["White"] == self.player:
