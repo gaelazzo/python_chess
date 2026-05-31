@@ -16,6 +16,7 @@ from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState
 import UCIEngines
 import BoardScreen as BS
+from toolbar import Toolbar, ToolbarAction
 import analyzer
 import BrainMaster
 from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, unlock_new_lesson
@@ -81,7 +82,23 @@ def playOpeningLine(filename, humanColor):
         app.delay(2 )
         app.main_menu.enable()
         return
-    
+
+    # Toolbar (fase 2): stesso pattern degli altri mode.
+    def _post_key(key, mod=0):
+        return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
+    toolbar = Toolbar([
+        ToolbarAction("Undo",  "Undo (Z / Left arrow)",                   _post_key(p.K_LEFT)),
+        ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
+        ToolbarAction("Eval",  "Evaluate position (S)",                   _post_key(p.K_s)),
+        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
+        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
+        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
+        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
+        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
+        ToolbarAction("Next",  "Next game (N) -- after a correct line",   _post_key(p.K_n),
+                      enabled=lambda: not humanCanPlay),
+        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
+    ])
 
     while running:
         gs = GameState()
@@ -119,6 +136,7 @@ def playOpeningLine(filename, humanColor):
         errors = 0
         stopCondition = False
         while running and not mustSkip:
+            time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
             humanCanPlay = gs.colorToMove() == humanColor
             checkMove = False
             nextMove = gs.getNextMainMove()
@@ -141,20 +159,24 @@ def playOpeningLine(filename, humanColor):
 
 
             for e in p.event.get():
+                app.manager.process_events(e)
+                if toolbar.process_event(e):
+                    update = True
+                    continue
                 update = True
                 if e.type == p.QUIT:
                     running = False
-                elif e.type == p.MOUSEBUTTONDOWN and gameOver:
+                elif e.type == p.MOUSEBUTTONDOWN and gameOver and not toolbar.pointer_in_toolbar(e.pos):
                     mustSkip = True
                     break
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
-                        show_help = True         
+                        show_help = True
                         # play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
-                        show_help = False                        
-                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay:
+                        show_help = False
+                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
 
                     row, col = BS.getRowColFromLocation(p.mouse.get_pos())
 
@@ -249,11 +271,18 @@ def playOpeningLine(filename, humanColor):
                         glc.toggle_engine(gs)
 
                     if e.key == p.K_f:
-                        whiteUp = not whiteUp
-                        moveMade = True
+                        # Bugfix: prima questa branca scriveva "whiteUp = not whiteUp"
+                        # ma whiteUp non era una locale -> UnboundLocalError al runtime.
+                        # Ora usa BS.flipBoard come gli altri mode.
+                        BS.flipBoard(app.screen)
                         animate = False
                
+            toolbar.update(time_delta)
+
             if not update:
+                # Frame idle: ridisegniamo la toolbar (per i tooltip) e flippiamo.
+                toolbar.draw(app.screen)
+                p.display.update()
                 continue
 
             if show_help:
@@ -284,8 +313,10 @@ def playOpeningLine(filename, humanColor):
                                  toHighlightSquareColor=toHighlightSquares,
                                  sqSelected=sqSelected)
 
+            toolbar.draw(app.screen)
             BS.update()
 
+    toolbar.kill()
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()

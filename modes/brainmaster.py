@@ -16,6 +16,7 @@ from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState
 import UCIEngines
 import BoardScreen as BS
+from toolbar import Toolbar, ToolbarAction
 import analyzer
 from config import config
 import BrainMaster
@@ -124,6 +125,25 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     BS.show_cpu = False
     BS.clearCPU(app.screen)
 
+    # Toolbar (fase 2): stesso pattern degli altri mode.
+    def _post_key(key, mod=0):
+        return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
+    toolbar = Toolbar([
+        ToolbarAction("Sol",   "Show solution (H) -- before you answer",  _post_key(p.K_h),
+                      enabled=lambda: not isNewPosition),
+        ToolbarAction("+Mov",  "Show more continuation moves (+) -- after correct answer",
+                                                                          _post_key(p.K_KP_PLUS),
+                      enabled=lambda: not humanCanPlay),
+        ToolbarAction("Next",  "Next question (N) -- after you answer",   _post_key(p.K_n),
+                      enabled=lambda: not updateStats),
+        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
+        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
+        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
+        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
+        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
+        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
+    ])
+
     def do_show_help():
         glc.draw_help_overlay(help_text, height=300)
 
@@ -169,6 +189,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
         last_stamp= datetime.now()
 
         while running and not mustSkip:
+            time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
             updateStats = False
             update = False
 
@@ -216,22 +237,26 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                     validMoves = gs.stdValidMoves()
                     engineMove = engineMove-1
 
-            for e in p.event.get():                
+            for e in p.event.get():
+                app.manager.process_events(e)
+                if toolbar.process_event(e):
+                    update = True
+                    continue
                 update = True
                 if e.type == p.QUIT:
-                    running = False            
+                    running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Mostra aiuto quando il tasto destro è premuto
-                        show_help = True     
+                        show_help = True
                         #play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
-                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay:
+                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
                     mustSkip = True
                     update=True
                     break
-                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay:
+                elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
                     update=True
                     row, col = BS.getRowColFromLocation(p.mouse.get_pos())
 
@@ -315,11 +340,16 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                             app.delay(2 )
 
             
+            toolbar.update(time_delta)
+
             if show_help:
                 do_show_help()
                 continue
 
             if not update:
+                # Frame idle: ridisegniamo la toolbar (per i tooltip) e flippiamo.
+                toolbar.draw(app.screen)
+                p.display.update()
                 continue
             if moveMade and not mustSkip:
                 moveMade = False
@@ -395,8 +425,10 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                                  toHighlightSquareColor=toHighlightSquares,
                                  sqSelected=sqSelected)
 
+            toolbar.draw(app.screen)
             BS.update()
-    
+
+    toolbar.kill()
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()
