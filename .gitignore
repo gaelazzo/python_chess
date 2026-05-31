@@ -3,7 +3,8 @@
 # Temporary files including undo
 *~
 #
-/__pycache__
+__pycache__/
+*.pyc
 /.idea/
 /.vs/
 /books/
