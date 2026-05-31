@@ -151,20 +151,42 @@ def playOpeningLine(filename, humanColor):
         gs.setPgn(game)      
 
         if state.play_position:
-            # skip all stored moves until a leaf node is reached
-            moreMoves = True
-            move = None
-            while moreMoves:
-                playerTurn = gs.colorToMove() == humanColor    
+            # Lead-in Skip: scegli uniformemente la profondita' di partenza tra
+            # tutti i turni utente della linea. Pre-scan della mainline a partire
+            # da gs.node per contare N turni utente, poi target = randint(1, N).
+            # Camminiamo la linea (mainline per l'utente, variante random per il
+            # computer) e ci fermiamo al target-esimo turno utente. La vecchia
+            # versione (1/3 di break ad ogni turno utente) dava una distribuzione
+            # geometrica che privilegiava fortemente le prime mosse del repertorio.
+            cur_turn_is_white = gs.node.board().turn
+            n_player_turns = 0
+            node = gs.node
+            while True:
+                nxt = node.next()
+                if nxt is None:
+                    break
+                turn_color = 'w' if cur_turn_is_white else 'b'
+                if turn_color == humanColor:
+                    n_player_turns += 1
+                cur_turn_is_white = not cur_turn_is_white
+                node = nxt
+            target_idx = random.randint(1, n_player_turns) if n_player_turns > 0 else 0
 
+            seen = 0
+            moreMoves = True
+            while moreMoves:
+                playerTurn = gs.colorToMove() == humanColor
                 if playerTurn:
-                    moreMoves = gs.doNextMainMove()
-                    if random.randint(1, 3) == 1:
-                        break
+                    advanced = gs.doNextMainMove()
+                    if advanced:
+                        seen += 1
+                        if seen >= target_idx:
+                            break
+                    moreMoves = advanced
                 else:
                     move = gs.makeNextMove()
                     moreMoves = move is not None
-            # takes back last move
+            # undo dell'ultima mossa: arriva l'utente che deve rigiocarla
             gs.undoMove()
         
 
