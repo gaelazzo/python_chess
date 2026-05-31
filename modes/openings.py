@@ -209,7 +209,7 @@ def playOpeningLine(filename, humanColor):
             nextMove = gs.getNextMainMove()
             update= False
             if nextMove is None or stopCondition:  # game is over anyway
-                text = "Solved"
+                text = "Ok"
                 app.main_background()
                 BS.drawEndGameText(app.screen, gs, text)
                 BS.update()
