@@ -102,8 +102,9 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
     **varianti** (gioca mosse alternative col mouse), eventualmente annota (**N**) e commenta
     (**T**), poi **Salva (S)** in un file PGN.
 - **Allenati sul repertorio** — Menu principale → Study openings → *Choose PGN file*
-  (il tuo PGN) + *You play* (White/Black) → **Play**: il computer gioca le linee memorizzate
-  e tu devi trovare la mossa giusta.
+  (il tuo PGN) → **Play**: il computer gioca le linee memorizzate e tu devi trovare la
+  mossa giusta. *(Il colore che giochi viene dedotto automaticamente dal contenuto del
+  PGN — vedi §3.6.)*
 - **(In alternativa) trasformalo in base di studio** — Tools → Create learning base
   (es. `apertura_x`) → Tools → **Unroll PGN file** (*Choose PGN* + *You play* il tuo colore
   + *Choose base*) → poi ripassala con **Solve positions**.
@@ -131,6 +132,7 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 | Voce | Cosa fa |
 |------|---------|
 | **Migliora dalle tue partite** | Wizard guidato: scarica le tue partite Chess.com → trova errori (tattica/aperture) → propone subito la pratica locale. La via più rapida per allenare i propri errori (vedi §3.1). |
+| **Cosa studio adesso?** | Analizza un tuo file PGN (download da Chess.com/lichess) e propone un ranking di "urgenza di studio" per codice ECO. Click su una riga → analisi mirata di quella sola apertura + pratica focused (vedi §3.7). |
 | **Play against computer** | Gioca una partita contro il motore. |
 | **Play between humans** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (qui puoi inserire varianti e annotazioni). |
 | **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
@@ -239,6 +241,45 @@ memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
   rigioca tutta; *Num Moves to Show* è il numero di mosse di continuazione mostrate
   dopo una risposta corretta.
 
+> **Profondità di partenza uniforme** (in *Lead-in = Skip*): a ogni round il programma
+> pre-scansiona la mainline contando i turni utente `N`, sceglie un indice `k` uniforme
+> in `[1, N]` e ti pone alla `k`-esima mossa utente. Nel tempo eserciti tutte le mosse
+> del repertorio in proporzioni uguali (prima invece con prob. 1/3 di break ad ogni
+> turno la distribuzione era geometrica: ~33% sulla 1ª mossa, ~0.2% sull'ultima).
+
+### 3.7 Cosa studio adesso? (Study advisor)
+> **Quale apertura dovrei studiare prossimamente?** L'advisor analizza le sole
+> intestazioni di un tuo PGN (download Chess.com/lichess) e propone un ranking
+> di urgenza di studio per codice ECO. Nessun motore coinvolto — istantaneo
+> anche su file da migliaia di partite.
+
+Parametri:
+- **Utente** — il tuo username (come compare in `[White]`/`[Black]` del PGN).
+- **Colore** — *Entrambi* / *Bianco* / *Nero*: filtra le partite per il colore che hai
+  giocato.
+- **Choose PGN file** — il file su cui ragionare (tipicamente il download Chess.com o
+  lichess; può essere lo stesso file con partite di entrambe le fonti — vedi §8).
+- **Analyze** → schermata tabellare con il ranking.
+
+Per ogni ECO la tabella mostra `Partite | W | D | L | Win% | Deficit`, ordinati per
+**Deficit** decrescente. Il *deficit* è
+`max(0, 0.5×N − (W + 0.5×D))` = "punti persi sotto la pari del 50%". Aperture con
+win-rate ≥ 50% hanno deficit zero (qualsiasi sia il volume): non sono problemi da
+studiare, anche se le hai giocate migliaia di volte.
+
+Codice colore delle righe:
+- **Rosso/salmone** — win-rate < 45% (sotto-performi, da curare);
+- **Verde** — win-rate > 55% (vai bene);
+- **Bianco** — zona neutra (45–55%).
+
+Una **barretta gialla** sulla riga #1 segnala l'apertura con priorità massima.
+
+**Click su una riga** → l'advisor analizza con il motore le sole partite con quel
+codice ECO, costruisce/aggiorna una base mirata `<utente>_<ECO>` (preset
+openings/Balanced, `useBook=True`) e ti porta direttamente in *Solve positions* su
+quella base. Le basi mirate restano persistenti: nelle sessioni successive ti alleni
+direttamente da *Solve positions*.
+
 ---
 
 ## 4. Comandi durante una partita
@@ -279,6 +320,12 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 > **Fine partita.** A scacco matto / stallo il messaggio resta a schermo e la maschera **non
 > si chiude automaticamente**: puoi ancora **salvare (S)**, **annullare l'ultima mossa (←)**,
 > **resettare (R)**, o uscire (**Q**) quando vuoi.
+
+> **Cosa sto allenando?** Durante una sessione di *Solve positions*, *Study openings* o
+> *BrainMaster lessons* un'etichetta in **ciano** in cima al move log mostra il contesto
+> corrente — `Allenando: <nome_base>`, `Apertura: <file> (Bianco/Nero)`, o
+> `BrainMaster: <id_course>`. La stessa informazione appare anche nel **caption della
+> finestra** (`Chess trainer — Allenando: ...`).
 
 ---
 
@@ -348,7 +395,8 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 
 | Strumento | A cosa serve |
 |-----------|--------------|
-| **Download Chess.com games** | Scarica le partite di un giocatore da Chess.com in un file PGN (indica file da creare, *player* e colore). |
+| **Download Chess.com games** | Scarica le partite di un giocatore da Chess.com in un file PGN (indica file PGN, *player*, colore). **Incrementale**: se il file esiste, aggiunge solo le partite **nuove** (dedup per URL `[Link]` o composito di intestazioni); salta gli archivi mensili antecedenti l'ultima partita Chess.com già presente. Partite di altre fonti già nel file (es. lichess merged a mano) **restano intoccate**. |
+| **Download lichess games** | Stessa logica per le partite lichess (API `/api/games/user/{user}`, parametro `since` per l'incrementale). Lo **stesso file PGN può contenere partite di entrambe le fonti** (Chess.com + lichess): dedup per signature URL, append-only. |
 | **Create learning base** | Crea una nuova learning base vuota: `movesToAnalyze`, `blunderValue` (soglia errore in centipawn), `ponderTime`, `useBook`, `filename`. |
 | **Update learning base** | Analizza le partite di un *player* in un PGN e **registra gli errori** nella base scelta (correzione errori). |
 | **Unroll PGN file** | Trasforma un PGN in un insieme di **posizioni** dentro una learning base. |
@@ -500,9 +548,12 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `menu_helpers.py` | Costruttori dei menu (selettori file, callback, ecc.) |
 | `save_load.py` | Salvataggio/caricamento partite e relativi menu |
 | `learningbase_admin.py` | Creazione/aggiornamento learning base, import PGN/Chess.com |
+| `chess_com_download.py` | Download incrementale partite Chess.com (dedup per URL `[Link]`) |
+| `lichess_download.py` | Download incrementale partite lichess (API `since`, dedup per URL `[Site]`) |
 | `notation.py` | Pannello Notazione (vista albero affiancata alla scacchiera) |
 | `move_speech.py` | Espande le mosse SAN nei commenti TTS (`Qe4` → "Queen to e4") |
-| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `improve` (wizard), `openings` (+ `common`) |
+| `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da play_game, replay, openings, brainmaster |
+| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `improve` (wizard), `study_advisor` |
 | `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni |
 | `BoardScreen.py` | Disegno della scacchiera e dei pannelli |
 | `UCIEngines.py`, `book.py` | Motore UCI e libro di aperture |

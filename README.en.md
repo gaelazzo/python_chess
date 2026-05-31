@@ -102,8 +102,8 @@ the wizard automates the steps that Recipes A/B do by hand.*
     (play alternative moves with the mouse), optionally annotate (**N**) and comment (**T**),
     then **Save (S)** to a PGN file.
 - **Train on the repertoire** — Main menu → Study openings → *Choose PGN file* (your PGN)
-  + *You play* (White/Black) → **Play**: the computer plays the stored lines and you must find
-  the right move.
+  → **Play**: the computer plays the stored lines and you must find the right move.
+  *(The colour you play is auto-detected from the PGN content — see §3.6.)*
 - **(Alternatively) turn it into a study base** — Tools → Create learning base (e.g. `opening_x`)
   → Tools → **Unroll PGN file** (*Choose PGN* + *You play* your colour + *Choose base*) → then
   review it with **Solve positions**.
@@ -131,6 +131,7 @@ the wizard automates the steps that Recipes A/B do by hand.*
 | Item | What it does |
 |------|--------------|
 | **Migliora dalle tue partite** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
+| **Cosa studio adesso?** ("What should I study next?") | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
 | **Play against computer** | Play a game against the engine. |
 | **Play between humans** | Two human players on the same board. This is also the **analysis mode** (where you can add variations and annotations). |
 | **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
@@ -236,6 +237,45 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
   (§3.4) — *Skip* skips the lead-in and starts at the position, *Replay* replays it;
   *Num Moves to Show* is the number of continuation moves shown after a correct answer.
 
+> **Uniform depth-of-start** (with *Lead-in = Skip*): each round the program
+> pre-scans the mainline counting the user's turns `N`, picks a uniform index
+> `k` in `[1, N]`, and drops you at the `k`-th user move. Over time you drill
+> every move of the repertoire in equal proportions (previously, with a 1/3
+> break-probability per user turn, the distribution was geometric: ~33% on the
+> 1st move, ~0.2% on the 16th).
+
+### 3.7 What should I study next? (Study advisor)
+> **Which opening should I study next?** The advisor reads only the headers of
+> one of your PGN files (Chess.com/lichess download) and produces an urgency
+> ranking by ECO code. No engine involved — instant even on files with
+> thousands of games.
+
+Parameters:
+- **User** — your username (as it appears in `[White]`/`[Black]` of the PGN).
+- **Colour** — *Both* / *White* / *Black*: filter games by the colour you played.
+- **Choose PGN file** — the file to reason on (typically the Chess.com or lichess
+  download; the same file can hold games from both sources — see §8).
+- **Analyze** → tabular ranking screen.
+
+For each ECO the table shows `Games | W | D | L | Win% | Deficit`, sorted by
+**Deficit** descending. The *deficit* is
+`max(0, 0.5×N − (W + 0.5×D))` = "points lost below the 50% break-even". Openings
+with win-rate ≥ 50% have zero deficit (whatever the volume): they are not
+problems to study, even if you have played them thousands of times.
+
+Row colour code:
+- **Red/salmon** — win-rate < 45% (under-performing, needs attention);
+- **Green** — win-rate > 55% (doing well);
+- **White** — neutral zone (45–55%).
+
+A **yellow bar** on row #1 marks the top-priority opening.
+
+**Click a row** → the advisor runs the engine on the games with that ECO only,
+builds/updates a focused base `<user>_<ECO>` (preset openings/Balanced,
+`useBook=True`), and drops you straight into *Solve positions* on that base.
+The focused bases persist, so later sessions resume directly from *Solve
+positions*.
+
 ---
 
 ## 4. In-game controls
@@ -276,6 +316,12 @@ During a game (Play against computer / between humans) the following controls ap
 > **End of game.** On checkmate / stalemate the result message stays on screen and the
 > view **does not auto-close**: you can still **save (S)**, **take back the last move (←)**,
 > **reset (R)** or quit (**Q**) whenever you want.
+
+> **What am I training?** During a *Solve positions*, *Study openings* or
+> *BrainMaster lessons* session, a label in **cyan** at the top of the move log
+> shows the current context — `Allenando: <base_name>`, `Apertura: <file> (White/Black)`,
+> or `BrainMaster: <id_course>`. The same information appears in the **window
+> caption** (`Chess trainer — Allenando: ...`).
 
 ---
 
@@ -344,7 +390,8 @@ is not clickable for piece moves: you navigate from the panel.
 
 | Tool | Purpose |
 |------|---------|
-| **Download Chess.com games** | Download a player's games from Chess.com into a PGN file (give the file to create, the *player* and the colour). |
+| **Download Chess.com games** | Download a player's games from Chess.com into a PGN file (give the PGN file, the *player*, the colour). **Incremental**: if the file already exists, only **new** games are appended (dedup by URL `[Link]` or a composite header signature); monthly archives older than the latest Chess.com game already in the file are skipped. Games from other sources already in the file (e.g. lichess merged by hand) **are left untouched**. |
+| **Download lichess games** | Same logic for lichess games (API `/api/games/user/{user}`, `since` parameter for the incremental). The **same PGN file can hold games from both sources** (Chess.com + lichess): dedup by URL signature, append-only. |
 | **Create learning base** | Create a new, empty learning base: `movesToAnalyze`, `blunderValue` (mistake threshold in centipawns), `ponderTime`, `useBook`, `filename`. |
 | **Update learning base** | Analyse a *player*'s games in a PGN and **record the mistakes** into the chosen base (mistake correction). |
 | **Unroll PGN file** | Turn a PGN into a set of **positions** inside a learning base. |
@@ -495,9 +542,12 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `menu_helpers.py` | Menu builders (file selectors, callbacks, etc.) |
 | `save_load.py` | Game saving/loading and related menus |
 | `learningbase_admin.py` | Learning-base creation/update, PGN/Chess.com import |
+| `chess_com_download.py` | Incremental Chess.com game download (dedup by URL `[Link]`) |
+| `lichess_download.py` | Incremental lichess game download (API `since`, dedup by URL `[Site]`) |
 | `notation.py` | Notation panel (tree view next to the board) |
 | `move_speech.py` | Expands SAN moves in TTS-read comments (`Qe4` → "Queen to e4") |
-| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `improve` (wizard), `openings` (+ `common`) |
+| `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by play_game, replay, openings, brainmaster |
+| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `improve` (wizard), `study_advisor` |
 | `GameState.py` | Game state, PGN tree, moves, annotations |
 | `BoardScreen.py` | Board and panel rendering |
 | `UCIEngines.py`, `book.py` | UCI engine and opening book |
