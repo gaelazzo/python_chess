@@ -553,12 +553,31 @@ class Move:
         self.enPassant = game.board().is_en_passant(self.move)
 
 
-    def promoteToPiece(self, p:chess.PieceType)->chess.Move:
-        move = self.move.uci()
-        if not move.endswith(chess.piece_symbol(p)):
-            move += chess.piece_symbol(p)
-        self.move = chess.Move.from_uci(move)
-        return self.move
+    def promoteToPiece(self, p) -> "Move":
+        """Aggiunge il suffisso di promozione e ritorna `self`.
+
+        Accetta in input due forme storicamente passate dai callers:
+        - `chess.PieceType` (int 1..6), usata dal codice interno (es. stdValidMoves).
+        - Stringa terminante col simbolo del pezzo ('q'/'Q'/'wQ'/'bN'/...) come
+          ritornata da `BoardScreen.choosePromotion` (formato "<color><piece>").
+        None / stringa vuota / pezzo non promovibile -> no-op.
+
+        Ritorna `self` (Move) -- non `self.move` (chess.Move) -- cosi' che
+        `move = move.promoteToPiece(piece)` continui a tenere un Move e
+        l'`__eq__` con le voci di validMoves continui a funzionare.
+        """
+        if not p:
+            return self
+        if isinstance(p, int):
+            symbol = chess.piece_symbol(p)
+        else:
+            symbol = str(p).strip()[-1:].lower()
+        if symbol not in {"q", "r", "b", "n"}:
+            return self
+        if not self.uci.endswith(symbol):
+            self.uci = self.uci + symbol
+        self.move = chess.Move.from_uci(self.uci)
+        return self
 
     def getChessNotation(self)->str:
         #uci move, example a7a8 or a7a8q

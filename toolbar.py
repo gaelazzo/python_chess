@@ -27,6 +27,7 @@ class ToolbarAction:
     tooltip: str                                    # testo on-hover
     handler: Callable[[], None]                     # callback al click
     enabled: Callable[[], bool] = field(default=lambda: True)  # rivalutato a ogni frame
+    active: Callable[[], bool] = field(default=lambda: False)   # True -> bottone "premuto" (rivalutato a ogni frame)
 
 
 _BTN_WIDTH = 56     # abbastanza largo per parole brevi tipo "Undo"/"Reset"
@@ -73,6 +74,14 @@ class Toolbar:
                 btn.enable()
             else:
                 btn.disable()
+            # stato "attivo/premuto": usa lo stato selected di pygame_gui
+            # (reso con i colori @selected del tema)
+            if a.active():
+                if not btn.is_selected:
+                    btn.select()
+            else:
+                if btn.is_selected:
+                    btn.unselect()
         app.manager.update(time_delta)
 
     def draw(self, surface) -> None:

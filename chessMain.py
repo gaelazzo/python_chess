@@ -60,6 +60,7 @@ from modes.brainmaster import playBrainMasterBase
 from modes.openings import playOpening
 from modes.improve import buildImproveMenu
 from modes.study_advisor import buildAdvisorMenu
+from modes.endgames import playEndgames, ENDGAMES_FOLDER
 
 def get_base_path():
     """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
@@ -209,6 +210,15 @@ def mainMenu(width,height, test: bool = False) -> None:
     addChoosePGNFile(openingsMenu)
     openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     openingsMenu.add.button('Play', playOpening)
+
+    endgamesMenu = pygame_menu.Menu(
+        height=height,
+        theme=pygame_menu.themes.THEME_BLUE,
+        title='Allena finali',
+        width=width
+    )
+    addChoosePGNFile(endgamesMenu, folder=ENDGAMES_FOLDER, title='Choose endgame PGN')
+    endgamesMenu.add.button('Play', playEndgames)
 
     CreateCourseMenu = None
     if config.base_url:
@@ -413,6 +423,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     if BrainMasterMenu:
         app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
     app.main_menu.add.button('Study openings', openingsMenu)
+    app.main_menu.add.button('Allena finali', endgamesMenu)
     app.main_menu.add.button('Tools', toolsMenu)
     app.main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
 

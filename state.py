@@ -73,3 +73,93 @@ current_filename_label = None
 current_filename_label3 = None
 current_filename_label4 = None
 current_ChessComFile_label = None
+
+
+# --- Persistenza delle ultime selezioni nei menu ----------------------------
+#
+# Chiavi che vengono caricate da `config.user_prefs` all'avvio e salvate ogni
+# volta che un updater dei menu (`make_updater`/`make_selector_updater` in
+# menu_helpers.py) modifica un valore. In pratica: la maschera "Solve
+# positions", "Study openings", "Play vs computer" etc. al ri-avvio mostra
+# l'ultimo valore scelto invece dei default hard-coded sopra.
+#
+# Forma: (target, key)
+# - target == "pp" -> positionParameters[key]
+# - target == "play" -> playParameters[key]
+# - target == "state" -> module-level scalar
+#
+# Volutamente NON include "gameid", "result", "courses", "id_course" -- sono
+# volatili o caricati da BrainMaster, non hanno senso come "ultima scelta".
+_PERSIST_SPEC = [
+    ("pp", "eco"),
+    ("pp", "color"),
+    ("pp", "filename"),
+    ("pp", "base"),
+    ("pp", "player"),
+    ("pp", "movesToAnalyze"),
+    ("pp", "blunderValue"),
+    ("pp", "ponderTime"),
+    ("pp", "useBook"),
+    ("play", "whiteCPU"),
+    ("play", "blackCPU"),
+    ("play", "elo"),
+    ("play", "elomax"),
+    ("play", "white"),
+    ("play", "black"),
+    ("play", "event"),
+    ("play", "site"),
+    ("state", "num_moves_to_show"),
+    ("state", "play_position"),
+    ("state", "practice_order"),
+]
+
+
+def _saving_enabled() -> bool:
+    """Disabilita il salvataggio durante load (evita rumore in config.json)."""
+    return _save_armed
+
+
+_save_armed = False  # armato solo dopo load_user_prefs()
+
+
+def load_user_prefs() -> None:
+    """Carica le ultime selezioni dei menu da `config.user_prefs` nei dict
+    e nelle variabili di modulo. Tipi gia' corretti perche' JSON serializza
+    int/float/str/bool/None nativi (cosi' come li scriviamo)."""
+    global _save_armed
+    import config as _cfg
+    prefs = getattr(_cfg.config, "user_prefs", None) or {}
+    for target, key in _PERSIST_SPEC:
+        if key not in prefs:
+            continue
+        value = prefs[key]
+        if target == "pp":
+            positionParameters[key] = value
+        elif target == "play":
+            playParameters[key] = value
+        elif target == "state":
+            globals()[key] = value
+    _save_armed = True
+
+
+def save_user_prefs() -> None:
+    """Snapshot delle selezioni correnti dentro `config.user_prefs` e flush
+    su disco. Chiamata da ogni updater dei menu (idempotente)."""
+    if not _save_armed:
+        return
+    import config as _cfg
+    snapshot = {}
+    for target, key in _PERSIST_SPEC:
+        if target == "pp":
+            snapshot[key] = positionParameters.get(key)
+        elif target == "play":
+            snapshot[key] = playParameters.get(key)
+        elif target == "state":
+            snapshot[key] = globals().get(key)
+    _cfg.config.user_prefs = snapshot
+    _cfg.save_config()
+
+
+# Carica subito: al primo import di state, i dict sono gia' popolati con
+# l'ultima selezione dell'utente. Da questo momento save_user_prefs() e' armato.
+load_user_prefs()

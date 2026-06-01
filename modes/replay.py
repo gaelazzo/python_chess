@@ -49,6 +49,12 @@ def solvePositionsFromBase(learningBase:LearningBase):
 
     BS.set_context_label(f"Allenando: {learningBase.filename or '?'}")
 
+    # Stato pulito per il toggle E: se un mode precedente (es. endgames) aveva
+    # lasciato l'analisi attiva, il primo E qui finirebbe nel ramo "stop"
+    # (mostrando "engine stopped") invece di avviarla -- da fuori sembra "il
+    # motore non si avvia".
+    UCIEngines.stop_analysis()
+
     # Filter locale: ECO da positionParameters (se l'utente lo ha digitato nel
     # menu), color=None sempre. Il colore-al-tratto e' gia' implicito nella base
     # (rimosso dal menu come selettore separato), e positionParameters["color"]
@@ -138,15 +144,55 @@ def solvePositionsFromBase(learningBase:LearningBase):
         #       f"len(numberOfErrors) is {len(numberOfErrors)}")
         # print(errorsMade)
         fen = pos.fen.split()
-        header = ["White:"+pos.white, "Black:"+pos.black, "ECO:"+pos.eco, "Date:"+pos.gamedate.strftime('%d-%m-%Y')]
-        # header.append("game number:"+ playParameters["gameid"])
+        # Header tollerante: i campi opzionali (eco/data) e i player "?" sono
+        # comuni nelle PGN di finali / studi -- skip se assenti.
+        header = []
+        for label, value in (("White", pos.white), ("Black", pos.black), ("ECO", pos.eco)):
+            if value and value != "?":
+                header.append(f"{label}:{value}")
+        if pos.gamedate is not None:
+            header.append(f"Date:{pos.gamedate.strftime('%d-%m-%Y')}")
         if pos.ok != pos.move:
             header.append("mistake was " + pos.move)
 
 
 
-        moves = pos.moves.split()
+        # Setup della posizione. La posizione finale e' SEMPRE `pos.fen`
+        # (canonica nella learning base). Quel che cambia e' il percorso:
+        #
+        # - Se `pos.moves` e' ricostruibile dalla scacchiera iniziale standard
+        #   (caso tipico: tattica/aperture salvate da PGN normali), si usa il
+        #   replay delle mosse -> `gs` mantiene la cronologia completa: il
+        #   Lead-in "Replay" funziona, il pannello Notation (V) mostra il
+        #   path d'arrivo, undo (Z/<-) torna indietro tra le mosse storiche.
+        #
+        # - Se invece le mosse non sono applicabili dallo start standard
+        #   (caso tipico: finali da PGN con header `[FEN]` custom, posizioni
+        #   Chess960 / studi), si fa setup diretto da `pos.fen`. Si perde la
+        #   cronologia (Lead-in Replay non ha nulla da mostrare) ma la
+        #   posizione e' corretta.
+        moves = pos.moves.split() if pos.moves else []
+        try:
+            _probe = chess.Board()
+            for _u in moves:
+                _m = chess.Move.from_uci(_u)
+                if not _probe.is_pseudo_legal(_m):
+                    raise ValueError(f"non pseudo-legale: {_u}")
+                _probe.push(_m)
+            # Sanity finale: dopo aver applicato tutte le mosse, devo essere
+            # esattamente in pos.fen (altrimenti la base ha incoerenze).
+            _replayable = (_probe.fen().split()[0] == pos.fen.split()[0]
+                           and _probe.turn == chess.Board(pos.fen).turn)
+        except (chess.IllegalMoveError, chess.InvalidMoveError, AssertionError, ValueError):
+            _replayable = False
+
         gs = GameState()
+        if not _replayable:
+            _seed = chess.pgn.Game()
+            _seed.headers["FEN"] = pos.fen
+            _seed.headers["SetUp"] = "1"
+            gs.setPgn(_seed)
+            moves = []  # gia' alla posizione, niente da rigiocare
         gs.setHeader(header)
         #gs.setFen(pos["fen"])
         #BS.setWhiteUp(app.screen, not gs.whiteToMove())
@@ -154,18 +200,32 @@ def solvePositionsFromBase(learningBase:LearningBase):
         BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()
         solution = pos.ok
-        BS.show_cpu = False
+        # show_cpu deve riflettere lo stato reale dell'engine: se update_board()
+        # ha tenuto attiva l'analisi durante la continuazione della posizione
+        # precedente, "stopper" e' ancora set ma `show_cpu=False` silenzierebbe
+        # drawCpu, dando l'illusione che il motore non scriva piu'. Per la nuova
+        # posizione mostriamo le info se e solo se l'analisi e' davvero in corso.
+        BS.show_cpu = UCIEngines.is_analysing()
 
         currentMove = 0
         validMoves = gs.stdValidMoves()
         engineMove = 0
         mustSkip = False        # mustSkip determines the exit from the cycle
         humanCanPlay = True
+        # Reset di stato per la nuova posizione: moveMade/animate sono locali alla
+        # funzione ma persistono fra una posizione e l'altra. Se nella posizione
+        # precedente l'utente ha cliccato per saltare proprio nel frame in cui
+        # l'engine aveva appena giocato (moveMade=True + mustSkip=True), il
+        # blocco di pulizia a riga 369 non fira e moveMade resta True. Alla
+        # nuova posizione gs.moveLog e' vuoto -> moveLog[-1] esplode.
+        moveMade = False
+        animate = False
         
        
 
         while running and not mustSkip:
             time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
+            UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
             update  = False
             updateStats = False
 
@@ -227,7 +287,11 @@ def solvePositionsFromBase(learningBase:LearningBase):
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
-                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
+                elif e.type == p.MOUSEBUTTONDOWN and e.button == 1 and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
+                    # Solo click sinistro skippa al prossimo esercizio. Senza
+                    # `button==1` la rotellina del mouse (button 4/5 in pygame)
+                    # farebbe saltare di posizione mentre l'utente guarda la
+                    # continuazione.
                     mustSkip = True
                     break
                 elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
@@ -328,10 +392,15 @@ def solvePositionsFromBase(learningBase:LearningBase):
 
             if moveMade and not mustSkip:
                 moveMade = False
-                lastMove = gs.moveLog[-1]
-                if animate:
+                # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+                UCIEngines.update_board(gs.board(), glc.engine_callback)
+                # Guard difensivo: in teoria se moveMade era True ci dovrebbe
+                # essere stata una makeMove e moveLog non sarebbe vuoto, ma e'
+                # capitato in passato (vedi reset di moveMade sopra). Saltiamo
+                # l'animazione invece di crashare.
+                lastMove = gs.moveLog[-1] if gs.moveLog else None
+                if animate and lastMove is not None:
                     BS.animateMove(lastMove, app.screen, gs)
-
                     app.delay(0.1)
                     animate = False
 

@@ -83,7 +83,10 @@ def playOpeningLine(filename, humanColor):
         while the computer answers with one of the lines stored in the game
         (typically an opening repertoire).
     '''
-
+    # Stato pulito per il toggle E: se un mode precedente aveva lasciato
+    # l'analisi attiva, il primo E qui finirebbe nel ramo "stop" invece di
+    # avviarla.
+    UCIEngines.stop_analysis()
 
     gamelist = pgngamelist.PgnGameList(filename)
 
@@ -94,7 +97,10 @@ def playOpeningLine(filename, humanColor):
     animate = False
     BS.show_pgn = False
     BS.show_book=False
-    BS.show_cpu = False
+    # show_cpu deve seguire lo stato reale dell'engine, altrimenti se l'analisi
+    # era rimasta attiva dalla posizione precedente il pannello CPU resta vuoto
+    # mentre il motore gira in background.
+    BS.show_cpu = UCIEngines.is_analysing()
     BS.clearCPU(app.screen)
     
     help_text = [
@@ -204,6 +210,7 @@ def playOpeningLine(filename, humanColor):
         stopCondition = False
         while running and not mustSkip:
             time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
+            UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
             humanCanPlay = gs.colorToMove() == humanColor
             checkMove = False
             nextMove = gs.getNextMainMove()
@@ -233,7 +240,8 @@ def playOpeningLine(filename, humanColor):
                 update = True
                 if e.type == p.QUIT:
                     running = False
-                elif e.type == p.MOUSEBUTTONDOWN and gameOver and not toolbar.pointer_in_toolbar(e.pos):
+                elif e.type == p.MOUSEBUTTONDOWN and e.button == 1 and gameOver and not toolbar.pointer_in_toolbar(e.pos):
+                    # Solo click sinistro skippa: la rotellina (button 4/5) NO.
                     mustSkip = True
                     break
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
@@ -358,6 +366,8 @@ def playOpeningLine(filename, humanColor):
 
             if moveMade and not mustSkip:
                 moveMade = False
+                # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+                UCIEngines.update_board(gs.board(), glc.engine_callback)
                 lastMove = gs.moveLog[-1] if len(gs.moveLog) > 0 else None
                 if animate and lastMove:
                     BS.animateMove(lastMove, app.screen, gs)

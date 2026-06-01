@@ -123,7 +123,9 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     show_help = False
 
     start_stamp = None
-    BS.show_cpu = False
+    # show_cpu deve seguire lo stato reale dell'engine, altrimenti se l'analisi
+    # era rimasta attiva il pannello CPU resta vuoto mentre il motore gira.
+    BS.show_cpu = UCIEngines.is_analysing()
     BS.clearCPU(app.screen)
 
     # Toolbar (fase 2): stesso pattern degli altri mode.
@@ -191,6 +193,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
 
         while running and not mustSkip:
             time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
+            UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
             updateStats = False
             update = False
 
@@ -253,7 +256,8 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Nasconde aiuto quando il tasto destro è rilasciato
                         show_help = False
-                elif e.type == p.MOUSEBUTTONDOWN and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
+                elif e.type == p.MOUSEBUTTONDOWN and e.button == 1 and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
+                    # Solo click sinistro skippa: la rotellina (button 4/5) NO.
                     mustSkip = True
                     update=True
                     break
@@ -354,6 +358,8 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                 continue
             if moveMade and not mustSkip:
                 moveMade = False
+                # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+                UCIEngines.update_board(gs.board(), glc.engine_callback)
                 lastMove = gs.moveLog[-1]
                 stop_stamp = datetime.now()
 
@@ -437,10 +443,15 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     return result
 
 # Study a course from the BrainMaster module, eventually unlocking new lessons and playing quizzes
-def playBrainMaster(learningBaseName:str):    
+def playBrainMaster(learningBaseName:str):
+
+    # Stato pulito per il toggle E: se un mode precedente aveva lasciato
+    # l'analisi attiva, il primo E qui finirebbe nel ramo "stop" invece di
+    # avviarla.
+    UCIEngines.stop_analysis()
 
     #eventually unlocks new lessons
-    app.main_background() 
+    app.main_background()
     BS.drawEndGameText(app.screen,None, "Checking lessons to unlock",size=20)
     BS.update()
 

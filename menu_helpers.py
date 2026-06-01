@@ -41,6 +41,7 @@ def make_updater(key, cast_type, target_dict=None, validator=None, target_module
             else:
                 mod = target_module or state
                 setattr(mod, key, casted)
+            state.save_user_prefs()  # persisti l'ultima scelta nei menu
         except (ValueError, TypeError):
             pass
     return updater
@@ -53,6 +54,7 @@ def make_selector_updater(key, target_dict=None):
             target_dict[key] = selected_value
         else:
             setattr(state, key, selected_value)
+        state.save_user_prefs()
     return updater
 
 def make_selector_updater_mapped(key, target_dict, value_map):
@@ -66,6 +68,7 @@ def make_selector_updater_mapped(key, target_dict, value_map):
             setattr(state, key, mapped_value)
         else:
             target_dict[key] = mapped_value
+        state.save_user_prefs()
     return updater
 
 
@@ -93,6 +96,7 @@ def setPlayColor(color,index):
         myColor = random.choice(["White", "Black"])
     playParameters["whiteCPU"] = myColor == "Black"
     playParameters["blackCPU"] = myColor == "White"
+    state.save_user_prefs()
 
 
 def make_file_selector(
@@ -157,6 +161,7 @@ def make_file_selector(
                             file_name = fileNameTranformer(file_name) if fileNameTranformer else file_name
                             if key:
                                 positionParameters[key] = file_name
+                                state.save_user_prefs()
 
                             for label in labels:
                                 if label:
@@ -330,6 +335,7 @@ def make_base_selector(key, labels, callback=None):
         def pick(name):
             if key:
                 positionParameters[key] = name
+                state.save_user_prefs()
             for lbl in labels:
                 if lbl:
                     lbl.set_title(name)
@@ -379,14 +385,18 @@ def addChooseBaseFile(menu):
     labels.append(label)
 
 
-def addChoosePGNFile(menu):
+def addChoosePGNFile(menu, folder=None, title="Choose PGN file"):
     '''
     Adds a button to the menu that allows the user to choose a PGN file.
     The button will open a file selector dialog and update the positionParameters["filename"] variable with the selected file.
-    '''    
+    `folder` di default e' `pgngamelist.PGN_FOLDER`; passare una cartella diversa
+    (es. la cartella endgames/) per riusare il selettore in altri mode.
+    '''
+    if folder is None:
+        folder = pgngamelist.PGN_FOLDER
     labels = []
-    chooseModelFile = make_file_selector("filename", None , labels, pgngamelist.PGN_FOLDER, ".pgn", "Choose PGN file", None)
-    menu.add.button('Choose PGN file', chooseModelFile)
+    chooseModelFile = make_file_selector("filename", None , labels, folder, ".pgn", title, None)
+    menu.add.button(title, chooseModelFile)
     default_value = str(positionParameters.get("filename", "No selection"))
     label = menu.add.button(default_value, chooseModelFile, font_size=20,
                            background_color=None,

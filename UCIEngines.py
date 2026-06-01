@@ -65,15 +65,18 @@ def _getEngineFileName() -> str:
     return os.path.abspath(os.path.join(ENGINE_FOLDER,config.engine))
 
 def engine_open():
-    global engine
+    global engine, already_closing
+    # Resetta il flag di "already_closing": senza questo, dopo il primo close
+    # il flag restava True e una successiva engine_close veniva ignorata.
+    already_closing = False
     try:
         engine = chess.engine.SimpleEngine.popen_uci(_getEngineFileName())
         engine_options = getattr(config, "engine_options", {})
 
         engine.configure(engine_options)
-        print(f"Engine {config.engine} opened successfully. Engine ID: {engine.id["name"]}")  
+        print(f"Engine {config.engine} opened successfully. Engine ID: {engine.id["name"]}")
     except FileNotFoundError:
-        print(f"Engine file {config.engine} not found. Please check the configuration.")        
+        print(f"Engine file {config.engine} not found. Please check the configuration.")
     except Exception as e:
         print(f"An error occurred while opening the engine: {e}")
 
@@ -99,7 +102,9 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
         if score:
             s = score.relative
             if isinstance(s, chess.engine.Mate):
-                parts.append(f"Mate in {s.ply()}")
+                # .mate() ritorna il numero di MOSSE al matto, con segno:
+                # positivo = stiamo matando, negativo = veniamo matati.
+                parts.append(f"Mate in {s.mate()}")
             elif isinstance(s, chess.engine.Cp):
                 parts.append(f"Eval {s.score() / 100:.2f}")
 
@@ -120,83 +125,192 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
 
 analysis_results = []  # Lista di dizionari validi con score + pv
 latest_status_line = ""  # Ultima riga dello stato corrente
-analysis_variants = {}  # memorizza info per ogni multipv
 
 
-def analyze_forever(board, callback, interval_sec=1.0):
-    global stopper, engine,analysis_results,latest_status_line
-
-    if stopper is not None:
-        stop_analysis()
-
-    stop_event = threading.Event()
-    stopper = stop_event
-    
-    analysis_results = []  # Lista di dizionari validi con score + pv
-    latest_status_line = ""  # Ultima riga dello stato corrente
-    def analysis_loop():
-        global analysis_results, latest_status_line
-        analysis_variants = {}
-        try:
-            with engine.analysis(board, multipv=3) as analysis:
-                last_time = time.time()
-                for info in analysis:
-                    now = time.time()
-                   
-                    try:
-                        if "multipv" in info and "score" in info and "pv" in info:
-                            mpv = info["multipv"]
-                            analysis_variants[mpv] = info  # aggiorna la variante
-                            
-                        elif "currmove" in info:
-                            move_san = str(info["currmove"])
-                            move_num = info.get("currmovenumber", "?")
-                            depth = info.get("depth", "?")
-                            latest_status_line = f"Analyzing: {move_san} (#{move_num}) with depth{depth}"
-                        # else:
-                        #     print(info)
-                        #     print("Nessun dato utile nel pacchetto info")
-                    except Exception as e:
-                        print(f"Errore nella callback: {e}")
-
-                    if now - last_time >= interval_sec:
-                        infos_list = [analysis_variants[i] for i in sorted(analysis_variants.keys())]                                
-                        analysis_results = format_engine_info_list(infos_list)
-                        merged = analysis_results+[latest_status_line]
-                        callback(merged)
-                        last_time = now
-
-                    if stop_event.is_set():
-                        break
-        except Exception as e:
-            print(f"Errore nel blocco analysis: {e}")
-
-    thread = threading.Thread(target=analysis_loop, daemon=True)
-    thread.start()
+# Architettura "single-engine-thread, polling dal main".
+# Non spawniamo un thread di analisi nostro: il SimpleEngine di python-chess
+# gia' tiene un thread asyncio dedicato che riceve gli aggiornamenti dal
+# processo Stockfish e popola `SimpleAnalysisResult.multipv` (e .info) in modo
+# thread-safe. Il MainThread del programma chiama `poll()` ogni frame, legge
+# uno snapshot del multipv (atomico via GIL) e invoca la callback per ridisegnare
+# il pannello CPU.
+#
+# Vantaggi:
+# - Nessun thread aggiuntivo: solo MainThread + SimpleEngine (interno).
+# - Nessuna race con start/stop rapidi: tutto sequenziale sul main.
+# - Niente join/timeout: stop_analysis() e' davvero immediato.
+_active_analysis: Optional["chess.engine.SimpleAnalysisResult"] = None
+_active_callback = None
+_active_interval = 1.0
+_last_callback_time = 0.0
 
 
-def update_board(board: chess.Board, callback, interval_sec=1.0):
-    ''' Update position to analyze if analysis is running '''
-    if stopper is None:
+def _engine_alive() -> bool:
+    """True se la SimpleEngine e il suo transport asyncio sono utilizzabili."""
+    if engine is None:
+        return False
+    try:
+        transport = getattr(engine, "transport", None)
+        if transport is None:
+            return False
+        is_closing = getattr(transport, "is_closing", None)
+        if callable(is_closing) and is_closing():
+            return False
+    except Exception:
+        return False
+    return True
+
+
+def is_analysing() -> bool:
+    """True se c'e' un'analisi attiva non ancora fermata."""
+    return _active_analysis is not None
+
+
+def stop_analysis() -> None:
+    """Ferma l'analisi attiva. Idempotente. Non lancia."""
+    global _active_analysis, _active_callback, stopper
+    sa = _active_analysis
+    _active_analysis = None
+    _active_callback = None
+    stopper = None  # legacy alias
+    if sa is None:
         return
+    try:
+        # `stop()` segnala lo stop al motore; la chiusura effettiva del task
+        # asyncio avviene dietro le quinte (SimpleEngine thread), e una eventuale
+        # successiva engine.analysis() viene serializzata dal lock interno.
+        sa.stop()
+    except Exception as e:
+        print(f"stop_analysis: {e}")
+
+
+def start_analysis(board, callback, interval_sec=1.0) -> None:
+    """Avvia un'analisi sulla `board`. Ferma quella in corso, se c'e'.
+    Riapre l'engine se morto. Non lancia eccezioni al chiamante."""
+    global _active_analysis, _active_callback, _active_interval, _last_callback_time
+    global analysis_results, latest_status_line, stopper
+
     stop_analysis()
-    analyze_forever(board, callback,interval_sec)
+    if not _engine_alive():
+        print("start_analysis: engine non vivo, riapertura...")
+        try:
+            engine_open()
+        except Exception as e:
+            print(f"start_analysis: engine_open fallito: {e}")
+            return
+        if not _engine_alive():
+            print("start_analysis: engine ancora non vivo dopo retry, annullo")
+            return
 
-def engine_on_off(board,callback,interval_sec=1.0):
-    if stopper is None:
-        analyze_forever(board, callback,interval_sec)
-    else:
-        stop_analysis()
-        callback(["engine stopped"])
-
-
-def stop_analysis():
-    global stopper
-    if not stopper:
-        #print("No analysis in progress.")
+    try:
+        sa = engine.analysis(board, multipv=3)
+    except chess.engine.EngineError as e:
+        print(f"start_analysis: EngineError {e} -- riapertura")
+        try:
+            engine_open()
+        except Exception as ee:
+            print(f"start_analysis: riapertura fallita: {ee}")
+            return
+        try:
+            sa = engine.analysis(board, multipv=3)
+        except Exception as e2:
+            print(f"start_analysis: secondo tentativo fallito: {e2}")
+            return
+    except Exception as e:
+        print(f"start_analysis: errore inatteso: {e}")
         return
-    stopper.set()  # Imposta l'evento per fermare l'analisi
-    stopper = None  # Resetta il riferimento per evitare chiamate multiple
+
+    _active_analysis = sa
+    _active_callback = callback
+    _active_interval = interval_sec
+    _last_callback_time = 0.0
+    analysis_results = []
+    latest_status_line = ""
+    stopper = object()  # legacy: marca "qualcosa sta girando" per chi testa truthiness
+
+
+def poll() -> None:
+    """Da chiamare ogni frame dal MainThread.
+
+    Legge lo stato corrente dell'analisi (snapshot atomico di `multipv`),
+    aggiorna il pannello CPU al massimo `_active_interval` volte/s.
+    No-op se nessuna analisi e' attiva.
+    """
+    global _active_analysis, _last_callback_time, analysis_results, latest_status_line, stopper
+    sa = _active_analysis
+    if sa is None or _active_callback is None:
+        return
+
+    # Detect crash dell'engine: il transport e' morto sotto di noi.
+    if not _engine_alive():
+        print("poll: engine non vivo, cleanup e riapertura")
+        _active_analysis = None
+        stopper = None
+        try:
+            _active_callback(["Engine crashato, prossimo toggle riavvia"])
+        except Exception:
+            pass
+        try:
+            engine_open()
+        except Exception as e:
+            print(f"poll: riapertura fallita: {e}")
+        return
+
+    # Snapshot del multipv. La lista e' aggiornata dal thread SimpleEngine; la
+    # copia (`list(...)`) e' atomica grazie al GIL.
+    try:
+        multipv = list(sa.multipv)
+    except Exception as e:
+        print(f"poll: read multipv fallito: {e}")
+        return
+
+    # Status line: lo prendiamo da `sa.info` (ultimo info ricevuto, qualsiasi tipo).
+    try:
+        info = sa.info
+        if info and "currmove" in info:
+            move_san = str(info["currmove"])
+            move_num = info.get("currmovenumber", "?")
+            depth = info.get("depth", "?")
+            latest_status_line = f"Analyzing: {move_san} (#{move_num}) with depth{depth}"
+    except Exception:
+        pass
+
+    now = time.time()
+    if now - _last_callback_time < _active_interval:
+        return
+    _last_callback_time = now
+
+    if not multipv:
+        return
+    try:
+        analysis_results = format_engine_info_list(multipv)
+        _active_callback(analysis_results + [latest_status_line])
+    except Exception as e:
+        print(f"poll: callback fallita: {e}")
+
+
+# Alias retro-compatibile: i vecchi mode chiamavano analyze_forever.
+def analyze_forever(board, callback, interval_sec=1.0):
+    start_analysis(board, callback, interval_sec)
+
+
+def update_board(board: chess.Board, callback, interval_sec=1.0) -> None:
+    """Riggancia l'analisi alla nuova posizione SOLO se sta gia' girando."""
+    if not is_analysing():
+        return
+    start_analysis(board, callback, interval_sec)
+
+
+def engine_on_off(board, callback, interval_sec=1.0) -> None:
+    """Toggle utente: se sta analizzando ferma, altrimenti avvia."""
+    if is_analysing():
+        stop_analysis()
+        try:
+            callback(["engine stopped"])
+        except Exception:
+            pass
+    else:
+        start_analysis(board, callback, interval_sec)
 
 
 

@@ -33,6 +33,7 @@ DEFAULT_CONFIG = {
     },
     "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
     "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
+    "user_prefs": {},             # ultime selezioni nei menu (popolate da state.save_user_prefs)
 }
 
 config = None

@@ -110,6 +110,9 @@ def chooseAnnotation(current_nags):
             if ev.type == p.QUIT:
                 p.quit()
                 sys.exit()
+            if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
+                chosen = None  # annulla come il pulsante Cancel
+                menu_running = False
         surface.fill((0, 0, 0))
         menu.update(events)
         menu.draw(surface)
@@ -145,6 +148,9 @@ def editComment(current_text):
             if ev.type == p.QUIT:
                 p.quit()
                 sys.exit()
+            if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
+                result[0] = None  # annulla come il pulsante Cancel
+                menu_running = False
         surface.fill((0, 0, 0))
         menu.update(events)
         menu.draw(surface)
@@ -197,12 +203,12 @@ def playAGame():
         ToolbarAction("Undo",  "Undo (Left arrow)",                       _post_key(p.K_LEFT)),
         ToolbarAction("Next",  "Next move (Right arrow)",                 _post_key(p.K_RIGHT)),
         ToolbarAction("Save",  "Save game (S)",                           _post_key(p.K_s)),
-        ToolbarAction("Anal",  "Analyze mode toggle (A)",                 _post_key(p.K_a)),
+        ToolbarAction("Anal",  "Analyze mode toggle (A)",                 _post_key(p.K_a), active=lambda: analyze),
         ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
         ToolbarAction("Reset", "Reset game (R)",                          _post_key(p.K_r)),
-        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
-        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
-        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
+        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e), active=UCIEngines.is_analysing),
+        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b), active=lambda: BS.show_book),
+        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d), active=lambda: BS.show_pgn),
         ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
         ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
         ToolbarAction("Load",  "Load game (L) -- analysis only",          _post_key(p.K_l), enabled=_is_analysis),
@@ -241,6 +247,7 @@ def playAGame():
 
     while running:
         time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar/manager
+        UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
         update = False
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
@@ -382,6 +389,10 @@ def playAGame():
                                 gs.clearMoveNags()
                             elif nag is not None:
                                 gs.setMoveNag(nag)
+                        # il menu disegna a tutto schermo: ripulisco prima di
+                        # ridisegnare la scacchiera (incluso lo strip CPU sotto)
+                        app.main_background()
+                        BS.clearCPU(app.screen)
                         continue
 
                     if e.key == p.K_t and not whiteCPU and not blackCPU:
@@ -390,6 +401,10 @@ def playAGame():
                             text = editComment(gs.getMoveComment())
                             if text is not None:
                                 gs.setMoveComment(text)
+                        # il menu disegna a tutto schermo: ripulisco prima di
+                        # ridisegnare la scacchiera (incluso lo strip CPU sotto)
+                        app.main_background()
+                        BS.clearCPU(app.screen)
                         continue
 
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
