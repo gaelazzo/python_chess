@@ -30,26 +30,35 @@ from modes.common import show_message, setAlfa
 
 
 # Euristica: nelle PGN di repertorio d'apertura il lato che si esercita ha le
-# proprie mosse fisse (mainline) mentre l'opponente ha varianti. La PRIMA
-# variante incontrata nel testo del file ci dice quale lato sta "ramificando":
-#   (N... mossa  -> variante del NERO (l'opponente e' Nero) -> giochiamo Bianco
-#   (N.  mossa   -> variante del BIANCO (opponente Bianco) -> giochiamo Nero
-_FIRST_VARIATION_RE = re.compile(r'\(\s*(\d+)\s*(\.\.\.|\.)\s*[A-Za-z]')
+# proprie mosse fisse (mainline) mentre l'opponente ha varianti.
+#   (N... mossa  -> variante del NERO (utente gioca Bianco)
+#   (N.  mossa   -> variante del BIANCO (utente gioca Nero)
+# Decidiamo per maggioranza su tutte le varianti del file: una singola
+# variante "anomala" (es. ramo esplorativo nell'altro lato) non ribalta la
+# scelta come faceva il vecchio first-match.
+_VARIATION_RE = re.compile(r'\(\s*(\d+)\s*(\.\.\.|\.)\s*[A-Za-z]')
 
 
 def detect_user_color_from_pgn(pgn_path: str) -> Optional[str]:
-    """Rileva il colore dell'utente leggendo il testo grezzo del PGN.
-    Ritorna 'w', 'b' o None se non si trovano varianti."""
+    """Rileva il colore dell'utente contando le varianti per lato nel PGN
+    e prendendo la maggioranza.
+
+    Ritorna 'w' / 'b' / None (nessuna variante trovata o pareggio esatto).
+    """
     try:
         with open(pgn_path, encoding='utf-8', errors='replace') as f:
             text = f.read()
     except OSError:
         return None
-    m = _FIRST_VARIATION_RE.search(text)
-    if not m:
+    matches = _VARIATION_RE.findall(text)
+    if not matches:
         return None
-    # group(2) == '...' -> variante del Nero -> utente gioca Bianco
-    return 'w' if m.group(2) == '...' else 'b'
+    black_variations = sum(1 for _num, sep in matches if sep == '...')
+    white_variations = len(matches) - black_variations
+    if black_variations == white_variations:
+        return None  # pareggio: ambiguo, lascia al chiamante decidere il fallback
+    # piu' varianti del Nero -> opponente e' Nero -> utente gioca Bianco
+    return 'w' if black_variations > white_variations else 'b'
 
 
 # "Study openings": you must always play the best move while the computer replies
@@ -108,11 +117,12 @@ def playOpeningLine(filename, humanColor):
             "- left to take back a move",
             "- right to play next move",
             "- Q per uscire",
+            "- H Hint (mostra la mossa corretta)",
             "- C Copy FEN to clipboard",
-            "- G Copy PGN to clipboard ", 
+            "- G Copy PGN to clipboard ",
             "- E Engine ON/OFF",
-            "- B show/hide book", 
-            "- D show/hide moves"                        
+            "- B show/hide book",
+            "- D show/hide moves"
         ]
     show_help = False
     def do_show_help():
@@ -146,6 +156,8 @@ def playOpeningLine(filename, humanColor):
         ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
         ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
         ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
+        ToolbarAction("Hint",  "Show next correct move (H)",              _post_key(p.K_h),
+                      enabled=lambda: humanCanPlay),
         ToolbarAction("Next",  "Next game (N) -- after a correct line",   _post_key(p.K_n),
                       enabled=lambda: not humanCanPlay),
         ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
@@ -234,6 +246,7 @@ def playOpeningLine(filename, humanColor):
 
             for e in p.event.get():
                 app.manager.process_events(e)
+                glc.stop_speech_on_input(e)
                 if toolbar.process_event(e):
                     update = True
                     continue
@@ -351,6 +364,17 @@ def playOpeningLine(filename, humanColor):
                         # Ora usa BS.flipBoard come gli altri mode.
                         BS.flipBoard(app.screen)
                         animate = False
+
+                    if e.key == p.K_h and humanCanPlay:
+                        # Hint: mostra in SAN la mossa attesa dalla mainline.
+                        next_main = gs.getNextMainMove()
+                        if next_main is not None:
+                            try:
+                                san = gs.node.board().san(next_main)
+                            except Exception:
+                                san = next_main.uci()
+                            show_message(gs, f"Hint: {san}")
+                            app.delay(2)
                
             toolbar.update(time_delta)
 

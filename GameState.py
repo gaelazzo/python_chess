@@ -10,36 +10,225 @@ import chess
 from chess.pgn import ChildNode, Game
 import chess.polyglot
 import random
+import threading
+import queue
 import pyttsx3
 import book
 from move_speech import expand_moves_for_speech
 
 
 class Voce:
-    def __init__(self,lang_prefix="en"):
-        self.engine = pyttsx3.init()
-        voices = self.engine.getProperty('voices')
-        # for i, voice in enumerate(voices):
-        #     print(f"[{i}] ID: {voice.id}")
-        #     print(f"    Name: {voice.name}")
-        #     print(f"    Lang: {voice.languages}")
-        #     print(f"    Gender (in name?): {voice.name.lower()}")
-        #     print()
+    """TTS asincrono.
 
-        self.engine.setProperty('rate', 160)  # velocità di lettura
-        self.engine.setProperty('volume', 1.0)  # volume
+    Architettura: un singolo worker thread persistente possiede l'engine
+    pyttsx3 e consuma una queue di richieste. La voce viene selezionata UNA
+    volta dal worker (non dal main thread). Questo evita il problema di
+    apartment-threading di SAPI5 su Windows: la `setProperty('voice', ...)`
+    eseguita su un thread COM diverso da quello che fa `say()` viene
+    silenziosamente ignorata, facendo cadere la lettura sulla voce di default
+    di sistema (es. italiana se il sistema lo e').
+    """
 
-        # Seleziona voce con lingua desiderata
-        for voice in self.engine.getProperty('voices'):
-            lang = voice.languages[0].decode('utf-8') if isinstance(voice.languages[0], bytes) else voice.languages[0]
-            if lang_prefix in lang.lower():
-                self.engine.setProperty('voice', voice.id)
+    def __init__(self, lang_prefix="en"):
+        self._lang_prefix = lang_prefix
+        self._queue: "queue.Queue[str]" = queue.Queue()
+        self._engine = None  # creato nel worker
+        self._voice_id = None  # popolato da _apply_voice
+        self._engine_ready = threading.Event()
+        self._worker_thread = threading.Thread(
+            target=self._worker, name="TTSWorker", daemon=True
+        )
+        self._worker_thread.start()
+        # Attendiamo brevemente l'inizializzazione, cosi' la prima leggi()
+        # non parte prima che engine e voce siano pronti.
+        self._engine_ready.wait(timeout=3.0)
+
+    def _find_target_voice_id(self, voices):
+        """Restituisce voice.id da impostare, o None se nessuna voce inglese
+        trovata. Ordine di precedenza identico a `_select_voice`."""
+        try:
+            from config import config as _cfg
+            target = (getattr(_cfg, 'tts_voice', '') or '').strip().lower()
+        except Exception:
+            target = ''
+        if target:
+            for v in voices:
+                hay = ((v.name or '') + ' ' + (v.id or '')).lower()
+                if target in hay:
+                    return v.id, f"config '{target}'"
+        name_hints = ('english', 'en-', 'en_', 'zira', 'david', 'mark', 'hazel',
+                      'eva', 'james', 'susan')
+        for v in voices:
+            name_l = (v.name or '').lower()
+            if any(h in name_l for h in name_hints):
+                return v.id, "name-hint"
+        for v in voices:
+            try:
+                for lang in (v.languages or []):
+                    if isinstance(lang, bytes):
+                        lang = lang.decode('utf-8', errors='replace')
+                    if self._lang_prefix in str(lang).lower():
+                        return v.id, "lang-prefix"
+            except Exception:
+                continue
+        return None, None
+
+    def _apply_rate_from_config(self):
+        """Imposta la rate direttamente su `sapi.Rate` (-10..+10), bypassando
+        la proxy queue di pyttsx3 (`engine.setProperty('rate', ...)` non
+        applica al COM object reale, stesso bug della voce)."""
+        try:
+            from config import config as _cfg
+            wpm = int(getattr(_cfg, 'tts_rate', 150) or 150)
+        except Exception:
+            wpm = 150
+        # Conversione wpm -> SAPI5 rate (-10..+10). 200 wpm = 0 (default Windows).
+        if wpm < 100:
+            sapi_rate = -10
+        elif wpm > 350:
+            sapi_rate = 10
+        else:
+            sapi_rate = int(round((wpm - 200) / 15))
+        driver = getattr(getattr(self._engine, 'proxy', None), '_driver', None)
+        sapi = getattr(driver, '_tts', None)
+        if sapi is None:
+            return
+        try:
+            sapi.Rate = sapi_rate
+            print(f"TTS: rate={wpm}wpm -> SAPI5 Rate={sapi_rate}")
+        except Exception as e:
+            print(f"TTS apply rate fallita: {e}")
+
+    def _apply_voice(self, voice_id, source):
+        """Imposta la voce SAPI5 direttamente sul driver, bypassando la
+        proxy queue di pyttsx3.
+
+        Background: pyttsx3 moderno espone l'engine come `Engine` con un
+        `proxy` (DriverProxy) che a sua volta wrappa il driver vero
+        (`SAPI5Driver`). `engine.setProperty('voice', ...)` accoda l'op nel
+        pump interno -- accoda e basta se il loop non sta girando, oppure
+        viene applicata DOPO la prossima `say()`, troppo tardi per la
+        riproduzione corrente. Inoltre il path `engine._driver` (che usavo
+        prima) non esiste piu' in queste versioni.
+        """
+        # Path canonico verso SAPI5 in pyttsx3 moderno
+        driver = getattr(getattr(self._engine, 'proxy', None), '_driver', None)
+        sapi = getattr(driver, '_tts', None)
+        if sapi is None:
+            print("TTS: driver SAPI5 non trovato (versione pyttsx3 inattesa)")
+            return False
+        try:
+            voices = sapi.GetVoices()
+            n = voices.Count
+            for i in range(n):
+                token = voices.Item(i)
+                if token.Id == voice_id:
+                    sapi.Voice = token
+                    self._voice_id = voice_id
+                    # Verifica diretta sul COM object
+                    actual = sapi.Voice.Id if sapi.Voice else None
+                    print(f"TTS: voce applicata (source={source}) "
+                          f"actual={actual} -> "
+                          f"{'OK' if actual == voice_id else 'MISMATCH'}")
+                    return actual == voice_id
+        except Exception as e:
+            print(f"TTS apply voice fallita: {e}")
+        return False
+
+    def _select_voice(self):
+        """Sceglie e applica una voce inglese; stampa diagnostica all'avvio."""
+        try:
+            voices = list(self._engine.getProperty('voices'))
+        except Exception as e:
+            print(f"TTS: impossibile elencare voci: {e}")
+            return
+        print(f"TTS: {len(voices)} voci disponibili:")
+        for v in voices:
+            print(f"  - id={v.id!r} name={v.name!r} langs={v.languages}")
+        voice_id, source = self._find_target_voice_id(voices)
+        if voice_id is None:
+            print(f"TTS: nessuna voce '{self._lang_prefix}' trovata, default OS")
+            return
+        ok = self._apply_voice(voice_id, source)
+        print(f"TTS: voce target id={voice_id} (source={source}) -> "
+              f"{'applicata' if ok else 'NON APPLICATA'}")
+
+    def _worker(self):
+        try:
+            self._engine = pyttsx3.init()
+            self._engine.setProperty('volume', 1.0)
+            self._select_voice()
+            self._apply_rate_from_config()
+        except Exception as e:
+            print(f"TTS init failed: {e}")
+            self._engine_ready.set()
+            return
+        self._engine_ready.set()
+
+        while True:
+            text = self._queue.get()
+            if text is None:  # sentinel (non usato oggi: thread e' daemon)
                 break
+            try:
+                # Re-apply della voce: alcune versioni di pyttsx3 SAPI5 perdono
+                # il setting tra say() consecutive e tornano al default.
+                if self._voice_id is not None:
+                    try:
+                        driver = getattr(getattr(self._engine, 'proxy', None),
+                                         '_driver', None)
+                        sapi = getattr(driver, '_tts', None)
+                        if sapi is not None:
+                            voices = sapi.GetVoices()
+                            for i in range(voices.Count):
+                                token = voices.Item(i)
+                                if token.Id == self._voice_id:
+                                    sapi.Voice = token
+                                    break
+                    except Exception:
+                        pass
+                self._engine.say(text)
+                self._engine.runAndWait()
+            except Exception as e:
+                # Tipicamente "run loop already started" se stop() arriva
+                # mentre say() e' in fila: no-op.
+                print(f"TTS warning: {e}")
 
     def leggi(self, testo: str):
-        testo = testo.replace("0-0-0","long castle").replace("0-0","castle")
-        self.engine.say(testo)
-        self.engine.runAndWait()
+        """Accoda un testo da leggere; eventuale lettura in corso viene
+        interrotta. Ritorna immediatamente (non blocca)."""
+        if self._engine is None:
+            return
+        self._drain_queue()
+        self._engine_stop_safe()
+        testo = testo.replace("0-0-0", "long castle").replace("0-0", "castle")
+        self._queue.put(testo)
+
+    def stop(self):
+        """Interrompe la lettura TTS in corso (no-op se non e' in corso)."""
+        self._drain_queue()
+        self._engine_stop_safe()
+
+    def refresh_rate(self):
+        """Ri-applica la rate dal `config.tts_rate` corrente. Da chiamare dopo
+        un onchange dello slider TTS speed nel menu Setup."""
+        if self._engine is None:
+            return
+        self._apply_rate_from_config()
+
+    def _drain_queue(self):
+        try:
+            while True:
+                self._queue.get_nowait()
+        except queue.Empty:
+            pass
+
+    def _engine_stop_safe(self):
+        if self._engine is None:
+            return
+        try:
+            self._engine.stop()
+        except Exception:
+            pass
 
 
 voce = Voce()

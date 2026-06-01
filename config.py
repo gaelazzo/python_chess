@@ -34,6 +34,13 @@ DEFAULT_CONFIG = {
     "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
     "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
     "user_prefs": {},             # ultime selezioni nei menu (popolate da state.save_user_prefs)
+    # TTS: sostringa case-insensitive cercata in voice.name o voice.id; vuoto =
+    # selezione automatica per inglese. Le voci disponibili vengono stampate
+    # sulla console all'avvio (vedi GameState.Voce._select_voice).
+    "tts_voice": "",
+    # Velocita' TTS in parole-per-minuto (default Windows ~200). 150-180 e' la
+    # banda comoda per testi tecnici; sotto 100 = molto lento, oltre 250 = scattante.
+    "tts_rate": 170,
 }
 
 config = None

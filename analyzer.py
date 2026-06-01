@@ -192,10 +192,15 @@ class PgnAnalyzer:
         '''
             Args:
             playerName: the name of the player to analyze
-            pgnfile: the name of the pgn file to analyze
+            pgnfile: the name of the pgn file to analyze (con o senza .pgn)
             learningBase: the learning base to update
             eco: se non None, filtra alle sole partite con quell'ECO (case-insensitive)
         '''
+        # make_file_selector salva il filename senza estensione, ma su disco i
+        # PGN ce l'hanno -- appendiamo .pgn se manca (mirroring PgnGameList,
+        # openings.py, endgames.py).
+        if not filename.lower().endswith(".pgn"):
+            filename = filename + ".pgn"
         pathcomplete = os.path.join(pgngamelist.PGN_FOLDER, filename)
         self.pgn = open(pathcomplete, encoding='utf-8')
         self.player = playerName

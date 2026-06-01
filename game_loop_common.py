@@ -27,6 +27,21 @@ def engine_callback(text: str) -> None:
     BS.drawCpu(app.screen, text)
 
 
+def stop_speech_on_input(event) -> None:
+    """Se l'evento e' input dell'utente (tasto premuto o click del mouse),
+    interrompe la lettura TTS dei commenti in corso. Da chiamare a inizio
+    del for-event loop in ogni mode.
+
+    Import lazy di `voce` per evitare cicli con GameState.
+    """
+    if event.type in (p.KEYDOWN, p.MOUSEBUTTONDOWN):
+        try:
+            from GameState import voce
+            voce.stop()
+        except Exception:
+            pass
+
+
 def draw_help_overlay(help_text, height: int = 400) -> None:
     """Draw the right-click help panel over the board and flip the display.
 

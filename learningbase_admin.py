@@ -4,14 +4,41 @@ Create/update learning bases, unroll PGNs into positions/lessons, import
 chess.com games, and register a base as a BrainMaster course. Split out of
 chessMain.py; depends only on shared state, app and the domain modules.
 """
+import os
+import pygame as p
 from app_context import app
 import BoardScreen as BS
 import analyzer
 import chess_com_download
 import lichess_download
 import BrainMaster
+import pgngamelist
 from LearningBase import LearningBase, learningBases
 from state import positionParameters
+
+
+def _count_games_in_pgn(path: str) -> int:
+    """Conta veloce le partite contando le righe `[Event ...]`. 0 se errore."""
+    n = 0
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("[Event "):
+                    n += 1
+    except OSError:
+        return 0
+    return n
+
+
+def _make_progress_cb(label: str, total: int):
+    """Callback per `analyzer.analyzePgn(progress=...)`: ridisegna lo schermo
+    con N/M e fa un event.pump() per evitare il "non risponde" di Windows."""
+    def cb(n: int) -> None:
+        app.main_background()
+        msg = f"{label}: analizzo {n}/{total}" if total else f"{label}: analizzo partita {n}"
+        BS.drawEndGameText(app.screen, None, msg, size=24)
+        p.event.pump()
+    return cb
 
 
 def createLearningBase():    
@@ -67,8 +94,13 @@ def updateLearningBase():
         return
 
     learningBase = learningBases.get(learningBaseName, None)
-    
-    analyzer.analyzePgn(pgnFileName, player, learningBase)
+
+    # Conteggio veloce per la barra di avanzamento (N/M durante analisi).
+    pgn_path = os.path.join(pgngamelist.PGN_FOLDER, pgnFileName + ".pgn")
+    total = _count_games_in_pgn(pgn_path)
+    progress = _make_progress_cb(f"Aggiorno '{learningBaseName}'", total)
+
+    analyzer.analyzePgn(pgnFileName, player, learningBase, progress=progress)
     text = f"Learning base {learningBaseName} updated with {pgnFileName}"
     app.main_background()
     BS.drawEndGameText(app.screen, None, text)

@@ -440,6 +440,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
         # --- Eventi ---
         for e in p.event.get():
             app.manager.process_events(e)
+            glc.stop_speech_on_input(e)
             if toolbar.process_event(e):
                 update = True
                 continue

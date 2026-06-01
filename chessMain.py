@@ -8,7 +8,7 @@ from email import headerregistry
 import os.path
 import random
 from typing import Optional
-from GameState import Move,GameState
+from GameState import Move,GameState,voce
 import pygame as p
 import json
 import BrainMaster
@@ -395,6 +395,12 @@ def mainMenu(width,height, test: bool = False) -> None:
                                    onchange=combine_onchange(make_updater("correctsToLearn", int, target_module=config), save_config),
                                    value_format=lambda x: str(int(round(x, 0))),
                                    default=config.correctsToLearn)
+    configureGame.add.range_slider('TTS speed (wpm)', range_values=(90, 280), increment=10,
+                                   onchange=combine_onchange(
+                                       make_updater("tts_rate", int, target_module=config),
+                                       lambda: (save_config(), voce.refresh_rate())),
+                                   value_format=lambda x: str(int(round(x, 0))),
+                                   default=config.tts_rate)
 
     toolsMenu = pygame_menu.Menu(
         height=height,

@@ -12,9 +12,9 @@
     "correctsToLearn": 3,
     "user_prefs": {
         "eco": null,
-        "color": "w",
-        "filename": "gaelazzo_lichess",
-        "base": "endgames_esempi",
+        "color": null,
+        "filename": "C96BerlinDefense",
+        "base": "gaelazzo_lichess",
         "player": "gaelazzo",
         "movesToAnalyze": 16,
         "blunderValue": 80,
@@ -29,8 +29,10 @@
         "event": "Play",
         "site": "Local",
         "num_moves_to_show": 4,
-        "play_position": 1,
+        "play_position": 0,
         "practice_order": "priority"
     },
+    "tts_voice": "",
+    "tts_rate": 150,
     "engine_usebook": false
 }
