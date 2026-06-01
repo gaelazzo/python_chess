@@ -1,5 +1,11 @@
 # Hires Chess Trainer — Manuale d'uso
 
+> Chess trainer in Python con Stockfish e Syzygy tablebases · learning base
+> con ripetizione spaziata · allenamento di tattica, repertorio d'apertura
+> e finali · importazione partite da Chess.com e lichess · banco di prova
+> per modelli di **apprendimento personalizzato basato su reinforcement learning**
+> · supporto Windows.
+
 🇬🇧 *English version:* [README.en.md](README.en.md)
 
 **Hires Chess Trainer** è un'applicazione desktop per allenarsi e migliorare a scacchi.
@@ -138,6 +144,7 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 | **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
 | **BrainMaster lessons** | Lezioni guidate dal servizio BrainMaster *(appare solo se hai configurato `base_url`)*. |
 | **Study openings** | Esercitati su partite "modello": devi trovare tu la mossa migliore. |
+| **Allena finali** | Risolvi finali da un PGN di studi (cartella `endgames/`); giudice TB Syzygy (≤7 pezzi) con fallback Stockfish, errori loggati in una learning base dedicata (vedi §3.8). |
 | **Tools** | Creazione/aggiornamento di learning base, import PGN/Chess.com, Setup. |
 | **Quit** | Esce dal programma (anche premendo **`Q`** o chiudendo la finestra). |
 
@@ -233,13 +240,17 @@ Carichi un file PGN di linee "modello". Il computer gioca una delle linee
 memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
 - **Choose PGN file**: il file con le partite modello;
 - (Il colore che giochi viene **rilevato automaticamente dal contenuto del PGN**:
-  in un repertorio per il Nero le mosse del Nero hanno una sola continuazione e quelle
-  del Bianco hanno varianti — la prima variante incontrata determina il lato. Se il
-  file non contiene varianti, default Bianco.)
+  conta tutte le varianti del file e prende la **maggioranza** — varianti `(N... ...)` =
+  alternative del Nero (giochi Bianco), varianti `(N. ...)` = alternative del Bianco
+  (giochi Nero). Pareggio esatto o nessuna variante → default Bianco. Una variante
+  isolata "anomala" non ribalta più la scelta come faceva il vecchio first-match.)
 - **Lead-in moves** e **Num Moves to Show**: stessa semantica di *Solve positions*
   (§3.4) — *Skip* salta la sequenza di lead-in e parte dalla posizione, *Replay* la
   rigioca tutta; *Num Moves to Show* è il numero di mosse di continuazione mostrate
   dopo una risposta corretta.
+- **Hint** (tasto **H** o bottone toolbar): mostra in SAN la prossima mossa attesa
+  dalla mainline (es. *"Hint: Nf3"*) per 2 secondi. Disponibile solo quando è il
+  tuo turno.
 
 > **Profondità di partenza uniforme** (in *Lead-in = Skip*): a ogni round il programma
 > pre-scansiona la mainline contando i turni utente `N`, sceglie un indice `k` uniforme
@@ -280,6 +291,45 @@ openings/Balanced, `useBook=True`) e ti porta direttamente in *Solve positions* 
 quella base. Le basi mirate restano persistenti: nelle sessioni successive ti alleni
 direttamente da *Solve positions*.
 
+### 3.8 Allena finali
+> **Risolvi finali sotto il giudizio della tablebase.** Carichi un PGN di studi
+> di finali (cartella `endgames/`); il programma pesca una partita random e usa
+> la sua posizione iniziale come finale da risolvere. La mainline del PGN è
+> ignorata: il giudice è la **TB Syzygy** (per posizioni ≤ 7 pezzi) o
+> **Stockfish** in fallback.
+
+**Setup TB.** Il path delle tablebase Syzygy va inserito una volta in
+`config.json` come `engine_options.SyzygyPath` (stringa con i percorsi
+separati da `;` su Windows, es. `"D:/.../345;D:/.../6"`). Verifica
+l'integrità con `python verify_syzygy.py` e che Stockfish le veda davvero con
+`python verify_stockfish_tb.py`.
+
+Parametri:
+- **Choose endgame PGN** — file `.pgn` dalla cartella `endgames/` (ogni partita
+  con header `[FEN "..."]` è un finale separato).
+
+Loop di gioco:
+- Inizi al lato al tratto nella posizione di partenza. Pesca senza rimpiazzo
+  entro la sessione: quando hai visto tutte le posizioni del file, ricomincia.
+- **Giudizio strict** sulle tue mosse, in ordine:
+  1. Stallo / materiale insufficiente forzato da te quando eri vincente → errore.
+  2. Scacco matto da te dato → OK (massimo risultato).
+  3. Con `clean WDL = +2`, ogni mossa non-zeroing deve far **calare il DTZ**
+     (`dtz_a < dtz_b`); mosse "neutre" bruciano il clock 50-move e prima o poi
+     vanificano la vincita → errore.
+  4. Caduta del clean WDL (sacrificio, sottopromozione errata, ecc.) → errore.
+  5. Fuori range TB: confronto eval Stockfish; drop > 100 cp → errore.
+- **Errore** → la mossa NON viene applicata, lampeggia "Mossa errata: \<causa\>"
+  per 2.5s, riprovi sulla stessa posizione.
+- L'avversario gioca **TB-ottima** quando in range (massimizza DTZ se perde,
+  minimizza se vince), altrimenti Stockfish.
+- Tasto **H** (o bottone *Hint*) → mostra in SAN la mossa TB-ottima.
+
+**Persistenza errori.** Ogni errore viene registrato in una learning base
+dedicata `endgames_<filename>` in `data/`. Puoi ripassarla da *Solve positions*
+(la base appare nel dropdown). Mosse corrette su posizioni già tracciate
+aggiornano comunque le stat (per la spaced repetition).
+
 ---
 
 ## 4. Comandi durante una partita
@@ -313,9 +363,16 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **T** | Aggiungi un commento testuale all'ultima mossa |
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
 
-> Nelle modalità di studio (Solve positions / BrainMaster / Study openings) i comandi
-> sono simili ma orientati alla soluzione: **Q** esci, **C/G** copia, **E/B/D** pannelli,
-> **+** mostra qualche mossa in più (suggerimento), **H** mostra la soluzione.
+> Nelle modalità di studio (Solve positions / BrainMaster / Study openings /
+> Allena finali) i comandi sono simili ma orientati alla soluzione: **Q** esci,
+> **C/G** copia, **E/B/D** pannelli, **+** mostra qualche mossa in più (suggerimento),
+> **H** mostra la soluzione / la mossa corretta (in Study openings = prossima mossa
+> dalla mainline; in Allena finali = mossa TB-ottima).
+
+> **Interrompere la lettura TTS dei commenti.** Quando il programma legge a voce
+> un commento di una mossa, **qualsiasi tasto premuto o clic del mouse interrompe
+> la lettura** e l'azione viene processata subito. Niente più "tempo morto"
+> in attesa che il TTS finisca.
 
 > **Fine partita.** A scacco matto / stallo il messaggio resta a schermo e la maschera **non
 > si chiude automaticamente**: puoi ancora **salvare (S)**, **annullare l'ultima mossa (←)**,
@@ -398,11 +455,24 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 | **Download Chess.com games** | Scarica le partite di un giocatore da Chess.com in un file PGN (indica file PGN, *player*, colore). **Incrementale**: se il file esiste, aggiunge solo le partite **nuove** (dedup per URL `[Link]` o composito di intestazioni); salta gli archivi mensili antecedenti l'ultima partita Chess.com già presente. Partite di altre fonti già nel file (es. lichess merged a mano) **restano intoccate**. |
 | **Download lichess games** | Stessa logica per le partite lichess (API `/api/games/user/{user}`, parametro `since` per l'incrementale). Lo **stesso file PGN può contenere partite di entrambe le fonti** (Chess.com + lichess): dedup per signature URL, append-only. |
 | **Create learning base** | Crea una nuova learning base vuota: `movesToAnalyze`, `blunderValue` (soglia errore in centipawn), `ponderTime`, `useBook`, `filename`. |
-| **Update learning base** | Analizza le partite di un *player* in un PGN e **registra gli errori** nella base scelta (correzione errori). |
+| **Update learning base** | Analizza le partite di un *player* in un PGN e **registra gli errori** nella base scelta (correzione errori). **Barra di avanzamento** N/M aggiornata ad ogni partita. |
 | **Unroll PGN file** | Trasforma un PGN in un insieme di **posizioni** dentro una learning base. |
 | **Unroll PGN file as lesson** | Come sopra, ma come **lezione** (per il ripasso/BrainMaster). |
 | **Create Course for BrainMaster** | Registra una learning base come **corso** BrainMaster *(se `base_url` configurato)*. |
-| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Max errors in session** (capacità della sessione di *Solve positions*, default 10) e **Corrects to learn** (corrette consecutive per uscire dalla sessione dopo un errore, default 3). |
+| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Max errors in session** (capacità della sessione di *Solve positions*, default 10), **Corrects to learn** (corrette consecutive per uscire dalla sessione dopo un errore, default 3), **TTS speed (wpm)** (velocità della lettura vocale dei commenti, 90–280 wpm, default 170). |
+
+**Configurazione TTS via `config.json` (avanzata)**: oltre allo slider in Setup,
+puoi forzare manualmente la voce con `"tts_voice": "<sostringa>"` (es. `"zira"`,
+`"david"`, `"english"` — match case-insensitive su `voice.name` o `voice.id` SAPI5).
+Lasciandolo vuoto si fa auto-detect (cerca voci con `english` / `en-` / `zira` /
+`david` / `mark` / `hazel` nel nome). All'avvio il programma stampa sulla console
+l'elenco delle voci disponibili — utile per copiare la sostringa giusta.
+
+> **Persistenza ultime selezioni nei menu.** Tutto quello che scegli nei menu
+> (base in *Solve positions*, file PGN, *player*, *ELO*, *Lead-in*, *Practice order*,
+> *Num Moves to Show*, ecc.) viene salvato in `config.user_prefs` e ricaricato al
+> riavvio. Apri di nuovo *Solve positions* e trovi già l'ultima base che hai usato,
+> non più "openings" hardcoded.
 
 ---
 
@@ -427,6 +497,7 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 |----------|-----------|
 | `data/` | Learning base (`base_<nome>.json` + `<nome>.csv`) |
 | `pgn/` | Partite salvate e file PGN importati |
+| `endgames/` | PGN di studi di finali per *Allena finali* (uno studio per partita, header `[FEN]`) |
 | `engines/` | Motori UCI (es. Stockfish) |
 | `books/` | Libri di aperture Polyglot (`.bin`) |
 
@@ -552,10 +623,65 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `lichess_download.py` | Download incrementale partite lichess (API `since`, dedup per URL `[Site]`) |
 | `notation.py` | Pannello Notazione (vista albero affiancata alla scacchiera) |
 | `move_speech.py` | Espande le mosse SAN nei commenti TTS (`Qe4` → "Queen to e4") |
-| `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da play_game, replay, openings, brainmaster |
-| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `improve` (wizard), `study_advisor` |
-| `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni |
+| `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da tutti i mode |
+| `syzygy_helper.py` | Apre le TB Syzygy da `config.engine_options.SyzygyPath`, espone `probe_wdl/dtz/best_tb_move` |
+| `verify_syzygy.py`, `verify_stockfish_tb.py` | Script diagnostici: integrità delle TB + verifica che Stockfish le veda davvero (`tbhits`) |
+| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
+| `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni. Contiene anche la classe `Voce` (TTS worker persistente, voce/rate SAPI5 settati direttamente sul COM object) |
 | `BoardScreen.py` | Disegno della scacchiera e dei pannelli |
-| `UCIEngines.py`, `book.py` | Motore UCI e libro di aperture |
+| `UCIEngines.py`, `book.py` | Motore UCI (single-thread polling: `start_analysis` + `poll()` per frame, niente worker dedicato per l'analisi) e libro di aperture |
 
 I test sono in `tests/` (eseguire con `python -m pytest`).
+
+---
+
+## Autore
+
+**Gaetano Lazzo** — AI Researcher e software developer presso
+**Tempo S.r.l.** (Bari, Italia).
+
+Da gennaio 2024 sta progettando un sistema di **reinforcement learning per
+l'ottimizzazione dell'apprendimento umano**: rete globale + locale,
+bootstrap e imitation learning, modello parametrico degli stadi della
+memorizzazione affinato per singolo studente via discesa del gradiente.
+Il progetto Hires Chess Trainer è un terreno di sperimentazione naturale
+per quel filone — la ripetizione spaziata sulle posizioni-errore e la
+classificazione delle aperture per deficit di performance qui sono
+applicate in forma euristica; nella ricerca AI diventano apprese dal modello.
+
+Esperienza pluriennale in progettazione e refactoring di software gestionali
+e data-intensive, con focus su:
+
+- **AI / ML**: reinforcement learning, bootstrap, imitation learning,
+  modelli parametrici di memorizzazione, gradient descent.
+- **Linguaggi**: Python, JavaScript / Node.js, C#, SQL.
+- **Database**: Microsoft SQL Server, MySQL — interoperabilità,
+  generazione di query, performance.
+- **Aree software**: design pattern e architettura object-oriented,
+  refactoring di codebase legacy, sicurezza e crittografia.
+
+Progetti open-source pubblici tra cui
+[`edge-sql`](https://github.com/gaelazzo/edge-sql),
+[`jsDataSet`](https://github.com/gaelazzo/jsDataSet) e
+[`jsDataAccess`](https://github.com/gaelazzo/jsDataAccess) (accesso DB
+di alto livello da Node.js).
+
+Note di approfondimento tecnico sul blog
+[*Appunti di informatica*](https://advancedprogrammingnotes.blogspot.com/) —
+refactoring, design patterns, crittografia, teoria dei numeri.
+
+- GitHub: [@gaelazzo](https://github.com/gaelazzo)
+- Email: ai@temposrl.com
+
+---
+
+## Topics suggeriti per GitHub
+
+Da copiare nella sezione *About → Topics* del repository (aiutano la
+ricerca interna di GitHub a indicizzare il progetto):
+
+```
+chess  chess-trainer  python  pygame  stockfish  syzygy-tablebases
+pgn  spaced-repetition  learning  tts  chess-engine  opening-repertoire
+endgame  chess-com  lichess  reinforcement-learning
+```

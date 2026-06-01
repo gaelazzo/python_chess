@@ -1,5 +1,10 @@
 # Hires Chess Trainer — User Manual
 
+> Chess trainer in Python with Stockfish and Syzygy tablebases · learning base
+> with spaced repetition · drills for tactics, opening repertoire and endgames ·
+> Chess.com and lichess game import · testbed for **reinforcement-learning
+> models of personalised learning** · Windows-first.
+
 🇮🇹 *Versione italiana:* [readme.md](readme.md)
 
 **Hires Chess Trainer** is a desktop application for practising and improving at chess.
@@ -137,6 +142,7 @@ the wizard automates the steps that Recipes A/B do by hand.*
 | **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
 | **BrainMaster lessons** | Lessons driven by the BrainMaster service *(shown only if `base_url` is configured)*. |
 | **Study openings** | Practise on "model" games: you must find the best move yourself. |
+| **Allena finali** ("Train endgames") | Solve endgame studies from a PGN (folder `endgames/`); judged by Syzygy TB (≤7 pieces) with Stockfish fallback. Mistakes logged into a dedicated learning base (see §3.8). |
 | **Tools** | Create/update learning bases, import PGN/Chess.com games, Setup. |
 | **Quit** | Exit the program (also with **`Q`** or by closing the window). |
 
@@ -229,13 +235,17 @@ service (spaced repetition). Choose the **course** and press **Exercise**.
 You load a PGN file of "model" lines. The computer plays one of the stored lines and
 **you must find the best move** at each turn.
 - **Choose PGN file**: the file with the model lines;
-- (The colour you play is **auto-detected from the PGN content**: in a Black
-  repertoire, Black's moves have a single continuation and White's moves have
-  variations — the first variation found determines the side. If the file has
-  no variations, defaults to White.)
+- (The colour you play is **auto-detected from the PGN content**: the program
+  counts ALL variations in the file and picks by **majority** — `(N... ...)`
+  variations = Black alternatives (you play White), `(N. ...)` variations =
+  White alternatives (you play Black). Exact tie or no variations → default
+  White. A single anomalous variation no longer flips the verdict like the old
+  first-match heuristic did.)
 - **Lead-in moves** and **Num Moves to Show**: same semantics as *Solve positions*
   (§3.4) — *Skip* skips the lead-in and starts at the position, *Replay* replays it;
   *Num Moves to Show* is the number of continuation moves shown after a correct answer.
+- **Hint** (key **H** or toolbar button): shows the next expected move from the
+  mainline in SAN (e.g. *"Hint: Nf3"*) for 2 seconds. Available only on your turn.
 
 > **Uniform depth-of-start** (with *Lead-in = Skip*): each round the program
 > pre-scans the mainline counting the user's turns `N`, picks a uniform index
@@ -276,6 +286,46 @@ builds/updates a focused base `<user>_<ECO>` (preset openings/Balanced,
 The focused bases persist, so later sessions resume directly from *Solve
 positions*.
 
+### 3.8 Allena finali (Train endgames)
+> **Solve endgames under tablebase judgment.** You load a PGN of endgame
+> studies (folder `endgames/`); the program picks a random game from it and
+> uses the game's starting position as the endgame to solve. The PGN's
+> mainline is ignored: the judge is the **Syzygy TB** (for positions ≤7 pieces)
+> with **Stockfish** as fallback.
+
+**TB setup.** Set the Syzygy tablebase path once in `config.json` under
+`engine_options.SyzygyPath` (semicolon-separated paths on Windows,
+e.g. `"D:/.../345;D:/.../6"`). Verify integrity with `python verify_syzygy.py`
+and that Stockfish actually sees the tables with
+`python verify_stockfish_tb.py`.
+
+Parameters:
+- **Choose endgame PGN** — a `.pgn` file from the `endgames/` folder (each
+  game with a `[FEN "..."]` header is one endgame study).
+
+Gameplay loop:
+- You start as the side to move at the starting position. Draw without
+  replacement within the session; when you've seen all positions, the cycle
+  restarts.
+- **Strict judging** of your moves, in order:
+  1. Stalemate / insufficient material forced by you while you were winning → mistake.
+  2. Checkmate delivered by you → OK (best outcome).
+  3. With `clean WDL = +2`, every non-zeroing move must **decrease the DTZ**
+     (`dtz_a < dtz_b`); "neutral" moves burn the 50-move clock and sooner or
+     later squander the win → mistake.
+  4. Clean WDL drop (sacrifice, wrong promotion, etc.) → mistake.
+  5. Out of TB range: Stockfish eval comparison; drop > 100 cp → mistake.
+- **Mistake** → the move is NOT applied, "Mossa errata: \<reason\>" flashes for
+  2.5s, you retry from the same position.
+- The opponent plays **TB-optimal** when in range (maximizes DTZ when losing,
+  minimizes when winning), otherwise Stockfish.
+- Key **H** (or *Hint* button) → shows the TB-optimal move in SAN.
+
+**Mistake persistence.** Every mistake is logged to a dedicated learning
+base `endgames_<filename>` in `data/`. You can review it from *Solve positions*
+(the base appears in the dropdown). Correct moves on already-tracked positions
+still update stats (for spaced repetition).
+
 ---
 
 ## 4. In-game controls
@@ -309,9 +359,16 @@ During a game (Play against computer / between humans) the following controls ap
 | **T** | Add a text comment to the last move |
 | **V** | Open the **Notation** panel (whole game + variations) |
 
-> In the study modes (Solve positions / BrainMaster / Study openings) the controls
-> are similar but solution-oriented: **Q** quit, **C/G** copy, **E/B/D** panels,
-> **+** show a few more moves (hint), **H** reveal the solution.
+> In the study modes (Solve positions / BrainMaster / Study openings / Allena
+> finali) the controls are similar but solution-oriented: **Q** quit, **C/G**
+> copy, **E/B/D** panels, **+** show a few more moves (hint), **H** reveal the
+> solution / the correct move (in Study openings = next move from the mainline;
+> in Allena finali = TB-optimal move).
+
+> **Interrupting the TTS comment read-aloud.** When the program is reading a
+> move's comment aloud, **any key press or mouse click stops the speech** and
+> the action is processed immediately. No more "dead time" waiting for the TTS
+> to finish.
 
 > **End of game.** On checkmate / stalemate the result message stays on screen and the
 > view **does not auto-close**: you can still **save (S)**, **take back the last move (←)**,
@@ -393,11 +450,25 @@ is not clickable for piece moves: you navigate from the panel.
 | **Download Chess.com games** | Download a player's games from Chess.com into a PGN file (give the PGN file, the *player*, the colour). **Incremental**: if the file already exists, only **new** games are appended (dedup by URL `[Link]` or a composite header signature); monthly archives older than the latest Chess.com game already in the file are skipped. Games from other sources already in the file (e.g. lichess merged by hand) **are left untouched**. |
 | **Download lichess games** | Same logic for lichess games (API `/api/games/user/{user}`, `since` parameter for the incremental). The **same PGN file can hold games from both sources** (Chess.com + lichess): dedup by URL signature, append-only. |
 | **Create learning base** | Create a new, empty learning base: `movesToAnalyze`, `blunderValue` (mistake threshold in centipawns), `ponderTime`, `useBook`, `filename`. |
-| **Update learning base** | Analyse a *player*'s games in a PGN and **record the mistakes** into the chosen base (mistake correction). |
+| **Update learning base** | Analyse a *player*'s games in a PGN and **record the mistakes** into the chosen base (mistake correction). **Progress bar** N/M updated per game. |
 | **Unroll PGN file** | Turn a PGN into a set of **positions** inside a learning base. |
 | **Unroll PGN file as lesson** | Same, but as a **lesson** (for review / BrainMaster). |
 | **Create Course for BrainMaster** | Register a learning base as a BrainMaster **course** *(if `base_url` is configured)*. |
-| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Max errors in session** (capacity of the *Solve positions* session, default 10) and **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3). |
+| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
+
+**TTS configuration via `config.json` (advanced)**: in addition to the slider in
+Setup, you can force a specific voice with `"tts_voice": "<substring>"` (e.g.
+`"zira"`, `"david"`, `"english"` — case-insensitive match against SAPI5
+`voice.name` or `voice.id`). Leave empty for auto-detect (looks for `english` /
+`en-` / `zira` / `david` / `mark` / `hazel` in the name). On startup the program
+prints the available voices to the console — handy for copying the right
+substring.
+
+> **Last menu selections persist.** Everything you pick in the menus (the base
+> in *Solve positions*, the PGN file, the *player*, *ELO*, *Lead-in*, *Practice
+> order*, *Num Moves to Show*, etc.) is saved in `config.user_prefs` and
+> reloaded on restart. Open *Solve positions* again and you'll find the last
+> base you used, instead of the hardcoded "openings".
 
 ---
 
@@ -422,6 +493,7 @@ is not clickable for piece moves: you navigate from the panel.
 |--------|----------|
 | `data/` | Learning bases (`base_<name>.json` + `<name>.csv`) |
 | `pgn/` | Saved games and imported PGN files |
+| `endgames/` | PGN endgame studies for *Allena finali* (one study per game, with `[FEN]` header) |
 | `engines/` | UCI engines (e.g. Stockfish) |
 | `books/` | Polyglot opening books (`.bin`) |
 
@@ -546,10 +618,64 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `lichess_download.py` | Incremental lichess game download (API `since`, dedup by URL `[Site]`) |
 | `notation.py` | Notation panel (tree view next to the board) |
 | `move_speech.py` | Expands SAN moves in TTS-read comments (`Qe4` → "Queen to e4") |
-| `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by play_game, replay, openings, brainmaster |
-| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `improve` (wizard), `study_advisor` |
-| `GameState.py` | Game state, PGN tree, moves, annotations |
+| `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by all modes |
+| `syzygy_helper.py` | Opens the Syzygy TB from `config.engine_options.SyzygyPath`; exposes `probe_wdl/dtz/best_tb_move` |
+| `verify_syzygy.py`, `verify_stockfish_tb.py` | Diagnostic scripts: TB file integrity + check that Stockfish actually sees them (`tbhits`) |
+| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
+| `GameState.py` | Game state, PGN tree, moves, annotations. Also hosts the `Voce` class (persistent TTS worker thread; voice/rate set directly on the SAPI5 COM object) |
 | `BoardScreen.py` | Board and panel rendering |
-| `UCIEngines.py`, `book.py` | UCI engine and opening book |
+| `UCIEngines.py`, `book.py` | UCI engine (single-thread polling: `start_analysis` + `poll()` per frame, no dedicated analysis worker) and opening book |
 
 Tests are in `tests/` (run with `python -m pytest`).
+
+---
+
+## Author
+
+**Gaetano Lazzo** — AI Researcher and software developer at
+**Tempo S.r.l.** (Bari, Italy).
+
+Since January 2024 he has been designing a **reinforcement-learning system
+for the optimisation of human learning**: global + local networks, bootstrap
+and imitation learning, a parametric model of memorisation stages
+tuned per student via gradient descent. The Hires Chess Trainer project
+is a natural testbed for that line of research — spaced repetition on
+mistake-positions and opening classification by performance deficit are
+applied here as heuristics; in the AI research they become learned by the model.
+
+Many years of experience in design and refactoring of management and
+data-intensive software, with focus on:
+
+- **AI / ML**: reinforcement learning, bootstrap, imitation learning,
+  parametric models of memorisation, gradient descent.
+- **Languages**: Python, JavaScript / Node.js, C#, SQL.
+- **Databases**: Microsoft SQL Server, MySQL — interoperability, query
+  generation, performance.
+- **Software areas**: design patterns and object-oriented architecture,
+  refactoring of legacy codebases, security and cryptography.
+
+Public open-source projects include
+[`edge-sql`](https://github.com/gaelazzo/edge-sql),
+[`jsDataSet`](https://github.com/gaelazzo/jsDataSet) and
+[`jsDataAccess`](https://github.com/gaelazzo/jsDataAccess) (high-level DB
+access from Node.js).
+
+Technical deep-dives on the blog
+[*Appunti di informatica*](https://advancedprogrammingnotes.blogspot.com/) —
+refactoring, design patterns, cryptography, number theory.
+
+- GitHub: [@gaelazzo](https://github.com/gaelazzo)
+- Email: ai@temposrl.com
+
+---
+
+## Suggested GitHub topics
+
+To paste into the *About → Topics* section of the repository (helps GitHub
+search index the project):
+
+```
+chess  chess-trainer  python  pygame  stockfish  syzygy-tablebases
+pgn  spaced-repetition  learning  tts  chess-engine  opening-repertoire
+endgame  chess-com  lichess  reinforcement-learning
+```
