@@ -212,19 +212,54 @@ def _effective_wdl(wdl: Optional[int], dtz: Optional[int], halfmove_clock: int) 
     return 0
 
 
+def _best_child_dtz_among(board: chess.Board, min_our_wdl: int) -> Optional[int]:
+    """Minimo DTZ (dal nostro POV) ottenibile fra le mosse legali che
+    preservano un WDL >= `min_our_wdl`. None se nessuna mossa qualificata
+    o se la TB non e' disponibile.
+
+    Serve per giudicare se la mossa dell'utente e' "ottima quanto la migliore"
+    in termini di DTZ: dtz_a == best -> OK; dtz_a > best -> suboptimal.
+    Nei casi di endgame "near zeroing" (es. KQ vs KP, mate forzato via
+    promozione), il DTZ del figlio puo' essere == DTZ del padre per l'ottimo;
+    confrontare con `best` aggira il falso negativo della rule `dtz_a < dtz_b`.
+    """
+    tb = sh.open_tablebase()
+    if tb is None or not sh.is_in_tb_range(board):
+        return None
+    best = None
+    for mv in board.legal_moves:
+        nb = board.copy(stack=False)
+        nb.push(mv)
+        if not sh.is_in_tb_range(nb):
+            continue
+        try:
+            cw = tb.probe_wdl(nb)
+            cd = tb.probe_dtz(nb)
+        except (chess.syzygy.MissingTableError, KeyError, IndexError):
+            continue
+        our_wdl = -cw
+        if our_wdl >= min_our_wdl:
+            our_dtz = -cd
+            if best is None or our_dtz < best:
+                best = our_dtz
+    return best
+
+
 def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool, str]:
     """Giudica la mossa dell'utente. Ritorna (is_ok, debug_info).
 
     Regole (in ordine):
     1. **Patta forzata** (stallo / materiale insufficiente) data dall'utente:
-       se prima eri in WDL>0, e' un errore (a prescindere dall'eff corrente:
-       lo stallo *azzera* la possibilita' di vincere anche se il clock e' OK).
-    2. **Scacco matto** dato dall'utente: sempre OK (e' il risultato massimo).
-    3. **Rule di progresso TB**: con clean WDL=+2, ogni mossa non-zeroing deve
-       far calare il DTZ (`dtz_a < dtz_b`). Mosse "neutre" che non progrediscono
-       bruciano il clock e *prima o poi* vanificano la vincita -- flag immediato.
-    4. **Rule WDL clean**: se il WDL clean peggiora (es. da +2 a +1 cursed o 0),
-       flag.
+       se prima eri in WDL>0, e' un errore.
+    2. **Scacco matto** dato dall'utente: sempre OK.
+    3. **WDL clean peggiorato**: flag.
+    4. **Optimality DTZ** (solo con clean WDL=+2): se non e' una mossa zeroing,
+       il DTZ post-mossa (dal nostro POV) deve essere uguale al **minimo
+       ottenibile** fra le mosse legali +2-preserving. Cosi' una mossa con
+       `dtz_a == dtz_b` viene accettata se e' davvero l'ottima TB (caso
+       KQ vs KP nell'ultimo ply prima della promozione forzata), mentre
+       una mossa "lenta" che porta a DTZ piu' alto del best disponibile
+       viene flaggata.
     5. Fuori TB: fallback Stockfish, confronto eval con soglia BLUNDER_CP.
     """
     turn = board_before.turn
@@ -254,15 +289,21 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
         wdl_a = -cwdl
         dtz_a = -cdtz
 
-        # Caso 4: WDL clean peggiorato.
+        # Caso 3: WDL clean peggiorato.
         if wdl_a < wdl_b:
             return False, f"WDL drop {wdl_b:+d}->{wdl_a:+d} (DTZ {dtz_b}->{dtz_a})"
 
-        # Caso 3: con clean WDL=+2, serve progresso DTZ (o mossa zeroing).
+        # Caso 4: con clean WDL=+2, la mossa deve essere DTZ-ottima fra le
+        # +2-preserving (non basta che il DTZ "non aumenti", e nemmeno che
+        # cali strettamente: in posizioni near-zeroing l'ottima puo' avere
+        # dtz_a == dtz_b).
         if wdl_b == 2:
             is_zeroing = nb.halfmove_clock == 0
-            if not is_zeroing and dtz_b is not None and dtz_a is not None and dtz_a >= dtz_b:
-                return False, f"nessun progresso: DTZ {dtz_b}->{dtz_a} (clock {board_before.halfmove_clock}->{nb.halfmove_clock})"
+            if not is_zeroing:
+                best = _best_child_dtz_among(board_before, min_our_wdl=2)
+                if best is not None and dtz_a > best:
+                    return False, (f"non ottima: DTZ {dtz_b}->{dtz_a} "
+                                   f"(ottima raggiungibile = {best})")
 
         return True, f"WDL {wdl_b:+d}->{wdl_a:+d}, DTZ {dtz_b}->{dtz_a}, clock {board_before.halfmove_clock}->{nb.halfmove_clock}"
 

@@ -215,6 +215,9 @@ def playAGame():
         ToolbarAction("Annot", "Annotate last move (N) -- analysis only", _post_key(p.K_n), enabled=_is_analysis),
         ToolbarAction("Cmnt",  "Comment last move (T) -- analysis only",  _post_key(p.K_t), enabled=_is_analysis),
         ToolbarAction("Notat", "Notation panel (V) -- analysis only",     _post_key(p.K_v), enabled=_is_analysis),
+        ToolbarAction("Setup", "Edit position (U) -- analysis only",      _post_key(p.K_u), enabled=_is_analysis),
+        ToolbarAction("AddTac", "Save current pos + last move as tactic (K) -- analysis only",
+                      _post_key(p.K_k), enabled=_is_analysis),
         ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
     ])
 
@@ -350,7 +353,32 @@ def playAGame():
                     if e.key == p.K_q:
                         #quit
                         running = False
-                        
+
+
+                    if e.key == p.K_u and not whiteCPU and not blackCPU:
+                        # Setup posizione (modal sub-mode). Solo in analisi.
+                        import position_setup
+                        applied = position_setup.run(gs)
+                        # Ripulisci lo schermo: il setup disegna la palette nella
+                        # striscia CPU, all'uscita resta a video finche' qualcuno
+                        # non ridipinge sopra. drawGameState ridisegna solo
+                        # board+movelog+book+pgn, non la striscia CPU.
+                        app.main_background()
+                        if applied:
+                            # Posizione cambiata: refresh validMoves e force redraw.
+                            validMoves = gs.stdValidMoves()
+                            moveMade = True
+                            animate = False
+                            # La toolbar e' stata "scoperta" dal modal -- ridisegna.
+                            BS.setWhiteUp(app.screen, gs.node.board().turn == chess.BLACK)
+
+                    if e.key == p.K_k and not whiteCPU and not blackCPU:
+                        # Salva posizione corrente + ultima mossa come tattica
+                        # in una learning base scelta dall'utente.
+                        import add_to_base
+                        add_to_base.addPositionToBaseMenu(gs)
+                        app.main_background()
+                        continue
 
                     if e.key == p.K_a:
                         analyze = not analyze
@@ -366,7 +394,8 @@ def playAGame():
                    
                     if e.key== p.K_s: # save the game
                         save_menu(gs)
-                    
+                        app.main_background()  # vedi note sul K_l
+
                     if e.key == p.K_e:  # Engine on /off
                         glc.toggle_engine(gs)
 
@@ -376,6 +405,10 @@ def playAGame():
                         # la freccia destra (chooseNextMove), esplorando le varianti.
                         # Contro il computer il caricamento e' disabilitato.
                         load_menu(gs)
+                        # Pulisci lo schermo: pygame_menu disegna a tutto schermo, e
+                        # alla chiusura le scritte (titolo "Load Game") restano sotto
+                        # i pannelli se non rinfreschiamo lo sfondo prima del redraw.
+                        app.main_background()
                         moveMade = False # a move was made
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves

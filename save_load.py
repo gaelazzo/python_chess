@@ -15,7 +15,7 @@ from state import playParameters, positionParameters, small_font_theme
 import BoardScreen as BS
 import pgngamelist
 from GameState import GameState
-from menu_helpers import addChoosePGNFile, make_updater
+from menu_helpers import addChoosePGNFile, make_updater, make_selector_updater
 
 
 def header_from_playparameters(params):
@@ -40,7 +40,10 @@ def save_game(gs:GameState):
         BS.update()
         app.delay(2 )
         return
-    gamelist = pgngamelist.PgnGameList(positionParameters["filename"])
+    # Rispetta la cartella scelta dall'utente nel file selector (es. endgames/);
+    # se nessuna e' stata registrata si ricade su pgn/.
+    folder = positionParameters.get("filename_folder") or None
+    gamelist = pgngamelist.PgnGameList(positionParameters["filename"], folder=folder)
     positionParameters["gameid"] = gamelist.save_game(gs, positionParameters["gameid"])
     
     app.main_background()
@@ -217,7 +220,23 @@ def save_menu(GS:GameState):
     _save_menu.add.text_input('Black:', default=playParameters["black"] or "", onchange=make_updater("black",str,playParameters))
     _save_menu.add.text_input('Event:', default=playParameters["event"] or "", onchange=make_updater("event",str,playParameters))
     _save_menu.add.text_input('Site:', default=playParameters["site"] or "", onchange=make_updater("site",str,playParameters))
-    _save_menu.add.text_input('Result:', default=playParameters["result"] or "", onchange=make_updater("result",str,playParameters))
+    # Result e' uno dei 4 valori standard PGN, scegli da selettore (era un
+    # text-input libero ma "Result: lol" non si conforma al formato e
+    # confonde i parser PGN downstream).
+    _result_options = [
+        ("*  (in corso / sconosciuto)",  "*"),
+        ("1-0  (vince il Bianco)",       "1-0"),
+        ("0-1  (vince il Nero)",         "0-1"),
+        ("1/2-1/2  (patta)",             "1/2-1/2"),
+    ]
+    _result_current = playParameters.get("result") or "*"
+    _result_idx = next(
+        (i for i, (_, v) in enumerate(_result_options) if v == _result_current),
+        0,
+    )
+    _save_menu.add.selector('Result: ', _result_options,
+                            default=_result_idx,
+                            onchange=make_selector_updater("result", playParameters))
     _save_menu.add.button('Save', save_game_wrapper)
     _save_menu.add.button('Cancel', cancel_save)
 

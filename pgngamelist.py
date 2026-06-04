@@ -29,8 +29,12 @@ class PgnGameList:
     def isEmpty(self):
         return len(self.games) == 0
 
-    def __init__(self, filename):
-        self.fName:str = os.path.join(BASE_PATH, "pgn", filename)+".pgn"
+    def __init__(self, filename, folder: Optional[str] = None):
+        """`folder` di default e' `pgn/` (PGN_FOLDER). Passare un'altra cartella
+        (es. la endgames/) per leggere/scrivere fuori da pgn/."""
+        if folder is None:
+            folder = PGN_FOLDER
+        self.fName:str = os.path.join(folder, filename) + ".pgn"
         self.games:Optional[List[Game]] = []
         if os.path.exists(self.fName):
             pgn = open(self.fName, encoding='utf-8')

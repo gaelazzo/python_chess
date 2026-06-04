@@ -2,6 +2,49 @@
 Main driver file
 
 """
+# --- Splash screen ----------------------------------------------------------
+# Apriamo la finestra pygame PRIMA degli import pesanti (GameState ->
+# pyttsx3 init, LearningBase -> lettura csv, in seguito book.open_book e
+# UCIEngines.engine_open in runMain): cosi' l'utente vede subito il logo
+# durante i ~3-4 secondi di startup, invece di una console immobile.
+# La finestra viene poi ridimensionata da p.display.set_mode in runMain.
+import os as _os, sys as _sys
+import pygame as _splash_p
+
+
+def _show_splash():
+    try:
+        _splash_p.init()
+        if getattr(_sys, "frozen", False):
+            base = _os.path.dirname(_sys.executable)
+        else:
+            base = _os.path.dirname(_os.path.abspath(__file__))
+        logo_path = _os.path.join(base, "pic-chess.png")
+        if not _os.path.exists(logo_path):
+            return
+        logo = _splash_p.image.load(logo_path)
+        lw, lh = logo.get_size()
+        win_w = max(lw + 80, 600)
+        win_h = max(lh + 120, 400)
+        screen = _splash_p.display.set_mode((win_w, win_h))
+        _splash_p.display.set_caption("Chess trainer -- caricamento...")
+        screen.fill(_splash_p.Color(38, 38, 56))
+        screen.blit(logo, ((win_w - lw) // 2, (win_h - lh) // 2 - 20))
+        try:
+            font = _splash_p.font.SysFont("Arial", 22, bold=True)
+            txt = font.render("Caricamento in corso...", True, _splash_p.Color("white"))
+            screen.blit(txt, ((win_w - txt.get_width()) // 2, win_h - 50))
+        except Exception:
+            pass
+        _splash_p.display.flip()
+        _splash_p.event.pump()
+    except Exception as e:
+        print(f"splash skipped: {e}")
+
+
+_show_splash()
+# --- Fine splash; ora gli import pesanti possono procedere a finestra aperta.
+
 from ast import Dict
 from collections.abc import Callable
 from email import headerregistry

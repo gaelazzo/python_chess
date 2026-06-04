@@ -48,15 +48,21 @@ class Toolbar:
         self._buttons: List[UIButton] = []
         x = _BTN_MARGIN_X
         btn_h = max(16, height - 2 * _BTN_MARGIN_Y)
+        # Larghezza bottone adattiva: se i bottoni non ci stanno tutti dentro lo
+        # schermo con _BTN_WIDTH=56, restringiamo per evitare che l'ultimo (Quit)
+        # finisca tagliato. Per toolbar piu' piccole il default 56 resta.
+        n = max(1, len(self._actions))
+        available = BS.SCREEN_WIDTH - 2 * _BTN_MARGIN_X - (n - 1) * _BTN_GAP
+        btn_width = min(_BTN_WIDTH, max(36, available // n))
         for a in self._actions:
             btn = UIButton(
-                relative_rect=p.Rect(x, y + _BTN_MARGIN_Y, _BTN_WIDTH, btn_h),
+                relative_rect=p.Rect(x, y + _BTN_MARGIN_Y, btn_width, btn_h),
                 text=a.label,
                 manager=app.manager,
                 tool_tip_text=a.tooltip,
             )
             self._buttons.append(btn)
-            x += _BTN_WIDTH + _BTN_GAP
+            x += btn_width + _BTN_GAP
 
     def process_event(self, event) -> bool:
         """Ritorna True se l'evento e' un click su uno dei nostri bottoni."""

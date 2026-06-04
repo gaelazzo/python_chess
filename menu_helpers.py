@@ -161,6 +161,13 @@ def make_file_selector(
                             file_name = fileNameTranformer(file_name) if fileNameTranformer else file_name
                             if key:
                                 positionParameters[key] = file_name
+                                # Ricorda anche la cartella d'origine: l'utente
+                                # potrebbe aver navigato fuori dal `initial_folder`
+                                # (es. da pgn/ verso endgames/) e save_game deve
+                                # rispettare quella scelta invece di scrivere
+                                # sempre in pgn/.
+                                if key == "filename":
+                                    positionParameters["filename_folder"] = os.path.dirname(selected)
                                 state.save_user_prefs()
 
                             for label in labels:
