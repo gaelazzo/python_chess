@@ -1,7 +1,7 @@
 {
     "base_url": "http://localhost:5000/api/",
     "id_student": "gaetano.lazzo",
-    "engine": "stockfish-17-avx2.exe",
+    "engine": "stockfish-windows-x86-64-avx2.exe",
     "book": "PowerBook2022.bin",
     "engine_options": {
         "Hash": 1024,
@@ -13,7 +13,7 @@
     "user_prefs": {
         "eco": null,
         "color": null,
-        "filename": "esempi",
+        "filename": "B01Scandinavian",
         "base": "endgames_esempi",
         "player": "gaelazzo",
         "movesToAnalyze": 16,
@@ -34,5 +34,6 @@
     },
     "tts_voice": "",
     "tts_rate": 150,
+    "reference_db": "D:\\progetti\\python\\chess\\pgn\\all.pgn",
     "engine_usebook": false
 }

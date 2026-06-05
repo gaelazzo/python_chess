@@ -33,91 +33,303 @@ def playGame():
     app.main_menu.full_reset()
     playAGame()
 
-def chooseNextMove(gs:GameState)->chess.Move:
+def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
+                  font_path: Optional[str] = None):
+    """Pannello selettore laterale alla scacchiera. Riutilizzato da
+    `chooseNextMove` (varianti) e `chooseAnnotation` (NAG).
+
+    `items` e' una lista di tuple `(label, value)`. Ritorna il `value`
+    selezionato, oppure `None` se l'utente annulla (Cancel button / Esc).
+
+    Navigazione: click / hover, **freccia su/giu'** per spostarsi, **Enter**
+    per confermare, **Esc** per annullare. La scacchiera (a sinistra del
+    pannello) NON viene ridipinta -- resta quella disegnata dal main loop
+    prima della chiamata, cosi' l'utente la vede in chiaro.
+
+    `font_path` permette di specificare un font con copertura Unicode (es.
+    per i glifi NAG: 'Segoe UI Symbol').
     """
-    Mostra un menu con le prossime mosse disponibili
+    if not items:
+        return None
+
+    PANEL_X = BS.BOARD_WIDTH
+    PANEL_Y = BS.BOARD_Y
+    PANEL_W = BS.SCREEN_WIDTH - BS.BOARD_WIDTH  # copre move log + book/pgn
+    title_h = row_h
+    cancel_h = row_h
+    n = len(items)
+    PANEL_H = title_h + n * row_h + cancel_h
+    # Se sfora l'altezza dello schermo cap-piamo: in pratica chooseAnnotation
+    # con row_h=24 sta dentro 512, ma per sicurezza.
+    PANEL_H = min(PANEL_H, BS.BOARD_HEIGHT)
+
+    title_rect = p.Rect(PANEL_X, PANEL_Y, PANEL_W, title_h)
+    item_rects = [p.Rect(PANEL_X, PANEL_Y + title_h + i * row_h, PANEL_W, row_h)
+                  for i in range(n)]
+    cancel_rect = p.Rect(PANEL_X, PANEL_Y + title_h + n * row_h, PANEL_W, cancel_h)
+    full_panel = p.Rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H)
+
+    font_title = p.font.SysFont('Arial', max(12, font_size - 4), bold=True)
+    if font_path:
+        font_item = p.font.Font(font_path, font_size)
+    else:
+        font_item = p.font.SysFont('Arial', font_size, bold=False)
+    font_cancel = p.font.SysFont('Arial', font_size, bold=True)
+
+    selected_index = 0
+    SENTINEL = object()
+    result = SENTINEL
+    last_mouse_pos = (-1, -1)
+
+    while result is SENTINEL:
+        app.clock.tick(60)
+
+        mouse_pos = p.mouse.get_pos()
+        hovered_idx = None
+        for i, r in enumerate(item_rects):
+            if r.collidepoint(mouse_pos):
+                hovered_idx = i
+                break
+        # Solo se il mouse si muove davvero, l'hover prende il sopravvento sul
+        # selected_index della tastiera (cosi' ↓↓↓ Enter funziona senza che il
+        # cursore "rubi" la selezione).
+        if hovered_idx is not None and mouse_pos != last_mouse_pos:
+            selected_index = hovered_idx
+        last_mouse_pos = mouse_pos
+        cancel_hover = cancel_rect.collidepoint(mouse_pos)
+
+        # Sfondo + titolo
+        p.draw.rect(app.screen, p.Color('black'), full_panel)
+        p.draw.rect(app.screen, p.Color('steelblue'), title_rect)
+        txt = font_title.render(title, True, p.Color('white'))
+        app.screen.blit(txt, txt.get_rect(center=title_rect.center))
+
+        # Voci
+        for i, (label, _) in enumerate(items):
+            rect = item_rects[i]
+            bg = p.Color(80, 80, 120) if i == selected_index else p.Color(40, 40, 60)
+            p.draw.rect(app.screen, bg, rect)
+            p.draw.rect(app.screen, p.Color(20, 20, 20), rect, 1)
+            try:
+                txt = font_item.render(label, True, p.Color('white'))
+            except Exception:
+                txt = font_item.render(label.encode('ascii', 'replace').decode(), True, p.Color('white'))
+            app.screen.blit(txt, (rect.x + 8, rect.centery - txt.get_height() // 2))
+
+        # Cancel
+        p.draw.rect(app.screen, p.Color(110, 30, 30) if cancel_hover else p.Color(60, 30, 30),
+                    cancel_rect)
+        p.draw.rect(app.screen, p.Color(20, 20, 20), cancel_rect, 1)
+        txt = font_cancel.render('Cancel', True, p.Color('white'))
+        app.screen.blit(txt, txt.get_rect(center=cancel_rect.center))
+
+        p.display.update(full_panel)
+
+        for ev in p.event.get():
+            if ev.type == p.QUIT:
+                p.quit()
+                sys.exit()
+            elif ev.type == p.KEYDOWN:
+                if ev.key == p.K_ESCAPE:
+                    result = None
+                elif ev.key == p.K_DOWN:
+                    selected_index = (selected_index + 1) % n
+                elif ev.key == p.K_UP:
+                    selected_index = (selected_index - 1) % n
+                elif ev.key == p.K_HOME:
+                    selected_index = 0
+                elif ev.key == p.K_END:
+                    selected_index = n - 1
+                elif ev.key in (p.K_RETURN, p.K_KP_ENTER, p.K_RIGHT):
+                    # Right arrow accettato come Enter: e' il tasto usato per
+                    # "vai alla prossima mossa" e quindi naturale per
+                    # confermare la variante / l'annotazione scelta.
+                    result = items[selected_index][1]
+            elif ev.type == p.MOUSEBUTTONDOWN and ev.button == 1:
+                picked = False
+                for i, r in enumerate(item_rects):
+                    if r.collidepoint(ev.pos):
+                        result = items[i][1]
+                        picked = True
+                        break
+                if not picked and cancel_rect.collidepoint(ev.pos):
+                    result = None
+
+    return result
+
+
+def _show_db_stats(gs: "GameState") -> None:
+    """Cerca la posizione corrente nel DB di riferimento (config.reference_db)
+    e mostra un pannello laterale con le statistiche (vedi position_stats.py).
+
+    POV dei risultati: dal **Bianco** sempre (convenzione DB scacchistico).
+    """
+    import os
+    import position_stats
+    from config import config as _cfg
+    from modes.common import show_message
+
+    db_path = (getattr(_cfg, 'reference_db', '') or '').strip()
+    if not db_path or not os.path.exists(db_path):
+        # font 20 invece di show_message default 32: il messaggio e' lungo e
+        # supererebbe BOARD_WIDTH, finendo fuori a sinistra.
+        BS.drawEndGameText(app.screen, gs, "Imposta il DB di riferimento in Tools -> Setup", size=20)
+        BS.update()
+        app.delay(2.5)
+        return
+
+    board = gs.node.board()
+
+    # Indice non in cache? Mostra una schermata "Indicizzo..." mentre si scansiona.
+    cached = db_path in position_stats._cache
+    if not cached:
+        def _progress(n_games):
+            app.main_background()
+            BS.drawEndGameText(app.screen, None,
+                               f"Indicizzo {os.path.basename(db_path)}: {n_games} partite", size=22)
+            BS.update()
+            p.event.pump()
+        _progress(0)
+        position_stats.get_index(db_path, progress=_progress)
+        # Ridisegna game state perche' lo abbiamo sovrascritto
+        app.main_background()
+        BS.drawGameState(app.screen, gs, [], [], ())
+        BS.update()
+
+    stats = position_stats.lookup_position(db_path, board)
+    total = stats['total']
+    if total == 0:
+        BS.drawEndGameText(app.screen, gs,
+                           f"Posizione mai trovata in {os.path.basename(db_path)}",
+                           size=20)
+        BS.update()
+        app.delay(2.5)
+        return
+
+    # Costruisci le righe del pannello
+    res = stats['results']
+    w, d, lo = res.get(1, 0), res.get(0, 0), res.get(-1, 0)
+    def _pct(n):
+        return (n * 100 / total) if total else 0
+    summary = f"W {w} ({_pct(w):.0f}%)  D {d} ({_pct(d):.0f}%)  L {lo} ({_pct(lo):.0f}%)"
+
+    # Ordina le mosse successive per frequenza decrescente
+    moves_sorted = sorted(stats['moves'].items(), key=lambda kv: kv[1]['count'], reverse=True)
+
+    lines = []
+    lines.append((f"Trovata {total} volte", None))
+    lines.append((summary, None))
+    if moves_sorted:
+        lines.append(("--- Continuazioni (W/D/L) ---", None))
+    for uci, info in moves_sorted:
+        try:
+            san = board.san(chess.Move.from_uci(uci))
+        except Exception:
+            san = uci
+        c = info['count']
+        mw = info['results'].get(1, 0)
+        md = info['results'].get(0, 0)
+        ml = info['results'].get(-1, 0)
+        lines.append((f"{san:>8}  {c:>3}  ({mw}/{md}/{ml})", uci))
+
+    _show_info_panel(lines, title=f"DB: {os.path.basename(db_path)}",
+                     row_h=24, font_size=14)
+
+
+def _show_info_panel(lines, title: str, row_h: int = 24, font_size: int = 14):
+    """Pannello laterale display-only. `lines` e' una lista di (text, _payload).
+    Chiusura: Esc, click su Close, o click su una riga qualsiasi."""
+    PANEL_X = BS.BOARD_WIDTH
+    PANEL_Y = BS.BOARD_Y
+    PANEL_W = BS.SCREEN_WIDTH - BS.BOARD_WIDTH
+    title_h = row_h
+    close_h = row_h
+    n = len(lines)
+    PANEL_H = min(title_h + n * row_h + close_h, BS.BOARD_HEIGHT)
+
+    title_rect = p.Rect(PANEL_X, PANEL_Y, PANEL_W, title_h)
+    line_rects = [p.Rect(PANEL_X, PANEL_Y + title_h + i * row_h, PANEL_W, row_h)
+                  for i in range(n)]
+    close_rect = p.Rect(PANEL_X, PANEL_Y + title_h + n * row_h, PANEL_W, close_h)
+    full_panel = p.Rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H)
+
+    font_title = p.font.SysFont('Arial', max(12, font_size), bold=True)
+    font_line = p.font.SysFont('Consolas,Courier New,Lucida Console', font_size)
+    font_close = p.font.SysFont('Arial', font_size, bold=True)
+
+    running = True
+    while running:
+        app.clock.tick(60)
+        p.draw.rect(app.screen, p.Color('black'), full_panel)
+        # Titolo
+        p.draw.rect(app.screen, p.Color('steelblue'), title_rect)
+        txt = font_title.render(title, True, p.Color('white'))
+        app.screen.blit(txt, txt.get_rect(center=title_rect.center))
+        # Righe
+        for i, (text, _) in enumerate(lines):
+            rect = line_rects[i]
+            p.draw.rect(app.screen, p.Color(30, 30, 45), rect)
+            p.draw.rect(app.screen, p.Color(20, 20, 20), rect, 1)
+            try:
+                txt = font_line.render(text, True, p.Color('white'))
+            except Exception:
+                txt = font_line.render(text.encode('ascii', 'replace').decode(),
+                                       True, p.Color('white'))
+            app.screen.blit(txt, (rect.x + 8, rect.centery - txt.get_height() // 2))
+        # Close
+        close_hover = close_rect.collidepoint(p.mouse.get_pos())
+        p.draw.rect(app.screen, p.Color(80, 80, 80) if close_hover else p.Color(50, 50, 50), close_rect)
+        p.draw.rect(app.screen, p.Color(20, 20, 20), close_rect, 1)
+        txt = font_close.render('Close (Esc)', True, p.Color('white'))
+        app.screen.blit(txt, txt.get_rect(center=close_rect.center))
+        p.display.update(full_panel)
+
+        for ev in p.event.get():
+            if ev.type == p.QUIT:
+                p.quit(); sys.exit()
+            elif ev.type == p.KEYDOWN and ev.key in (p.K_ESCAPE, p.K_RETURN, p.K_KP_ENTER):
+                running = False
+            elif ev.type == p.MOUSEBUTTONDOWN and ev.button == 1:
+                running = False
+
+
+def chooseNextMove(gs:GameState)->chess.Move:
+    """Pannello laterale con le varianti disponibili dalla posizione corrente.
+    Mostra le mosse in SAN. Single-variant -> ritorno diretto senza UI.
     """
     next_moves = gs.getNextMoves()
     if not next_moves:
-        return  None# Nessuna mossa disponibile
-
+        return None
     if len(next_moves) == 1:
-        # Se c'è solo una mossa, la restituisce direttamente
         return next_moves[0]
-
-    menu_running = True
-    surface = app.screen
-    selected_move = None
-
-    def make_move_wrapper(move_index: int):
-        nonlocal menu_running,selected_move
-        selected_node = gs.node.variations[move_index]
-        selected_move = selected_node.move
-        menu_running = False
-
-    # Crea menu
-    move_menu = pygame_menu.Menu("Choose Move", app.W, app.H, theme=pygame_menu.themes.THEME_DARK)
-
-    for i, move in enumerate(next_moves):
-        san = move.uci() 
-        move_menu.add.button(san, make_move_wrapper, i)
-
-    move_menu.add.button('Cancel', lambda: setattr(sys.modules[__name__], "menu_running", False))
-
-    # Loop del menu
-    while menu_running:
-        events = p.event.get()
-        for ev in events:
-            if ev.type == p.QUIT:
-                p.quit()
-                sys.exit()
-
-        surface.fill((0, 0, 0))
-        move_menu.update(events)
-        move_menu.draw(surface)
-        p.display.flip()
-    return selected_move
+    cur_board = gs.node.board()
+    items = []
+    for m in next_moves:
+        try:
+            label = cur_board.san(m)
+        except Exception:
+            label = m.uci()
+        items.append((label, m))
+    return _choose_panel(items, "Scegli mossa", row_h=32, font_size=18)
 
 
 def chooseAnnotation(current_nags):
-    """Menu dei glifi di annotazione (NAG) per l'ultima mossa.
+    """Pannello laterale con i glifi NAG di annotazione per l'ultima mossa.
     Ritorna il NAG scelto, 0 per rimuovere tutte le annotazioni, o None se
     annullato. I glifi gia' presenti sulla mossa sono marcati con '*'.
+
+    Layout compatto (row_h=24, font 16) per stare dentro l'altezza della
+    scacchiera anche con 16 NAG + "remove all"; usa un font Unicode (Segoe
+    UI Symbol / DejaVu Sans) per rendere correttamente i simboli ⩲ ± ∓ ∞.
     """
-    chosen = None
-    menu_running = True
-
-    def pick(nag):
-        nonlocal chosen, menu_running
-        chosen = nag
-        menu_running = False
-
-    theme = pygame_menu.themes.THEME_DARK.copy()
-    sym_font = p.font.match_font("Segoe UI Symbol,Cambria Math,DejaVu Sans")
-    if sym_font:
-        theme.widget_font = sym_font  # font che contiene i glifi di annotazione
-    menu = pygame_menu.Menu("Annotate last move", app.W, app.H, theme=theme)
+    items = []
     for nag, label in NAG_CHOICES:
         mark = "  *" if nag in current_nags else ""
-        menu.add.button(label + mark, pick, nag)
-    menu.add.button("(remove all)", pick, 0)
-    menu.add.button("Cancel", pick, None)
-
-    surface = app.screen
-    while menu_running:
-        events = p.event.get()
-        for ev in events:
-            if ev.type == p.QUIT:
-                p.quit()
-                sys.exit()
-            if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
-                chosen = None  # annulla come il pulsante Cancel
-                menu_running = False
-        surface.fill((0, 0, 0))
-        menu.update(events)
-        menu.draw(surface)
-        p.display.flip()
-    return chosen
+        items.append((label + mark, nag))
+    items.append(("(remove all)", 0))
+    sym_font = p.font.match_font("Segoe UI Symbol,Cambria Math,DejaVu Sans")
+    return _choose_panel(items, "Annota ultima mossa", row_h=24, font_size=16,
+                         font_path=sym_font)
 
 
 def editComment(current_text):
@@ -218,6 +430,8 @@ def playAGame():
         ToolbarAction("Setup", "Edit position (U) -- analysis only",      _post_key(p.K_u), enabled=_is_analysis),
         ToolbarAction("AddTac", "Save current pos + last move as tactic (K) -- analysis only",
                       _post_key(p.K_k), enabled=_is_analysis),
+        ToolbarAction("DB",    "Position stats from reference DB (Y) -- analysis only",
+                      _post_key(p.K_y), enabled=_is_analysis),
         ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
     ])
 
@@ -377,6 +591,12 @@ def playAGame():
                         # in una learning base scelta dall'utente.
                         import add_to_base
                         add_to_base.addPositionToBaseMenu(gs)
+                        app.main_background()
+                        continue
+
+                    if e.key == p.K_y and not whiteCPU and not blackCPU:
+                        # Statistiche di posizione contro il DB di riferimento.
+                        _show_db_stats(gs)
                         app.main_background()
                         continue
 

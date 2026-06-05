@@ -41,6 +41,10 @@ DEFAULT_CONFIG = {
     # Velocita' TTS in parole-per-minuto (default Windows ~200). 150-180 e' la
     # banda comoda per testi tecnici; sotto 100 = molto lento, oltre 250 = scattante.
     "tts_rate": 170,
+    # Path assoluto a un PGN usato come "database di riferimento" dalla feature
+    # di analisi posizione (tasto Y in Play between humans). Vuoto = non
+    # configurato. Settato dal menu Setup ("Choose reference DB").
+    "reference_db": "",
 }
 
 config = None

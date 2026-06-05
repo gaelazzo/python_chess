@@ -43,6 +43,28 @@ def _show_splash():
 
 
 _show_splash()
+
+
+def _splash_progress(text: str) -> None:
+    """Aggiorna la striscia inferiore della splash window con `text`. Usato
+    dai vari step di startup (libro, motore, indicizzazione PGN) per dare
+    feedback nei secondi di attesa. Errori non bloccanti."""
+    try:
+        screen = _splash_p.display.get_surface()
+        if screen is None:
+            return
+        w, h = screen.get_size()
+        strip = _splash_p.Rect(0, h - 80, w, 80)
+        _splash_p.draw.rect(screen, _splash_p.Color(38, 38, 56), strip)
+        font = _splash_p.font.SysFont("Arial", 18, bold=True)
+        txt = font.render(text, True, _splash_p.Color("white"))
+        screen.blit(txt, ((w - txt.get_width()) // 2, h - 40))
+        _splash_p.display.update(strip)
+        _splash_p.event.pump()
+    except Exception:
+        pass
+
+
 # --- Fine splash; ora gli import pesanti possono procedere a finestra aperta.
 
 from ast import Dict
@@ -445,6 +467,33 @@ def mainMenu(width,height, test: bool = False) -> None:
                                    value_format=lambda x: str(int(round(x, 0))),
                                    default=config.tts_rate)
 
+    # DB di riferimento per le statistiche di posizione (vedi position_stats.py).
+    # Selezione tramite file selector (parte da pgn/ ma puoi navigare ovunque);
+    # salva il percorso completo cosi' va a buon fine anche se il file non e' in pgn/.
+    import position_stats as _pstats
+    def choose_reference_db(selected_path):
+        # `selected_path` e' il path COMPLETO (pathlib.Path) scelto nel dialog.
+        # Salviamo l'intero path -- il PGN puo' stare fuori da pgn/.
+        config.reference_db = os.fspath(selected_path)
+        save_config()
+        _pstats.invalidate_cache()  # forza re-build alla prossima query
+        # Aggiorna label coi nome file (senza percorso).
+        new_label = os.path.basename(config.reference_db) or "Nessun DB di riferimento"
+        for lbl in ref_labels:
+            if lbl:
+                lbl.set_title(new_label)
+    ref_labels = []
+    chooseRefDb = make_file_selector(
+        None, None, ref_labels, pgngamelist.PGN_FOLDER, ".pgn",
+        "Choose reference DB", choose_reference_db, None,
+    )
+    configureGame.add.button('Choose reference DB (le mie partite)', chooseRefDb)
+    _ref_default = os.path.basename(config.reference_db) if config.reference_db else "Nessun DB di riferimento"
+    ref_label = configureGame.add.button(_ref_default, chooseRefDb, font_size=18,
+                                          background_color=None,
+                                          selection_effect=pygame_menu.widgets.NoneSelection())
+    ref_labels.append(ref_label)
+
     toolsMenu = pygame_menu.Menu(
         height=height,
         theme=pygame_menu.themes.THEME_BLUE,
@@ -467,7 +516,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     app.main_menu.add.button('Migliora dalle tue partite', buildImproveMenu(width, height))
     app.main_menu.add.button('Cosa studio adesso?', buildAdvisorMenu(width, height))
     app.main_menu.add.button('Play against computer', playComputerMenu)
-    app.main_menu.add.button('Play between humans', humanPlay)
+    app.main_menu.add.button('Analysis / Human Play', humanPlay)
     app.main_menu.add.button('Solve positions', solvePositionsMenu)
     if BrainMasterMenu:
         app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
@@ -526,6 +575,29 @@ def runMain():
 
     book.open_book()
     UCIEngines.engine_open()
+
+    # Preload dell'indice del DB di riferimento (se configurato). 3 livelli di
+    # cache in position_stats: RAM, disco (`<pgn>.idx` accanto al PGN, valida
+    # finche' mtime/size del PGN non cambiano), rebuild. Il primo avvio costa
+    # ~10-15s per 40k partite e poi salva il `.idx`; gli avvii successivi
+    # caricano dal disco in ~1-3s. Su tasto Y poi le query sono O(1).
+    try:
+        import position_stats
+        ref_db = (getattr(config, 'reference_db', '') or '').strip()
+        if ref_db and os.path.exists(ref_db):
+            ref_name = os.path.basename(ref_db)
+            cache_exists = os.path.exists(position_stats._index_cache_path(ref_db))
+            if cache_exists:
+                _splash_progress(f"Carico indice di {ref_name} dal disco...")
+            else:
+                _splash_progress(f"Indicizzo {ref_name} (prima volta, richiede tempo)...")
+            def _idx_progress(n_games):
+                _splash_progress(f"Indicizzo {ref_name}: {n_games} partite...")
+            position_stats.get_index(ref_db, progress=_idx_progress)
+            _splash_progress(f"DB di riferimento pronto ({ref_name}).")
+    except Exception as e:
+        print(f"position_stats preload fallito: {e}")
+
     try:
         app.W, app.H = BS.init()
 

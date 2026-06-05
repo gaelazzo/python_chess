@@ -23,3 +23,6 @@ __pycache__/
 *.cpo
 /build/
 /dist/
+
+# Position-stats disk cache (auto-rebuilt da position_stats.py)
+*.idx
