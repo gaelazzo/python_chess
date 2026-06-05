@@ -49,6 +49,11 @@ Per funzionare al meglio servono (configurabili da **Tools → Setup**, vedi §8
 
 All'avvio appare il **menu principale**; ci si sposta con il **mouse** o le frecce e si conferma con **Invio**.
 
+> **Splash screen.** I primi ~3-4 secondi di startup (init TTS, lettura delle
+> learning base, apertura del libro Polyglot e di Stockfish) sono coperti da una
+> finestra con `pic-chess.png` centrato e *"Caricamento in corso..."* in basso —
+> niente più console immobile.
+
 ---
 
 ## Primi passi: ricette pratiche
@@ -187,8 +192,54 @@ Muovi con il mouse; il computer risponde automaticamente.
 
 ### 3.3 Play between humans (analisi)
 Due umani giocano a turno sulla stessa scacchiera. Poiché **non c'è un motore che
-risponde**, questa è la modalità giusta per **analizzare**: puoi tornare indietro,
+risponde**, questa è la modalità giusta per **analizzare** *e* per **costruire
+manualmente posizioni** (vedi i due sub-mode più sotto): puoi tornare indietro,
 provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
+
+#### Sub-mode: Setup posizione (tasto **U** o bottone *Setup*)
+> Editor visuale di posizione modale. Costruisci da zero, modifichi quella
+> corrente, o incolli una FEN dalla clipboard. Utile per aggiungere studi di
+> finale ai PGN di esercitazione, o per riprodurre una posizione vista in un
+> libro / diagramma online.
+
+- **Palette pezzi** sotto la scacchiera: 6 bianchi + 6 neri + *Erase*. Click su
+  una cella la "arma" (evidenziata in giallo); click su una casa della
+  scacchiera piazza il pezzo. **Click destro** su una casa = cancella.
+- **Bottoni**: *STM* (toggle Bianco/Nero al tratto), *Clear* (board vuota),
+  *Initial* (posizione iniziale standard), *Paste FEN* (legge la clipboard
+  e applica), *Apply*, *Cancel*. **Enter** = Apply, **Esc** = Cancel.
+- **Validazione su Apply**: esattamente 1 re per lato, niente pedoni su
+  1ª/8ª riga, FEN parsabile, re avversario NON sotto scacco quando è il
+  proprio tratto (posizione altrimenti illegale). Errori in rosso, resti
+  nell'editor.
+- **Castling rights**, **en passant** e **halfmove clock** vengono azzerati
+  di default (le posizioni di studio partono "pulite"). Per modificarli a mano
+  edita la FEN nel PGN salvato.
+- Una volta applicato, la nuova posizione è la posizione iniziale di `gs`.
+  Salva con il consueto **S** (Save) — vedi §7 per il dialogo e la cartella
+  di destinazione.
+
+#### Sub-mode: Salva tattica in learning base (tasto **K** o bottone *AddTac*)
+> Workflow per costruire manualmente posizioni di tattica con la mossa
+> corretta da memorizzare. Tu sei il "judge": niente engine, niente Update
+> learning base — adatto a quando hai un libro / diagramma in mano.
+
+Flusso:
+1. (Opzionale) usa **U** per costruire o incollare la posizione del problema.
+2. **Gioca la mossa corretta** sulla scacchiera (un click di partenza + uno
+   di arrivo, come una mossa qualsiasi).
+3. Premi **K**: si apre un menu che mostra la FEN della posizione e la mossa
+   corretta in SAN (es. *"Nxf3 (g1f3)"*).
+4. Scegli la base di destinazione:
+   - **Choose base file** → file selector con le `base_*.json` esistenti, o
+   - **Oppure nuova base** → text input per crearla al volo (parametri default
+     adatti a tattica: `movesToAnalyze=16`, `blunderValue=80`, `useBook=False`).
+5. *Save* → posizione + mossa salvate come `LearnPosition` (zobrist, FEN,
+   `ok` = la mossa giocata in UCI, `severity=100`). Subito drillabile in
+   *Solve positions* scegliendo quella base.
+
+Se premi **K** senza aver giocato una mossa, vedi *"Gioca prima la mossa
+corretta"* e nulla viene salvato.
 
 ### 3.4 Solve positions
 > **Una posizione, una mossa.** Ti viene proposta una posizione e devi giocare la
@@ -314,10 +365,14 @@ Loop di gioco:
 - **Giudizio strict** sulle tue mosse, in ordine:
   1. Stallo / materiale insufficiente forzato da te quando eri vincente → errore.
   2. Scacco matto da te dato → OK (massimo risultato).
-  3. Con `clean WDL = +2`, ogni mossa non-zeroing deve far **calare il DTZ**
-     (`dtz_a < dtz_b`); mosse "neutre" bruciano il clock 50-move e prima o poi
-     vanificano la vincita → errore.
-  4. Caduta del clean WDL (sacrificio, sottopromozione errata, ecc.) → errore.
+  3. Caduta del clean WDL (sacrificio, sottopromozione errata, ecc.) → errore.
+  4. **DTZ-optimality**: con `clean WDL = +2`, il DTZ post-mossa (dal nostro
+     POV) deve essere uguale al **minimo raggiungibile** fra le mosse legali
+     che preservano `WDL ≥ +2` — cioè devi giocare *una* delle ottime TB,
+     non solo una "+2 che progredisce". Tollera correttamente i casi
+     *near-zeroing* dove l'ottima ha `dtz_a == dtz_b` (es. KQ vs KP all'ultimo
+     ply, mate forzato via promozione obbligata del pedone nero); messaggio
+     d'errore: *"non ottima: DTZ X→Y (ottima raggiungibile = Z)"*.
   5. Fuori range TB: confronto eval Stockfish; drop > 100 cp → errore.
 - **Errore** → la mossa NON viene applicata, lampeggia "Mossa errata: \<causa\>"
   per 2.5s, riprovi sulla stessa posizione.
@@ -362,6 +417,8 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **N** | Annota l'ultima mossa con un glifo (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
 | **T** | Aggiungi un commento testuale all'ultima mossa |
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
+| **U** | **Setup posizione**: editor visuale modale (vedi §3.3) |
+| **K** | **Salva come tattica**: la posizione + l'ultima mossa giocata vanno in una learning base (vedi §3.3) |
 
 > Nelle modalità di studio (Solve positions / BrainMaster / Study openings /
 > Allena finali) i comandi sono simili ma orientati alla soluzione: **Q** esci,
@@ -441,7 +498,14 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 ## 7. Salvare e caricare partite
 
 - **Salva** (tasto **S**): apri il menu Save, scegli/crea il file PGN e i dati della
-  partita (giocatori, evento, ecc.), poi **Save**. Le partite sono salvate in `pgn/`.
+  partita (White, Black, Event, Site), poi **Save**.
+  - **Result** è un selettore con le 4 sole opzioni PGN standard: `*` (in corso /
+    sconosciuto), `1-0` (vince il Bianco), `0-1` (vince il Nero), `1/2-1/2`
+    (patta). Niente più testo libero che confondeva i parser PGN downstream.
+  - **Cartella di destinazione**: il selettore PGN parte da `pgn/`, ma se navighi
+    in un'altra cartella (es. `endgames/` per salvare uno studio di finale
+    appena costruito col setup posizione) e scegli un file lì, **il salvataggio
+    rispetta la cartella scelta** invece di forzare sempre `pgn/`.
 - **Carica** (tasto **L**, solo in Play between humans): scegli il file PGN e la partita
   dall'elenco. La partita viene caricata **dall'inizio**, così puoi scorrerla con **→**
   ed esplorarne le varianti.
@@ -626,6 +690,8 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da tutti i mode |
 | `syzygy_helper.py` | Apre le TB Syzygy da `config.engine_options.SyzygyPath`, espone `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Script diagnostici: integrità delle TB + verifica che Stockfish le veda davvero (`tbhits`) |
+| `position_setup.py` | Editor visuale di posizione (palette pezzi + Paste FEN), sub-mode modale invocato da Play between humans (vedi §3.3) |
+| `add_to_base.py` | Menu di scelta base + salvataggio "posizione corrente + ultima mossa giocata" come `LearnPosition` (workflow tattica manuale, vedi §3.3) |
 | `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
 | `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni. Contiene anche la classe `Voce` (TTS worker persistente, voce/rate SAPI5 settati direttamente sul COM object) |
 | `BoardScreen.py` | Disegno della scacchiera e dei pannelli |

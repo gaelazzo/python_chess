@@ -48,6 +48,11 @@ For full functionality you'll want (configurable via **Tools → Setup**, see §
 
 On startup the **main menu** appears; navigate with the **mouse** or the arrow keys and confirm with **Enter**.
 
+> **Splash screen.** The first ~3-4 seconds of startup (TTS init, learning-base
+> load, Polyglot book and Stockfish open) are covered by a window with
+> `pic-chess.png` centred and *"Caricamento in corso..."* at the bottom — no
+> more silent console wait.
+
 ---
 
 ## Getting started: step-by-step recipes
@@ -183,8 +188,51 @@ Move with the mouse; the computer replies automatically.
 
 ### 3.3 Play between humans (analysis)
 Two humans move in turn on the same board. Since **there is no engine replying**,
-this is the right mode to **analyse**: you can take moves back, try alternative moves
+this is the right mode to **analyse** *and* to **manually build positions**
+(see the two sub-modes below): you can take moves back, try alternative moves
 (variations), annotate and comment them (see §5 and §6).
+
+#### Sub-mode: Position setup (key **U** or *Setup* button)
+> Modal visual position editor. Build from scratch, edit the current position,
+> or paste a FEN from the clipboard. Handy for adding endgame studies to your
+> practice PGNs, or reproducing a position seen in a book / online diagram.
+
+- **Piece palette** under the board: 6 white + 6 black + *Erase*. Click a cell
+  to "arm" it (highlighted in yellow); click a board square to place the piece.
+  **Right click** on a board square = clear.
+- **Buttons**: *STM* (toggle White/Black to move), *Clear* (empty board),
+  *Initial* (standard starting position), *Paste FEN* (reads the clipboard and
+  applies), *Apply*, *Cancel*. **Enter** = Apply, **Esc** = Cancel.
+- **Validation on Apply**: exactly 1 king per side, no pawns on rank 1/8, FEN
+  must parse, opponent's king NOT in check while it's your turn (otherwise
+  illegal position). Errors shown in red, you stay in the editor.
+- **Castling rights**, **en passant** and **halfmove clock** are reset by
+  default (study positions usually start "clean"). For manual tuning, edit the
+  FEN in the saved PGN.
+- Once applied, the new position is the starting state of `gs`. Save with the
+  usual **S** key — see §7 for the dialog and target folder.
+
+#### Sub-mode: Save as tactic to learning base (key **K** or *AddTac* button)
+> Workflow for manually building tactical problems with the correct move
+> recorded. You are the "judge": no engine, no Update learning base — handy
+> when you have a book / diagram in hand.
+
+Flow:
+1. (Optional) use **U** to build or paste the problem position.
+2. **Play the correct move** on the board (source-square click + destination
+   click, like any move).
+3. Press **K**: a menu opens showing the FEN of the position and the correct
+   move in SAN (e.g. *"Nxf3 (g1f3)"*).
+4. Pick the target base:
+   - **Choose base file** → file selector over the existing `base_*.json`, or
+   - **Or new base** → text input to create one on the fly (defaults tuned
+     for tactics: `movesToAnalyze=16`, `blunderValue=80`, `useBook=False`).
+5. *Save* → position + move stored as a `LearnPosition` (zobrist, FEN, `ok` =
+   the move you played in UCI, `severity=100`). Immediately drillable from
+   *Solve positions* by picking that base.
+
+If you press **K** without having played a move yet, you'll see *"Gioca prima
+la mossa corretta"* and nothing is saved.
 
 ### 3.4 Solve positions
 > **One position, one move.** You're given a position and must play the right move.
@@ -310,10 +358,14 @@ Gameplay loop:
 - **Strict judging** of your moves, in order:
   1. Stalemate / insufficient material forced by you while you were winning → mistake.
   2. Checkmate delivered by you → OK (best outcome).
-  3. With `clean WDL = +2`, every non-zeroing move must **decrease the DTZ**
-     (`dtz_a < dtz_b`); "neutral" moves burn the 50-move clock and sooner or
-     later squander the win → mistake.
-  4. Clean WDL drop (sacrifice, wrong promotion, etc.) → mistake.
+  3. Clean WDL drop (sacrifice, wrong promotion, etc.) → mistake.
+  4. **DTZ optimality**: with `clean WDL = +2`, the post-move DTZ (our POV)
+     must equal the **minimum achievable** among legal moves preserving
+     `WDL ≥ +2` — i.e. you must play *one of* the TB-optimal moves, not just
+     any "+2-preserving move that progresses". Correctly tolerates *near-zeroing*
+     cases where the optimal has `dtz_a == dtz_b` (e.g. KQ vs KP at the last
+     ply, forced mate via the black pawn's compulsory promotion); error
+     message: *"non ottima: DTZ X→Y (ottima raggiungibile = Z)"*.
   5. Out of TB range: Stockfish eval comparison; drop > 100 cp → mistake.
 - **Mistake** → the move is NOT applied, "Mossa errata: \<reason\>" flashes for
   2.5s, you retry from the same position.
@@ -358,6 +410,8 @@ During a game (Play against computer / between humans) the following controls ap
 | **N** | Annotate the last move with a glyph (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
 | **T** | Add a text comment to the last move |
 | **V** | Open the **Notation** panel (whole game + variations) |
+| **U** | **Position setup**: modal visual editor (see §3.3) |
+| **K** | **Save as tactic**: current position + last move played → learning base (see §3.3) |
 
 > In the study modes (Solve positions / BrainMaster / Study openings / Allena
 > finali) the controls are similar but solution-oriented: **Q** quit, **C/G**
@@ -436,7 +490,14 @@ is not clickable for piece moves: you navigate from the panel.
 ## 7. Saving and loading games
 
 - **Save** (key **S**): open the Save menu, choose/create the PGN file and the game
-  details (players, event, etc.), then **Save**. Games are stored in `pgn/`.
+  metadata (White, Black, Event, Site), then **Save**.
+  - **Result** is now a selector with the 4 standard PGN values only: `*` (in
+    progress / unknown), `1-0` (White wins), `0-1` (Black wins), `1/2-1/2`
+    (draw). No more free text that confused downstream PGN parsers.
+  - **Target folder**: the PGN selector opens in `pgn/`, but if you navigate to
+    another folder (e.g. `endgames/` to save a study you just built via the
+    position setup editor) and pick a file there, **the save respects the
+    chosen folder** instead of always writing into `pgn/`.
 - **Load** (key **L**, only in Play between humans): pick the PGN file and the game from
   the list. The game is loaded **from the start**, so you can step through it with **→**
   and explore its variations.
@@ -621,6 +682,8 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by all modes |
 | `syzygy_helper.py` | Opens the Syzygy TB from `config.engine_options.SyzygyPath`; exposes `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Diagnostic scripts: TB file integrity + check that Stockfish actually sees them (`tbhits`) |
+| `position_setup.py` | Visual position editor (piece palette + Paste FEN), modal sub-mode invoked from Play between humans (see §3.3) |
+| `add_to_base.py` | Base-picker menu + saves "current position + last move played" as a `LearnPosition` (manual tactic workflow, see §3.3) |
 | `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
 | `GameState.py` | Game state, PGN tree, moves, annotations. Also hosts the `Voce` class (persistent TTS worker thread; voice/rate set directly on the SAPI5 COM object) |
 | `BoardScreen.py` | Board and panel rendering |
