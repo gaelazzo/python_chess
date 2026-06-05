@@ -513,15 +513,15 @@ def mainMenu(width,height, test: bool = False) -> None:
 
     app.main_menu = pygame_menu.Menu('Chess Python', width, height,
                                  theme=pygame_menu.themes.THEME_BLUE)
-    app.main_menu.add.button('Migliora dalle tue partite', buildImproveMenu(width, height))
-    app.main_menu.add.button('Cosa studio adesso?', buildAdvisorMenu(width, height))
+    app.main_menu.add.button('Improve from your games', buildImproveMenu(width, height))
+    app.main_menu.add.button('Suggestion for study', buildAdvisorMenu(width, height))
     app.main_menu.add.button('Play against computer', playComputerMenu)
     app.main_menu.add.button('Analysis / Human Play', humanPlay)
     app.main_menu.add.button('Solve positions', solvePositionsMenu)
     if BrainMasterMenu:
         app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
     app.main_menu.add.button('Study openings', openingsMenu)
-    app.main_menu.add.button('Allena finali', endgamesMenu)
+    app.main_menu.add.button('Endgame training', endgamesMenu)
     app.main_menu.add.button('Tools', toolsMenu)
     app.main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
 
