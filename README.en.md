@@ -1,9 +1,11 @@
 # Hires Chess Trainer — User Manual
 
-> Chess trainer in Python with Stockfish and Syzygy tablebases · learning base
-> with spaced repetition · drills for tactics, opening repertoire and endgames ·
-> Chess.com and lichess game import · testbed for **reinforcement-learning
-> models of personalised learning** · Windows-first.
+> Chess trainer in Python with Stockfish and Syzygy tablebases · learning bases
+> with spaced repetition over tactics, opening repertoire and endgames ·
+> auto-tracking of mistakes in every mode · position statistics against a
+> reference PGN (your own games) · Chess.com and lichess game import ·
+> testbed for **reinforcement-learning models of personalised learning** ·
+> Windows-first.
 
 🇮🇹 *Versione italiana:* [readme.md](readme.md)
 
@@ -140,10 +142,10 @@ the wizard automates the steps that Recipes A/B do by hand.*
 
 | Item | What it does |
 |------|--------------|
-| **Migliora dalle tue partite** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
-| **Cosa studio adesso?** ("What should I study next?") | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
-| **Play against computer** | Play a game against the engine. |
-| **Play between humans** | Two human players on the same board. This is also the **analysis mode** (where you can add variations and annotations). |
+| **Improve from your games** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
+| **Suggestion for study** ("Cosa studio adesso?") | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
+| **Gioca contro il computer** | Play a game against the engine. |
+| **Analisi / Human Play** | Two human players on the same board. Also the **analysis mode** (variations + annotations) and the *HQ* for position setup, save-as-tactic, and position statistics vs your reference DB (see §3.3). |
 | **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
 | **BrainMaster lessons** | Lessons driven by the BrainMaster service *(shown only if `base_url` is configured)*. |
 | **Study openings** | Practise on "model" games: you must find the best move yourself. |
@@ -234,6 +236,45 @@ Flow:
 If you press **K** without having played a move yet, you'll see *"Gioca prima
 la mossa corretta"* and nothing is saved.
 
+#### Sub-mode: Position statistics vs reference DB (key **Y** or *DB* button)
+> **"How did I play this position the times I had it?"** — the most powerful
+> feature of analysis mode. Counts how many times the current position
+> occurs in a reference PGN (your Chess.com/lichess games, or any PGN book),
+> with the final result and statistics for each continuation played.
+
+Setup: **Tools → Setup → "Choose reference DB (le mie partite)"** opens a file
+selector for the PGN (can live in `pgn/`, `endgames/`, anywhere). The full
+path is stored in `config.reference_db`.
+
+Press **Y** on the current position → a side panel appears (to the right of
+the board; the board stays visible) showing:
+- **Trovata N volte** — how many times the same position (zobrist hash) occurs
+  in the DB.
+- **W X (Y%) D X (Y%) L X (Y%)** — from White's POV (classic DB convention).
+- **Continuazioni** — for each next move observed in the DB:
+  `SAN  count  (W/D/L)`, sorted by descending frequency.
+
+Real example on a 12k-game DB: from the starting position the program tells
+you you've played 1.e4 in 9714 games and won 4365 vs lost 4970 —
+*information that changes how you study your openings*. Works on any position:
+a middlegame with an unusual piece placement, an endgame after a specific
+continuation, etc.
+
+**Indexing and disk cache.** For constant-time queries the program builds an
+index `zobrist → [(result, next_uci)]` over the mainline of every game in
+the DB. The index is serialised to disk next to the PGN as `<pgn>.idx`
+(binary pickle, ~20 MB for 12k games) and automatically reloaded on startup
+during the splash screen:
+- **First start after picking the DB**: build from PGN, ~10-15s for 40k
+  games. Writes the `.idx`. Splash shows "Indicizzo N partite..." updated
+  every 50 games.
+- **Subsequent starts**: load the `.idx` from disk, ~1-3s.
+- **PGN changes** (incremental download, manual edit): `mtime`/`size` no
+  longer match → automatic rebuild on next start.
+
+The `.idx` files are already in `.gitignore` — they stay local, never reach
+the repo.
+
 ### 3.4 Solve positions
 > **One position, one move.** You're given a position and must play the right move.
 > Good for reviewing *anything* (mistakes, tactics, endgames…).
@@ -301,6 +342,16 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
 > every move of the repertoire in equal proportions (previously, with a 1/3
 > break-probability per user turn, the distribution was geometric: ~33% on the
 > 1st move, ~0.2% on the 16th).
+
+**Mistake persistence.** Just like *Allena finali*, every mistake during a
+Study openings session is logged into a dedicated learning base
+`openings_<filename>` in `data/`. Drillable from *Solve positions* (the base
+appears in the dropdown). Correct moves on already-tracked positions update
+the stats (for spaced repetition: `correctsToLearn` consecutive corrects →
+session exit; `serie ≥ 5` → permanently excluded from the base). Concrete
+example: you drill C42 Russian on `C42Russian.pgn`, mess up on 7 positions →
+the base `openings_C42Russian` keeps proposing them in Solve positions until
+you've closed them all.
 
 ### 3.7 What should I study next? (Study advisor)
 > **Which opening should I study next?** The advisor reads only the headers of
@@ -412,6 +463,16 @@ During a game (Play against computer / between humans) the following controls ap
 | **V** | Open the **Notation** panel (whole game + variations) |
 | **U** | **Position setup**: modal visual editor (see §3.3) |
 | **K** | **Save as tactic**: current position + last move played → learning base (see §3.3) |
+| **Y** | **Position statistics vs reference DB**: side panel with W/D/L + continuations from your own history (see §3.3) |
+
+> **Side panels with keyboard navigation.** When you navigate through the
+> moves of a loaded game and there are variations, or when you annotate a
+> move with a NAG glyph, a **side panel appears on the right of the board**
+> (no more full-screen menu hiding it). Navigate with **↑/↓** (and
+> **Home/End**), confirm with **Enter** or **→** (the natural "go forward"
+> key), cancel with **Esc**. Mouse click and hover still work in parallel —
+> hover overrides the keyboard selection only when the mouse actually moves,
+> so `↓↓↓ Enter` is always reliable.
 
 > In the study modes (Solve positions / BrainMaster / Study openings / Allena
 > finali) the controls are similar but solution-oriented: **Q** quit, **C/G**
@@ -515,7 +576,7 @@ is not clickable for piece moves: you navigate from the panel.
 | **Unroll PGN file** | Turn a PGN into a set of **positions** inside a learning base. |
 | **Unroll PGN file as lesson** | Same, but as a **lesson** (for review / BrainMaster). |
 | **Create Course for BrainMaster** | Register a learning base as a BrainMaster **course** *(if `base_url` is configured)*. |
-| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
+| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Choose reference DB (le mie partite)** (PGN used for position statistics, see §3.3), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
 
 **TTS configuration via `config.json` (advanced)**: in addition to the slider in
 Setup, you can force a specific voice with `"tts_voice": "<substring>"` (e.g.
@@ -682,8 +743,9 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by all modes |
 | `syzygy_helper.py` | Opens the Syzygy TB from `config.engine_options.SyzygyPath`; exposes `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Diagnostic scripts: TB file integrity + check that Stockfish actually sees them (`tbhits`) |
-| `position_setup.py` | Visual position editor (piece palette + Paste FEN), modal sub-mode invoked from Play between humans (see §3.3) |
+| `position_setup.py` | Visual position editor (piece palette + Paste FEN), modal sub-mode invoked from Analisi / Human Play (see §3.3) |
 | `add_to_base.py` | Base-picker menu + saves "current position + last move played" as a `LearnPosition` (manual tactic workflow, see §3.3) |
+| `position_stats.py` | Indexes a reference PGN for constant-time queries `zobrist → [(result, next_uci)]`; 3-level cache (RAM / disk `<pgn>.idx` / rebuild); used by key Y in Analisi (see §3.3) |
 | `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
 | `GameState.py` | Game state, PGN tree, moves, annotations. Also hosts the `Voce` class (persistent TTS worker thread; voice/rate set directly on the SAPI5 COM object) |
 | `BoardScreen.py` | Board and panel rendering |
@@ -732,13 +794,3 @@ refactoring, design patterns, cryptography, number theory.
 
 ---
 
-## Suggested GitHub topics
-
-To paste into the *About → Topics* section of the repository (helps GitHub
-search index the project):
-
-```
-chess  chess-trainer  python  pygame  stockfish  syzygy-tablebases
-pgn  spaced-repetition  learning  tts  chess-engine  opening-repertoire
-endgame  chess-com  lichess  reinforcement-learning
-```

@@ -1,10 +1,11 @@
 # Hires Chess Trainer — Manuale d'uso
 
 > Chess trainer in Python con Stockfish e Syzygy tablebases · learning base
-> con ripetizione spaziata · allenamento di tattica, repertorio d'apertura
-> e finali · importazione partite da Chess.com e lichess · banco di prova
-> per modelli di **apprendimento personalizzato basato su reinforcement learning**
-> · supporto Windows.
+> con ripetizione spaziata su tattica, repertorio d'apertura e finali ·
+> auto-tracking degli errori in ogni modalità · statistiche di posizione
+> contro un PGN di riferimento (le tue partite) · importazione partite da
+> Chess.com e lichess · banco di prova per modelli di **apprendimento
+> personalizzato basato su reinforcement learning** · supporto Windows.
 
 🇬🇧 *English version:* [README.en.md](README.en.md)
 
@@ -142,10 +143,10 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 
 | Voce | Cosa fa |
 |------|---------|
-| **Migliora dalle tue partite** | Wizard guidato: scarica le tue partite Chess.com → trova errori (tattica/aperture) → propone subito la pratica locale. La via più rapida per allenare i propri errori (vedi §3.1). |
-| **Cosa studio adesso?** | Analizza un tuo file PGN (download da Chess.com/lichess) e propone un ranking di "urgenza di studio" per codice ECO. Click su una riga → analisi mirata di quella sola apertura + pratica focused (vedi §3.7). |
-| **Play against computer** | Gioca una partita contro il motore. |
-| **Play between humans** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (qui puoi inserire varianti e annotazioni). |
+| **Improve from your games** | Wizard guidato: scarica le tue partite Chess.com → trova errori (tattica/aperture) → propone subito la pratica locale. La via più rapida per allenare i propri errori (vedi §3.1). |
+| **Suggestion for study** | Analizza un tuo file PGN (download da Chess.com/lichess) e propone un ranking di "urgenza di studio" per codice ECO. Click su una riga → analisi mirata di quella sola apertura + pratica focused (vedi §3.7). |
+| **Gioca contro il computer** | Gioca una partita contro il motore. |
+| **Analisi / Human Play** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (varianti + annotazioni) ed è il *quartier generale* per posizione setup, salva-tattica, statistiche posizione vs DB di riferimento (vedi §3.3). |
 | **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
 | **BrainMaster lessons** | Lezioni guidate dal servizio BrainMaster *(appare solo se hai configurato `base_url`)*. |
 | **Study openings** | Esercitati su partite "modello": devi trovare tu la mossa migliore. |
@@ -241,6 +242,46 @@ Flusso:
 Se premi **K** senza aver giocato una mossa, vedi *"Gioca prima la mossa
 corretta"* e nulla viene salvato.
 
+#### Sub-mode: Statistiche posizione vs DB di riferimento (tasto **Y** o bottone *DB*)
+> **"Come ho giocato questa posizione le volte che l'ho avuta?"** — la feature
+> più potente della modalità analisi. Conta in un PGN di riferimento (le tue
+> partite di Chess.com/lichess, o un libro PGN qualsiasi) quante volte la
+> posizione corrente si è verificata, con risultato finale e statistiche per
+> ogni continuazione giocata.
+
+Setup: **Tools → Setup → "Choose reference DB (le mie partite)"** apre un file
+selector con cui scegli il PGN (può stare in `pgn/`, in `endgames/`, ovunque).
+Il path completo è memorizzato in `config.reference_db`.
+
+Premi **Y** sulla posizione corrente → si apre un pannello laterale (a destra
+della scacchiera, la scacchiera resta visibile) con:
+- **Trovata N volte** — quante volte la stessa posizione (zobrist hash)
+  compare nel DB.
+- **W X (Y%) D X (Y%) L X (Y%)** — dal POV del Bianco (convenzione DB
+  scacchistici).
+- **Continuazioni** — per ogni mossa successiva osservata nel DB:
+  `SAN  occorrenze  (W/D/L)`, ordinato per frequenza decrescente.
+
+Esempio reale su un DB di 12k partite: dalla posizione iniziale il programma
+ti dice subito che in 9714 partite hai giocato 1.e4 e ne hai vinte 4365 contro
+4970 perse — *informazione che cambia il modo di studiare le tue aperture*.
+Funziona su qualsiasi posizione: di mid-game con un pezzo sviluppato in modo
+inusuale, di finale dopo una specifica continuazione, ecc.
+
+**Indicizzazione e cache disco.** Per query in tempo costante il programma
+costruisce un indice `zobrist → [(result, next_uci)]` sulla mainline di ogni
+partita del DB. L'indice viene serializzato su disco accanto al PGN come
+`<pgn>.idx` (pickle binario, ~20 MB per 12k partite) e ricaricato automaticamente
+all'avvio durante lo splash screen:
+- **Primo avvio dopo aver scelto il DB**: build da PGN, ~10-15s per 40k
+  partite. Salva il `.idx`. Lo splash mostra "Indicizzo N partite..." aggiornato
+  ogni 50 game.
+- **Avvii successivi**: load del `.idx` da disco, ~1-3s.
+- **Il PGN cambia** (download incrementale, edit manuale): `mtime`/`size` non
+  combaciano più → ricostruzione automatica al prossimo avvio.
+
+I file `.idx` sono già nel `.gitignore` — restano locali, non finiscono nel repo.
+
 ### 3.4 Solve positions
 > **Una posizione, una mossa.** Ti viene proposta una posizione e devi giocare la
 > mossa giusta. Adatto a ripassare *qualsiasi cosa* (errori, tattica, finali…).
@@ -308,6 +349,16 @@ memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
 > in `[1, N]` e ti pone alla `k`-esima mossa utente. Nel tempo eserciti tutte le mosse
 > del repertorio in proporzioni uguali (prima invece con prob. 1/3 di break ad ogni
 > turno la distribuzione era geometrica: ~33% sulla 1ª mossa, ~0.2% sull'ultima).
+
+**Persistenza errori.** Come per *Allena finali*, ogni errore commesso durante
+una sessione di Study openings viene registrato in una learning base dedicata
+`openings_<filename>` in `data/`. Drillabile da *Solve positions* (la base
+appare nel dropdown). Mosse corrette su posizioni già tracciate aggiornano le
+stat (per la spaced repetition: `correctsToLearn` corrette consecutive →
+uscita dalla sessione di Solve; `serie ≥ 5` → esclusione a vita). Esempio
+pratico: alleni C42 Russian su `C42Russian.pgn`, sbagli su 7 posizioni →
+la base `openings_C42Russian` te le ripropone in Solve positions finché non
+le hai chiuse.
 
 ### 3.7 Cosa studio adesso? (Study advisor)
 > **Quale apertura dovrei studiare prossimamente?** L'advisor analizza le sole
@@ -419,6 +470,16 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
 | **U** | **Setup posizione**: editor visuale modale (vedi §3.3) |
 | **K** | **Salva come tattica**: la posizione + l'ultima mossa giocata vanno in una learning base (vedi §3.3) |
+| **Y** | **Statistiche posizione vs DB di riferimento**: pannello laterale con W/D/L + continuazioni dal tuo storico (vedi §3.3) |
+
+> **Pannelli laterali con navigazione tastiera.** Quando navighi tra le mosse
+> di una partita caricata e ci sono varianti, o quando annoti una mossa con un
+> glifo NAG, appare un **pannello laterale a destra della scacchiera** (non
+> più menu full-screen che la copriva). Naviga con **↑/↓** (anche **Home/End**),
+> conferma con **Enter** o **→** (è il tasto naturale di "vai avanti"),
+> annulla con **Esc**. Click e hover col mouse continuano a funzionare in
+> parallelo — l'hover prende il sopravvento sulla selezione tastiera solo se
+> il mouse si muove davvero, così `↓↓↓ Enter` è sempre affidabile.
 
 > Nelle modalità di studio (Solve positions / BrainMaster / Study openings /
 > Allena finali) i comandi sono simili ma orientati alla soluzione: **Q** esci,
@@ -523,7 +584,7 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 | **Unroll PGN file** | Trasforma un PGN in un insieme di **posizioni** dentro una learning base. |
 | **Unroll PGN file as lesson** | Come sopra, ma come **lezione** (per il ripasso/BrainMaster). |
 | **Create Course for BrainMaster** | Registra una learning base come **corso** BrainMaster *(se `base_url` configurato)*. |
-| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Max errors in session** (capacità della sessione di *Solve positions*, default 10), **Corrects to learn** (corrette consecutive per uscire dalla sessione dopo un errore, default 3), **TTS speed (wpm)** (velocità della lettura vocale dei commenti, 90–280 wpm, default 170). |
+| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Choose reference DB (le mie partite)** (PGN per le statistiche di posizione, vedi §3.3), **Max errors in session** (capacità della sessione di *Solve positions*, default 10), **Corrects to learn** (corrette consecutive per uscire dalla sessione dopo un errore, default 3), **TTS speed (wpm)** (velocità della lettura vocale dei commenti, 90–280 wpm, default 170). |
 
 **Configurazione TTS via `config.json` (avanzata)**: oltre allo slider in Setup,
 puoi forzare manualmente la voce con `"tts_voice": "<sostringa>"` (es. `"zira"`,
@@ -690,8 +751,9 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da tutti i mode |
 | `syzygy_helper.py` | Apre le TB Syzygy da `config.engine_options.SyzygyPath`, espone `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Script diagnostici: integrità delle TB + verifica che Stockfish le veda davvero (`tbhits`) |
-| `position_setup.py` | Editor visuale di posizione (palette pezzi + Paste FEN), sub-mode modale invocato da Play between humans (vedi §3.3) |
+| `position_setup.py` | Editor visuale di posizione (palette pezzi + Paste FEN), sub-mode modale invocato da Analisi / Human Play (vedi §3.3) |
 | `add_to_base.py` | Menu di scelta base + salvataggio "posizione corrente + ultima mossa giocata" come `LearnPosition` (workflow tattica manuale, vedi §3.3) |
+| `position_stats.py` | Indicizzazione di un PGN di riferimento per query istantanee `zobrist → [(result, next_uci)]`; 3 livelli di cache (RAM/disco `<pgn>.idx`/rebuild); usato dal tasto Y in Analisi (vedi §3.3) |
 | `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
 | `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni. Contiene anche la classe `Voce` (TTS worker persistente, voce/rate SAPI5 settati direttamente sul COM object) |
 | `BoardScreen.py` | Disegno della scacchiera e dei pannelli |
@@ -741,13 +803,3 @@ refactoring, design patterns, crittografia, teoria dei numeri.
 
 ---
 
-## Topics suggeriti per GitHub
-
-Da copiare nella sezione *About → Topics* del repository (aiutano la
-ricerca interna di GitHub a indicizzare il progetto):
-
-```
-chess  chess-trainer  python  pygame  stockfish  syzygy-tablebases
-pgn  spaced-repetition  learning  tts  chess-engine  opening-repertoire
-endgame  chess-com  lichess  reinforcement-learning
-```

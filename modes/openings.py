@@ -8,6 +8,7 @@ from typing import Optional, List, Dict
 
 import chess
 import chess.pgn
+import chess.polyglot
 import pygame as p
 import pygame_menu
 
@@ -61,6 +62,70 @@ def detect_user_color_from_pgn(pgn_path: str) -> Optional[str]:
     return 'w' if black_variations > white_variations else 'b'
 
 
+# Severity uniforme per errori di apertura (cp di calo "equivalente"); usata
+# per la priorita' di pratica in Solve positions (vedi analyzer.getPositions).
+OPENING_ERROR_SEVERITY = 100
+
+
+def _get_or_create_opening_base(filename: str) -> Optional[LearningBase]:
+    """Recupera o crea la learning base associata al file PGN del repertorio.
+
+    Naming convention: `openings_<filename>` (mirror di `endgames_<filename>`).
+    Cosi' la base appare in `Solve positions` come una qualsiasi altra base,
+    e l'utente puo' ripassare gli errori commessi nel repertorio con lo stesso
+    flusso della tattica/finali.
+    """
+    base_name = f"openings_{filename}"
+    if base_name in learningBases:
+        return learningBases[base_name]
+    try:
+        lb = LearningBase(
+            movesToAnalyze=20,
+            blunderValue=100,
+            ponderTime=0.5,
+            useBook=False,
+        )
+        lb.setFileName(base_name)
+        learningBases[base_name] = lb
+        lb.save()
+        return lb
+    except Exception as e:
+        print(f"openings: impossibile creare la base '{base_name}': {e}")
+        return None
+
+
+def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
+                           board: chess.Board, played_uci: str,
+                           correct_uci: Optional[str], ok: bool) -> None:
+    """Aggiorna la learning base degli errori per le aperture.
+
+    - Errore: aggiunge (o aggiorna) la posizione con la mossa giusta
+      (mainline del PGN), severity=OPENING_ERROR_SEVERITY.
+    - Successo su posizione gia' tracciata: aggiorna stats riusando
+      `position.ok` -- evita di ricalcolare la mossa giusta sulla via felice.
+    - Successo su posizione mai vista: no-op (non spammiamo la base).
+    """
+    if lb is None:
+        return
+    zobrist = chess.polyglot.zobrist_hash(board)
+    if not ok:
+        if correct_uci is None:
+            return
+        try:
+            lb.updatePosition(played_uci, correct_uci, game, board,
+                              severity=OPENING_ERROR_SEVERITY)
+            lb.save()
+        except Exception as e:
+            print(f"openings: salvataggio errore fallito: {e}")
+    elif zobrist in lb.positions:
+        try:
+            stored_ok = lb.positions[zobrist].ok
+            lb.updatePosition(played_uci, stored_ok, game, board)
+            lb.save()
+        except Exception as e:
+            print(f"openings: update stats fallito: {e}")
+
+
 # "Study openings": you must always play the best move while the computer replies
 # with one of the lines stored in the PGN (typically an opening repertoire).
 def playOpening():
@@ -98,6 +163,11 @@ def playOpeningLine(filename, humanColor):
     UCIEngines.stop_analysis()
 
     gamelist = pgngamelist.PgnGameList(filename)
+
+    # Learning base degli errori per questo file di repertorio (mirror del
+    # pattern usato in `Allena finali`). Creata/aperta una sola volta per
+    # tutta la sessione di study openings.
+    lb = _get_or_create_opening_base(filename)
 
     running = True
     sqSelected = ()
@@ -292,7 +362,18 @@ def playOpeningLine(filename, humanColor):
                         # print(move.getChessNotation())
                         validMove = next((m for m in validMoves if move == m), None)
                         if validMove is not None:
+                            # Stato della board PRIMA della mossa: serve per il
+                            # logging in learning base (chiave = zobrist della
+                            # posizione dove l'utente ha mosso).
+                            _board_pre = gs.node.board()
+                            _next_main = gs.getNextMainMove()
+                            _correct_uci = _next_main.uci() if _next_main else None
                             if gs.checkNextMove(validMove.move):
+                                # Mossa corretta: aggiorna stats se la posizione
+                                # e' gia' nella base (no-op se non tracciata).
+                                _log_user_move_to_base(lb, game, _board_pre,
+                                                       validMove.move.uci(),
+                                                       _correct_uci, ok=True)
                                 errors = 0
                                 gs.doNextMainMove()
                                 moveMade = True
@@ -301,10 +382,14 @@ def playOpeningLine(filename, humanColor):
                                 if state.play_position:
                                     stopCondition=True
                             else:
+                                # Mossa errata: aggiunta o aggiornata nella base.
+                                _log_user_move_to_base(lb, game, _board_pre,
+                                                       validMove.move.uci(),
+                                                       _correct_uci, ok=False)
                                 errors += 1
                                 msg = "Not the right move"
                                 if errors >= 3:
-                                    rightMove = Move.fromChessMove(gs.getNextMainMove(), gs)
+                                    rightMove = Move.fromChessMove(_next_main, gs)
                                     msg = f"hint:{rightMove.uci[:2]}"
                                 show_message(gs,msg)
                                 app.delay(1)
