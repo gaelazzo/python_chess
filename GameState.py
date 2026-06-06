@@ -6,6 +6,7 @@ Keeps a move log
 from __future__ import annotations 
 from re import S
 from typing import Optional,List
+import sys
 import chess 
 from chess.pgn import ChildNode, Game
 import chess.polyglot
@@ -74,14 +75,22 @@ class Voce:
         return None, None
 
     def _apply_rate_from_config(self):
-        """Imposta la rate direttamente su `sapi.Rate` (-10..+10), bypassando
-        la proxy queue di pyttsx3 (`engine.setProperty('rate', ...)` non
-        applica al COM object reale, stesso bug della voce)."""
+        """Imposta la rate del motore TTS.
+
+        Su Windows usiamo il driver SAPI5 direttamente; sugli altri sistemi
+        lasciamo gestire la property al driver di pyttsx3.
+        """
         try:
             from config import config as _cfg
             wpm = int(getattr(_cfg, 'tts_rate', 150) or 150)
         except Exception:
             wpm = 150
+        if sys.platform != 'win32':
+            try:
+                self._engine.setProperty('rate', wpm)
+            except Exception:
+                pass
+            return
         # Conversione wpm -> SAPI5 rate (-10..+10). 200 wpm = 0 (default Windows).
         if wpm < 100:
             sapi_rate = -10
@@ -100,17 +109,17 @@ class Voce:
             print(f"TTS apply rate fallita: {e}")
 
     def _apply_voice(self, voice_id, source):
-        """Imposta la voce SAPI5 direttamente sul driver, bypassando la
-        proxy queue di pyttsx3.
+        """Imposta la voce del motore TTS."""
+        if sys.platform != 'win32':
+            try:
+                self._engine.setProperty('voice', voice_id)
+                self._voice_id = voice_id
+                print(f"TTS: voce applicata (source={source}) -> {voice_id}")
+                return True
+            except Exception as e:
+                print(f"TTS apply voice fallita: {e}")
+                return False
 
-        Background: pyttsx3 moderno espone l'engine come `Engine` con un
-        `proxy` (DriverProxy) che a sua volta wrappa il driver vero
-        (`SAPI5Driver`). `engine.setProperty('voice', ...)` accoda l'op nel
-        pump interno -- accoda e basta se il loop non sta girando, oppure
-        viene applicata DOPO la prossima `say()`, troppo tardi per la
-        riproduzione corrente. Inoltre il path `engine._driver` (che usavo
-        prima) non esiste piu' in queste versioni.
-        """
         # Path canonico verso SAPI5 in pyttsx3 moderno
         driver = getattr(getattr(self._engine, 'proxy', None), '_driver', None)
         sapi = getattr(driver, '_tts', None)
@@ -170,9 +179,9 @@ class Voce:
             if text is None:  # sentinel (non usato oggi: thread e' daemon)
                 break
             try:
-                # Re-apply della voce: alcune versioni di pyttsx3 SAPI5 perdono
-                # il setting tra say() consecutive e tornano al default.
-                if self._voice_id is not None:
+                # Su Windows alcune versioni di pyttsx3 SAPI5 perdono il
+                # setting tra say() consecutive e tornano al default.
+                if sys.platform == 'win32' and self._voice_id is not None:
                     try:
                         driver = getattr(getattr(self._engine, 'proxy', None),
                                          '_driver', None)

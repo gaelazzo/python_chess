@@ -1,7 +1,9 @@
-# Build — eseguibile Windows distribuibile
+# Build — pacchetti distribuibili Windows/macOS
 
-Come trasformare i sorgenti in un pacchetto `chessMain.exe` che gli utenti
-possono lanciare **senza installare Python**. Si usa
+Come trasformare i sorgenti in un pacchetto che gli utenti possono lanciare
+**senza installare Python**. Su Windows viene generato
+`HiresChess-windows.zip`; su macOS viene generato `HiresChess-macos.dmg` con
+`HiresChess.app`. Si usa
 [PyInstaller](https://pyinstaller.org/) con lo spec già presente nel repo
 ([chessMain.spec](chessMain.spec)).
 
@@ -11,6 +13,8 @@ possono lanciare **senza installare Python**. Si usa
 
 1. Aver completato l'installazione **da sorgente** (vedi
    [INSTALL.md](INSTALL.md) sezione B) con l'ambiente `env` attivo.
+   Su macOS usa Python 3.12 o 3.13 per la release: con Python 3.14 `pygame`
+   puo' non avere wheel disponibili e provare a compilare SDL da sorgente.
 2. Installare gli strumenti di build:
    ```powershell
    pip install -r requirements-dev.txt
@@ -38,11 +42,21 @@ pacchetto PyInstaller quella cartella non c'è sul path → l'import fallisce e
 
 Con l'ambiente attivo, dalla cartella del progetto:
 
-```powershell
-pyinstaller chessMain.spec
+```bash
+python release.py
 ```
 
-Risultato (modalità *onedir*):
+Lo script controlla prima che le dipendenze runtime (`pygame`, `pygame_menu`,
+`pygame_gui`, ecc.) siano installate nell'ambiente attivo: se mancano, si
+ferma prima di creare un pacchetto rotto.
+
+Per fermarti dopo il build PyInstaller, senza creare zip/DMG:
+
+```bash
+python release.py --build-only
+```
+
+Risultato Windows (modalità *onedir*):
 
 ```
 dist/
@@ -53,6 +67,14 @@ dist/
 
 Lo spec impacchetta automaticamente le immagini dei pezzi (`images/*.png`) e
 lo splash (`pic-chess.png`).
+
+Risultato macOS:
+
+```
+dist/
+└── HiresChess.app/
+    └── Contents/
+```
 
 ---
 

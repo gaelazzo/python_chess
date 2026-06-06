@@ -11,8 +11,8 @@ import pyttsx3
 import UCIEngines
 
 DIMENSION = 8
-MOVELOGFONT:Optional[p.Font] = None
-BOOKFONT:Optional[p.Font] = None
+MOVELOGFONT:Optional[p.font.Font] = None
+BOOKFONT:Optional[p.font.Font] = None
 
 BOARD_WIDTH = 512
 BOARD_HEIGHT = BOARD_WIDTH
@@ -399,7 +399,7 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
 def drawMoveLog(screen, gs):
     movesPerRow = 3
     assert(MOVELOGFONT is not None)
-    font:p.Font = MOVELOGFONT
+    font:p.font.Font = MOVELOGFONT
     moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
 

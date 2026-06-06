@@ -8,7 +8,7 @@
 chess>=1.11        # ex "python-chess": scacchiera, PGN, UCI, probing Syzygy/Polyglot (import: chess)
 pygame>=2.6        # finestra, rendering della scacchiera, input
 pygame-menu>=4.5   # menu dell'app (import: pygame_menu)
-pygame_gui>=0.6    # widget GUI: dialoghi, liste, input testuali
+pygame_gui>=0.6,<0.6.9  # widget GUI: dialoghi, liste, input testuali
 pyperclip>=1.9     # copia/incolla di FEN e PGN dagli appunti
 pyttsx3>=2.99      # sintesi vocale offline delle mosse (TTS)
 requests>=2.32     # download partite Chess.com / lichess + servizio BrainMaster
