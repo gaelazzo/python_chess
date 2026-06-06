@@ -129,5 +129,5 @@ Solo se usi il servizio AI esterno: imposta `base_url` e `id_student` in
 ---
 
 📖 Per l'uso del programma una volta installato, vedi il manuale:
-[readme.md](readme.md) (IT) · [README.en.md](README.en.md) (EN).
+[README.md](README.md) (EN) · [README.it.md](README.it.md) (IT).
 🔧 Per **produrre** l'eseguibile distribuibile, vedi [BUILD.md](BUILD.md).

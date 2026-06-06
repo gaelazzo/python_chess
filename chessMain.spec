@@ -1,12 +1,28 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
+# Risorse dell'app + dati delle librerie GUI che spediscono temi/font come
+# package data (pygame_menu, pygame_gui): senza questi il build parte ma va in
+# crash a runtime quando cerca i font/temi.
+datas = [('images/*.png', 'images'), ('pic-chess.png', '.')]
+datas += collect_data_files('pygame_menu')
+datas += collect_data_files('pygame_gui')
+
+# Import dinamici che l'analisi statica di PyInstaller non rileva.
+hiddenimports = [
+    'pyttsx3.drivers',
+    'pyttsx3.drivers.sapi5',   # motore Text-To-Speech su Windows (SAPI5)
+    'comtypes',                # dipendenza runtime di pyttsx3/SAPI5
+]
+hiddenimports += collect_submodules('pygame_menu')
+hiddenimports += collect_submodules('pygame_gui')
 
 a = Analysis(
     ['chessMain.py'],
     pathex=[],
     binaries=[],
-    datas=[('images/*.png', 'images'), ('pic-chess.png', '.')],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

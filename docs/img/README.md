@@ -1,7 +1,7 @@
 # Immagini per i README / README assets
 
-Questa cartella contiene le immagini mostrate in [readme.md](../../readme.md)
-e [README.en.md](../../README.en.md).
+Questa cartella contiene le immagini mostrate in [README.md](../../README.md)
+e [README.it.md](../../README.it.md).
 
 ## File attesi
 

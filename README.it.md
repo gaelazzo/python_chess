@@ -19,7 +19,7 @@
 > Chess.com e lichess · banco di prova per modelli di **apprendimento
 > personalizzato basato su reinforcement learning** · supporto Windows.
 
-🇬🇧 *English version:* [README.en.md](README.en.md)
+🇬🇧 *English version:* [README.md](README.md)
 
 **Hires Chess Trainer** è un'applicazione desktop per allenarsi e migliorare a scacchi.
 Permette di giocare contro il computer o contro un altro umano, di **analizzare**

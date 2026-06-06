@@ -19,7 +19,7 @@
 > testbed for **reinforcement-learning models of personalised learning** ·
 > Windows-first.
 
-🇮🇹 *Versione italiana:* [readme.md](readme.md)
+🇮🇹 *Versione italiana:* [README.it.md](README.it.md)
 
 **Hires Chess Trainer** is a desktop application for practising and improving at chess.
 You can play against the computer or another human, **analyse** games with variations
