@@ -5,8 +5,8 @@
 > those mistakes with **spaced repetition**, until they become automatic.
 
 <p align="center">
-  <!-- TODO: replace pic-chess.png with docs/img/demo.gif once the demo is recorded (see docs/img/README.md) -->
-  <img src="pic-chess.png" alt="Hires Chess Trainer" width="640">
+  <!-- TODO: swap in docs/img/demo.gif (a short gameplay clip) once recorded; see docs/img/README.md -->
+  <img src="docs/img/screenshot-menu.gif" alt="Hires Chess Trainer — main menu" width="720">
   <br><sub><em>Import your games → find your mistakes → focused spaced-repetition training.</em></sub>
 </p>
 
@@ -25,6 +25,12 @@
 You can play against the computer or another human, **analyse** games with variations
 and annotations, and **study** positions and mistakes through "learning bases" and
 lessons (optionally assisted by the *BrainMaster* AI service).
+
+## Screenshots
+
+| Analysis — engine eval & opening book | Study openings | Notation panel |
+|:---:|:---:|:---:|
+| [![Analysis with multi-PV engine evaluation and opening book](docs/img/screenshot-analysis.gif)](docs/img/screenshot-analysis.gif) | [![Studying an opening repertoire](docs/img/screenshot-openings.gif)](docs/img/screenshot-openings.gif) | [![Notation panel with the full variation tree](docs/img/screenshot-notation.gif)](docs/img/screenshot-notation.gif) |
 
 ---
 

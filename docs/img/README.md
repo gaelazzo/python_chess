@@ -7,15 +7,16 @@ e [README.it.md](../../README.it.md).
 
 | File | Uso | Stato |
 |------|-----|-------|
-| `demo.gif` | GIF "hero" in cima ai README (il flusso principale) | **da registrare** |
-| `screenshot-menu.png` | (opzionale) menu principale | da fare |
-| `screenshot-analysis.png` | (opzionale) schermata di analisi con varianti | da fare |
-| `screenshot-solve.png` | (opzionale) *Solve positions* su una learning base | da fare |
+| `demo.gif` | GIF "hero" gameplay (flusso *Solve positions*) | **da registrare** |
+| `screenshot-menu.gif` | immagine hero attuale + menu | ✅ presente |
+| `screenshot-analysis.gif` | galleria — analisi con engine + libro | ✅ presente |
+| `screenshot-openings.gif` | galleria — studio aperture in azione | ✅ presente |
+| `screenshot-notation.gif` | galleria — pannello notazione/varianti | ✅ presente |
 
-> Finché `demo.gif` non esiste, i README usano `pic-chess.png` (lo splash) come
-> immagine provvisoria. Una volta pronta la GIF, basta cambiare **una riga** in
-> ciascun README: sostituisci `src="pic-chess.png"` con
-> `src="docs/img/demo.gif"` (cerca il commento `TODO`).
+> In attesa di `demo.gif`, l'immagine hero in cima ai README è
+> `screenshot-menu.gif`. Quando la GIF di gameplay è pronta, cambia **una
+> riga** in ciascun README: sostituisci `src="docs/img/screenshot-menu.gif"`
+> con `src="docs/img/demo.gif"` (cerca il commento `TODO`).
 
 ## Come registrare `demo.gif` (Windows)
 

@@ -5,8 +5,8 @@
 > errori con la **ripetizione spaziata**, finché non diventano automatici.
 
 <p align="center">
-  <!-- TODO: sostituire pic-chess.png con docs/img/demo.gif una volta registrata la demo (vedi docs/img/README.md) -->
-  <img src="pic-chess.png" alt="Hires Chess Trainer" width="640">
+  <!-- TODO: sostituire la screenshot del menu con docs/img/demo.gif (breve clip di gameplay) una volta registrata; vedi docs/img/README.md -->
+  <img src="docs/img/screenshot-menu.gif" alt="Hires Chess Trainer — menu principale" width="720">
   <br><sub><em>Importa le partite → individua gli errori → allenamento mirato con ripetizione spaziata.</em></sub>
 </p>
 
@@ -25,6 +25,12 @@
 Permette di giocare contro il computer o contro un altro umano, di **analizzare**
 partite con varianti e annotazioni, e di **studiare** posizioni ed errori tramite
 "learning base" e lezioni (anche assistite dal servizio AI *BrainMaster*).
+
+## Screenshot
+
+| Analisi — valutazione engine e libro | Studio aperture | Pannello notazione |
+|:---:|:---:|:---:|
+| [![Analisi con valutazione multi-PV del motore e libro d'apertura](docs/img/screenshot-analysis.gif)](docs/img/screenshot-analysis.gif) | [![Studio del repertorio d'apertura](docs/img/screenshot-openings.gif)](docs/img/screenshot-openings.gif) | [![Pannello notazione con l'albero delle varianti](docs/img/screenshot-notation.gif)](docs/img/screenshot-notation.gif) |
 
 ---
 
