@@ -1,0 +1,8 @@
+# Hires Chess Trainer — strumenti di sviluppo e build
+# Installa con:  pip install -r requirements-dev.txt
+# (include automaticamente le dipendenze di runtime)
+
+-r requirements.txt
+
+pytest>=8.0        # suite di test (cartella tests/)
+pyinstaller>=6.14  # build dell'eseguibile Windows standalone (vedi BUILD.md)

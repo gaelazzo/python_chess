@@ -1,8 +1,14 @@
-chess.com
-pygame
-python-chess
-berserk
-pygame-menu
-chess
-pyperclip
-pygame_gui
+# Hires Chess Trainer — dipendenze di runtime
+# Installa con:  pip install -r requirements.txt
+# Python 3.10+ richiesto (sviluppato e testato su 3.13).
+#
+# Nota: NON elenca Stockfish (motore UCI) ne' le Syzygy tablebase: sono
+# componenti esterni da scaricare a parte (vedi INSTALL.md).
+
+chess>=1.11        # ex "python-chess": scacchiera, PGN, UCI, probing Syzygy/Polyglot (import: chess)
+pygame>=2.6        # finestra, rendering della scacchiera, input
+pygame-menu>=4.5   # menu dell'app (import: pygame_menu)
+pygame_gui>=0.6    # widget GUI: dialoghi, liste, input testuali
+pyperclip>=1.9     # copia/incolla di FEN e PGN dagli appunti
+pyttsx3>=2.99      # sintesi vocale offline delle mosse (TTS)
+requests>=2.32     # download partite Chess.com / lichess + servizio BrainMaster

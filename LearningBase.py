@@ -13,7 +13,6 @@ import chess.pgn
 from chess.pgn import  Game as PgnGame
 from chess.engine import Cp, Mate, MateGiven
 from dataclasses import dataclass,asdict,fields
-import pgn
 import io
 import sys
 
