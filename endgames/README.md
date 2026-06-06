@@ -1,5 +1,7 @@
 # `endgames/` — Studi di finale
 
+🇬🇧 *English version:* [README.en.md](README.en.md)
+
 Cartella dedicata ai **PGN di studi di finale** per la modalità *Allena
 finali* (Menu principale → Allena finali → Choose endgame PGN).
 

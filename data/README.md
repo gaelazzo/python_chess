@@ -1,5 +1,7 @@
 # `data/` — Learning bases
 
+🇬🇧 *English version:* [README.en.md](README.en.md)
+
 Cartella delle **learning base**: posizioni da studiare/ripassare con le
 statistiche dei tuoi tentativi. Letta automaticamente all'avvio (vedi
 `LearningBase.py`) e popolata dalle modalità di allenamento.

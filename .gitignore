@@ -10,6 +10,7 @@ __pycache__/
 /books/
 /data/*
 !/data/README.md
+!/data/README.en.md
 /engines/
 /env/
 /old/

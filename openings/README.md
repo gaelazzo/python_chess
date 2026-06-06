@@ -1,5 +1,7 @@
 # `openings/` — Repertorio d'apertura
 
+🇬🇧 *English version:* [README.en.md](README.en.md)
+
 Cartella dedicata ai **PGN di repertorio d'apertura** per la modalità
 *Study openings* (Menu principale → Study openings → Choose opening PGN).
 

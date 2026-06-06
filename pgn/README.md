@@ -1,5 +1,7 @@
 # `pgn/` — Le tue partite
 
+🇬🇧 *English version:* [README.en.md](README.en.md)
+
 Cartella di default per i file `.pgn` "generici": **partite tue scaricate**
 o **partite analizzate / annotate**. Usata da diverse modalità:
 
