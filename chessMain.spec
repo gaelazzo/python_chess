@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 # Risorse dell'app + dati delle librerie GUI che spediscono temi/font come
@@ -11,9 +12,14 @@ datas += collect_data_files('pygame_gui')
 # Import dinamici che l'analisi statica di PyInstaller non rileva.
 hiddenimports = [
     'pyttsx3.drivers',
-    'pyttsx3.drivers.sapi5',   # motore Text-To-Speech su Windows (SAPI5)
-    'comtypes',                # dipendenza runtime di pyttsx3/SAPI5
 ]
+if sys.platform == 'win32':
+    hiddenimports += [
+        'pyttsx3.drivers.sapi5',   # motore Text-To-Speech su Windows (SAPI5)
+        'comtypes',                # dipendenza runtime di pyttsx3/SAPI5
+    ]
+elif sys.platform == 'darwin':
+    hiddenimports += ['pyttsx3.drivers.nsss']
 hiddenimports += collect_submodules('pygame_menu')
 hiddenimports += collect_submodules('pygame_gui')
 
@@ -42,9 +48,9 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
+    console=sys.platform == 'win32',
     disable_windowed_traceback=False,
-    argv_emulation=False,
+    argv_emulation=sys.platform == 'darwin',
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
@@ -58,3 +64,16 @@ coll = COLLECT(
     upx_exclude=[],
     name='chessMain',
 )
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        coll,
+        name='HiresChess.app',
+        icon=None,
+        bundle_identifier='org.hireschess.trainer',
+        info_plist={
+            'CFBundleDisplayName': 'HiresChess',
+            'CFBundleName': 'HiresChess',
+            'NSHighResolutionCapable': True,
+        },
+    )

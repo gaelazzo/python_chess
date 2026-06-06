@@ -38,8 +38,8 @@ def _show_splash():
             pass
         _splash_p.display.flip()
         _splash_p.event.pump()
-    except Exception as e:
-        print(f"splash skipped: {e}")
+    except Exception:
+        print("splash skipped")
 
 
 _show_splash()
@@ -93,6 +93,7 @@ from pygame_gui.elements.ui_button import UIButton
 from pygame_menu.locals import ALIGN_CENTER, ORIENTATION_HORIZONTAL
 import sys
 from dataclasses import dataclass
+import traceback
 from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, unlock_new_lesson
 from typing import Optional, Union,List,Dict, Tuple, Iterator
 from datetime import datetime, date
@@ -595,8 +596,8 @@ def runMain():
                 _splash_progress(f"Indicizzo {ref_name}: {n_games} partite...")
             position_stats.get_index(ref_db, progress=_idx_progress)
             _splash_progress(f"DB di riferimento pronto ({ref_name}).")
-    except Exception as e:
-        print(f"position_stats preload fallito: {e}")
+    except Exception:
+        print(f"position_stats preload fallito: {traceback.format_exc()}")
 
     try:
         app.W, app.H = BS.init()
