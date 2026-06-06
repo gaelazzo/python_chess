@@ -14,7 +14,7 @@
         "eco": null,
         "color": null,
         "filename": "B01Scandinavian",
-        "base": "endgames_esempi",
+        "base": "openings",
         "player": "gaelazzo",
         "movesToAnalyze": 16,
         "blunderValue": 80,

@@ -8,7 +8,8 @@ __pycache__/
 /.idea/
 /.vs/
 /books/
-/data/
+/data/*
+!/data/README.md
 /engines/
 /env/
 /old/

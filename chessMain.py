@@ -122,7 +122,7 @@ from save_load import save_menu, load_menu
 from modes.play_game import playGame
 from modes.replay import solvePositions
 from modes.brainmaster import playBrainMasterBase
-from modes.openings import playOpening
+from modes.openings import playOpening, OPENINGS_FOLDER
 from modes.improve import buildImproveMenu
 from modes.study_advisor import buildAdvisorMenu
 from modes.endgames import playEndgames, ENDGAMES_FOLDER
@@ -272,7 +272,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     openingsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
                                        onchange=make_updater("num_moves_to_show",int),
                 default=state.num_moves_to_show)  # Aggiungi questa riga
-    addChoosePGNFile(openingsMenu)
+    addChoosePGNFile(openingsMenu, folder=OPENINGS_FOLDER, title='Choose opening PGN')
     openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     openingsMenu.add.button('Play', playOpening)
 

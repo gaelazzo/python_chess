@@ -6,6 +6,22 @@ from dataclasses import dataclass
 from datetime import datetime, date
 from typing import Optional, List, Dict
 
+
+def _get_base_path():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(os.path.join(__file__, "..")))
+
+
+# Cartella dedicata ai PGN di repertorio d'apertura. Mirror di `endgames/`:
+# tieni qui le sole linee-modello che vuoi vedere in Study openings, senza
+# mescolarle ai PGN delle tue partite in `pgn/`. Creata al primo import se
+# non esiste.
+BASE_PATH = _get_base_path()
+OPENINGS_FOLDER = os.path.join(BASE_PATH, "openings")
+if not os.path.exists(OPENINGS_FOLDER):
+    os.makedirs(OPENINGS_FOLDER)
+
 import chess
 import chess.pgn
 import chess.polyglot
@@ -135,7 +151,7 @@ def playOpening():
 
     # Auto-rileva il colore dell'utente dal contenuto del PGN. Fallback a Bianco
     # se il file non contiene varianti (es. una sola linea, niente da dedurre).
-    pgn_path = os.path.join(pgngamelist.PGN_FOLDER, filename + ".pgn")
+    pgn_path = os.path.join(OPENINGS_FOLDER, filename + ".pgn")
     detected = detect_user_color_from_pgn(pgn_path)
     human_color = detected or "w"
 
@@ -162,7 +178,7 @@ def playOpeningLine(filename, humanColor):
     # avviarla.
     UCIEngines.stop_analysis()
 
-    gamelist = pgngamelist.PgnGameList(filename)
+    gamelist = pgngamelist.PgnGameList(filename, folder=OPENINGS_FOLDER)
 
     # Learning base degli errori per questo file di repertorio (mirror del
     # pattern usato in `Allena finali`). Creata/aperta una sola volta per
