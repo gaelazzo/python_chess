@@ -1,4 +1,16 @@
-# Hires Chess Trainer — User Manual
+# Hires Chess Trainer
+
+> **Train on YOUR real mistakes.** Import your games from Chess.com and
+> lichess, find where you go wrong — tactics, openings, endgames — and fix
+> those mistakes with **spaced repetition**, until they become automatic.
+
+<p align="center">
+  <!-- TODO: replace pic-chess.png with docs/img/demo.gif once the demo is recorded (see docs/img/README.md) -->
+  <img src="pic-chess.png" alt="Hires Chess Trainer" width="640">
+  <br><sub><em>Import your games → find your mistakes → focused spaced-repetition training.</em></sub>
+</p>
+
+📦 *Install:* [INSTALL.md](INSTALL.md) · 🔧 *Build the executable:* [BUILD.md](BUILD.md)
 
 > Chess trainer in Python with Stockfish and Syzygy tablebases · learning bases
 > with spaced repetition over tactics, opening repertoire and endgames ·

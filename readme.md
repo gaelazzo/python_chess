@@ -1,4 +1,16 @@
-# Hires Chess Trainer — Manuale d'uso
+# Hires Chess Trainer
+
+> **Allenati sui TUOI errori reali.** Importa le tue partite da Chess.com e
+> lichess, scopri dove sbagli — tattica, aperture, finali — e correggi quegli
+> errori con la **ripetizione spaziata**, finché non diventano automatici.
+
+<p align="center">
+  <!-- TODO: sostituire pic-chess.png con docs/img/demo.gif una volta registrata la demo (vedi docs/img/README.md) -->
+  <img src="pic-chess.png" alt="Hires Chess Trainer" width="640">
+  <br><sub><em>Importa le partite → individua gli errori → allenamento mirato con ripetizione spaziata.</em></sub>
+</p>
+
+📦 *Installazione:* [INSTALL.md](INSTALL.md) · 🔧 *Build dell'eseguibile:* [BUILD.md](BUILD.md)
 
 > Chess trainer in Python con Stockfish e Syzygy tablebases · learning base
 > con ripetizione spaziata su tattica, repertorio d'apertura e finali ·
