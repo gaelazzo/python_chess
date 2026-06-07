@@ -25,19 +25,6 @@ Come trasformare i sorgenti in un pacchetto che gli utenti possono lanciare
 
 ---
 
-## ⚠️ Prima di buildare: rimuovi l'import morto
-
-Il file [LearningBase.py](LearningBase.py) contiene un `import pgn` (riga 16)
-che **non viene usato**: in esecuzione da sorgente "funziona" solo perché
-Python risolve la cartella dati `pgn/` come *namespace package*. Nel
-pacchetto PyInstaller quella cartella non c'è sul path → l'import fallisce e
-**l'eseguibile va in crash all'avvio**.
-
-→ Elimina la riga `import pgn` da `LearningBase.py` prima di buildare
-(è innocua: nessun simbolo di `pgn` viene mai usato).
-
----
-
 ## Build
 
 Con l'ambiente attivo, dalla cartella del progetto:
@@ -78,24 +65,19 @@ dist/
 
 ---
 
-## Comporre il pacchetto da distribuire
+## Cosa contiene il pacchetto
 
-PyInstaller **non** include i componenti esterni: vanno aggiunti a mano
-dentro `dist/chessMain/` prima di zippare.
+`python release.py` produce `dist/HiresChess-windows.zip` **già pronto**:
+dentro una cartella `HiresChess/` ci sono l'eseguibile, le sue librerie
+(`_internal/`), un `config.json` pulito, un `LEGGIMI.txt`, e le cartelle utente
+`engines/ books/ data/ pgn/ openings/ endgames/` — ognuna con il proprio
+README/nota (copiati dal repo da `stage_user_folders` in `release.py`). Non
+devi aggiungere nulla a mano.
 
-| Aggiungi | Obbligatorio? | Note |
-|---|---|---|
-| `engines/stockfish-*.exe` | Sì (per analisi e gioco) | Vedi nota licenza sotto. |
-| `books/*.bin` | No | Libro Polyglot, se vuoi farlo giocare su libro. |
-| `config.json` di default | Consigliato | Pulito, **senza percorsi personali** (vedi sotto). |
-
-Le cartelle dati (`data/`, `pgn/`, `openings/`, `endgames/`) **non** vanno
-incluse: il programma le crea da solo accanto all'eseguibile al primo avvio.
-
-> **Config "pulito".** Il `config.json` versionato contiene i percorsi
-> dell'autore (`SyzygyPath`, `reference_db`, `id_student`...). Per la release
-> spedisci un `config.json` con quei valori svuotati/neutri, così l'utente
-> parte pulito.
+**Stockfish NON è incluso** (scelta: zip più leggero, nessuna questione di
+licenza GPL): l'utente lo scarica e lo mette in `engines/` seguendo il
+`LEGGIMI.txt` (vedi anche [INSTALL.md](INSTALL.md)). Se in futuro volessi
+includerlo, ricorda la licenza GPLv3 (vedi sotto).
 
 ### Licenza di Stockfish (importante)
 Stockfish è **GPLv3**, questa app è MIT. Lo chiami come processo separato
@@ -113,10 +95,16 @@ motore all'utente al primo avvio (vedi INSTALL.md).
 
 ## Distribuzione
 
-1. Comprimi `dist/chessMain/` in `HiresChess-windows.zip`.
-2. Su GitHub: **Releases → Draft a new release**, crea un tag (es. `v1.0.0`),
-   allega lo zip, scrivi due righe di note.
-3. Aggiorna il link in [INSTALL.md](INSTALL.md) se necessario.
+Due strade:
+
+**A) Automatica (consigliata).** Fai push di un tag `v*`
+(`git tag v1.1.0 && git push origin v1.1.0`): il workflow
+[.github/workflows/release.yml](.github/workflows/release.yml) builda Windows +
+macOS con `release.py` e pubblica la release con gli asset allegati.
+
+**B) Manuale.** `python release.py` crea `dist/HiresChess-windows.zip`; poi su
+GitHub **Releases → Draft a new release**, crea il tag, allega lo zip e
+pubblica. Vedi anche [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
 
 ---
 
