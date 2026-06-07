@@ -161,9 +161,9 @@ def stage_user_folders(bundle_root: Path) -> None:
             if src.exists():
                 shutil.copy2(src, dest / readme)
 
-    (bundle_root / "engines" / "METTI_QUI_STOCKFISH.txt").write_text(ENGINES_NOTE, encoding="utf-8")
-    (bundle_root / "books" / "LEGGIMI.txt").write_text(BOOKS_NOTE, encoding="utf-8")
-    (bundle_root / "LEGGIMI.txt").write_text(LEGGIMI_TXT, encoding="utf-8")
+    (bundle_root / "engines" / "PUT_STOCKFISH_HERE.txt").write_text(ENGINES_NOTE, encoding="utf-8")
+    (bundle_root / "books" / "README.txt").write_text(BOOKS_NOTE, encoding="utf-8")
+    (bundle_root / "README.txt").write_text(LEGGIMI_TXT, encoding="utf-8")
 
 
 def package_windows() -> Path:
