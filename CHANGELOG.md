@@ -4,6 +4,27 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.1.0] - 2026-06-07
+
+### Aggiunte
+- **Analisi → cancella variante / tronca**: **Backspace** elimina la variante
+  corrente (mossa corrente + seguito), **Canc** tronca le mosse dopo la
+  posizione corrente; entrambi con conferma.
+- **Salvataggio**: dall'analisi puoi **creare un nuovo file PGN** (non solo
+  aggiungere a uno esistente) — comodo per nuovi file di apertura.
+
+### Correzioni
+- **Valutazione del motore** (pannello live) ora dal **punto di vista del
+  Bianco** (assoluta): la variante migliore ha il valore più alto col Bianco al
+  tratto e il più basso col Nero — simmetrica.
+- **Orientamento scacchiera in analisi**: il blocco (tasto A) viene ora
+  rispettato anche dopo Notazione (V), Load (L) e Setup posizione (U).
+- **Caricamento partite**: l'elenco interno rispetta la cartella scelta
+  (openings/, endgames/), non più solo pgn/.
+- Tutto il codice (UI, messaggi, commenti, docstring) tradotto in inglese.
+
+[1.1.0]: https://github.com/gaelazzo/python_chess/releases/tag/v1.1.0
+
 ## [1.0.0] - 2026-06-06
 
 Prima release pubblica.

@@ -69,7 +69,7 @@ It is not required. (You can delete this text file.)
 
 LEGGIMI_TXT = """\
 ========================================
-  Hires Chess Trainer  v1.0.0
+  Hires Chess Trainer  v1.1.0
 ========================================
 
 Thank you for downloading Hires Chess Trainer!
