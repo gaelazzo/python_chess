@@ -100,10 +100,13 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
         parts = []
         score = info.get("score")
         if score:
-            s = score.relative
+            # White's point of view (absolute), like lichess/chess.com: positive =
+            # White is better, negative = Black is better. This way the engine's
+            # best line (always shown first) has the highest value when White is to
+            # move and the lowest (most negative) when Black is to move.
+            s = score.white()
             if isinstance(s, chess.engine.Mate):
-                # .mate() returns the number of MOVES to mate, with sign:
-                # positive = we are delivering mate, negative = we are being mated.
+                # White's POV: positive = White delivers mate, negative = Black does.
                 parts.append(f"Mate in {s.mate()}")
             elif isinstance(s, chess.engine.Cp):
                 parts.append(f"Eval {s.score() / 100:.2f}")
