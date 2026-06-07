@@ -584,7 +584,9 @@ def playAGame():
                             moveMade = True
                             animate = False
                             # The toolbar was "uncovered" by the modal -- redraw.
-                            BS.setWhiteUp(app.screen, gs.node.board().turn == chess.BLACK)
+                            # Analysis mode locks the orientation: don't re-flip.
+                            if not analyze:
+                                BS.setWhiteUp(app.screen, gs.node.board().turn == chess.BLACK)
 
                     if e.key == p.K_k and not whiteCPU and not blackCPU:
                         # Save current position + last move as a tactic
@@ -632,7 +634,8 @@ def playAGame():
                         moveMade = False # a move was made
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves
-                        BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+                        if not analyze:  # analysis mode locks the board orientation
+                            BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
                         continue
 
                     if e.key == p.K_n and not whiteCPU and not blackCPU:
@@ -671,7 +674,8 @@ def playAGame():
                         moveMade = False
                         animate = False
                         validMoves = gs.stdValidMoves()
-                        BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+                        if not analyze:  # analysis mode locks the board orientation
+                            BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
                         continue
 
                     if e.key == p.K_g:  # copy to clipboard
