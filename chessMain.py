@@ -27,12 +27,12 @@ def _show_splash():
         win_w = max(lw + 80, 600)
         win_h = max(lh + 120, 400)
         screen = _splash_p.display.set_mode((win_w, win_h))
-        _splash_p.display.set_caption("Chess trainer -- caricamento...")
+        _splash_p.display.set_caption("Chess trainer -- loading...")
         screen.fill(_splash_p.Color(38, 38, 56))
         screen.blit(logo, ((win_w - lw) // 2, (win_h - lh) // 2 - 20))
         try:
             font = _splash_p.font.SysFont("Arial", 22, bold=True)
-            txt = font.render("Caricamento in corso...", True, _splash_p.Color("white"))
+            txt = font.render("Loading...", True, _splash_p.Color("white"))
             screen.blit(txt, ((win_w - txt.get_width()) // 2, win_h - 50))
         except Exception:
             pass
@@ -280,7 +280,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     endgamesMenu = pygame_menu.Menu(
         height=height,
         theme=pygame_menu.themes.THEME_BLUE,
-        title='Allena finali',
+        title='Endgame training',
         width=width
     )
     addChoosePGNFile(endgamesMenu, folder=ENDGAMES_FOLDER, title='Choose endgame PGN')
@@ -430,7 +430,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     chooseEngine = make_file_selector(
          None, None , labels,UCIEngines.ENGINE_FOLDER,".exe", "Choose engine",choose_engine, None)
     configureGame.add.button('Choose engine', chooseEngine)
-    default_value = config.engine or "Nessun motore selezionato"
+    default_value = config.engine or "No engine selected"
 
     label = configureGame.add.button(default_value,chooseEngine,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())    
     labels.append(label)
@@ -444,7 +444,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     chooseBook = make_file_selector(
          None, None , labels,book.BOOKS_FOLDER, ".bin", "Choose book",choose_book, None)
     configureGame.add.button('Choose book', chooseBook)
-    default_value = getattr(config, 'book', None) or "Nessun libro selezionato"
+    default_value = getattr(config, 'book', None) or "No book selected"
     label = configureGame.add.button(default_value,chooseBook,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())    
     labels.append(label)
 
@@ -479,7 +479,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         save_config()
         _pstats.invalidate_cache()  # forza re-build alla prossima query
         # Aggiorna label coi nome file (senza percorso).
-        new_label = os.path.basename(config.reference_db) or "Nessun DB di riferimento"
+        new_label = os.path.basename(config.reference_db) or "No reference DB"
         for lbl in ref_labels:
             if lbl:
                 lbl.set_title(new_label)
@@ -488,8 +488,8 @@ def mainMenu(width,height, test: bool = False) -> None:
         None, None, ref_labels, pgngamelist.PGN_FOLDER, ".pgn",
         "Choose reference DB", choose_reference_db, None,
     )
-    configureGame.add.button('Choose reference DB (le mie partite)', chooseRefDb)
-    _ref_default = os.path.basename(config.reference_db) if config.reference_db else "Nessun DB di riferimento"
+    configureGame.add.button('Choose reference DB (my games)', chooseRefDb)
+    _ref_default = os.path.basename(config.reference_db) if config.reference_db else "No reference DB"
     ref_label = configureGame.add.button(_ref_default, chooseRefDb, font_size=18,
                                           background_color=None,
                                           selection_effect=pygame_menu.widgets.NoneSelection())
@@ -591,9 +591,9 @@ def runMain():
             if cache_exists:
                 _splash_progress(f"Carico indice di {ref_name} dal disco...")
             else:
-                _splash_progress(f"Indicizzo {ref_name} (prima volta, richiede tempo)...")
+                _splash_progress(f"Indexing {ref_name} (first time, takes a while)...")
             def _idx_progress(n_games):
-                _splash_progress(f"Indicizzo {ref_name}: {n_games} partite...")
+                _splash_progress(f"Indexing {ref_name}: {n_games} games...")
             position_stats.get_index(ref_db, progress=_idx_progress)
             _splash_progress(f"DB di riferimento pronto ({ref_name}).")
     except Exception:

@@ -106,7 +106,7 @@ def _get_or_create_opening_base(filename: str) -> Optional[LearningBase]:
         lb.save()
         return lb
     except Exception as e:
-        print(f"openings: impossibile creare la base '{base_name}': {e}")
+        print(f"openings: could not create base '{base_name}': {e}")
         return None
 
 
@@ -132,7 +132,7 @@ def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
                               severity=OPENING_ERROR_SEVERITY)
             lb.save()
         except Exception as e:
-            print(f"openings: salvataggio errore fallito: {e}")
+            print(f"openings: failed to save mistake: {e}")
     elif zobrist in lb.positions:
         try:
             stored_ok = lb.positions[zobrist].ok
@@ -161,7 +161,7 @@ def playOpening():
         # informativa: nessuna variante trovata, parto da Bianco di default
         app.main_background()
         BS.drawEndGameText(app.screen, None,
-                           f"Colore non rilevabile dal PGN -- gioco Bianco di default", size=18)
+                           f"Color not detectable from PGN -- defaulting to White", size=18)
         BS.update()
         app.delay(2)
     playOpeningLine(filename, human_color)
@@ -199,11 +199,11 @@ def playOpeningLine(filename, humanColor):
     BS.clearCPU(app.screen)
     
     help_text = [
-            "Istruzioni:",
+            "Instructions:",
             "- left to take back a move",
             "- right to play next move",
-            "- Q per uscire",
-            "- H Hint (mostra la mossa corretta)",
+            "- Q to quit",
+            "- H Hint (show the correct move)",
             "- C Copy FEN to clipboard",
             "- G Copy PGN to clipboard ",
             "- E Engine ON/OFF",
@@ -223,8 +223,8 @@ def playOpeningLine(filename, humanColor):
         app.main_menu.enable()
         return
 
-    color_label = {"w": "Bianco", "b": "Nero"}.get(humanColor, "?")
-    BS.set_context_label(f"Apertura: {filename} ({color_label})")
+    color_label = {"w": "White", "b": "Black"}.get(humanColor, "?")
+    BS.set_context_label(f"Opening: {filename} ({color_label})")
 
     # Toolbar (fase 2): stesso pattern degli altri mode.
     def _post_key(key, mod=0):

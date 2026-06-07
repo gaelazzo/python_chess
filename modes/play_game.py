@@ -186,7 +186,7 @@ def _show_db_stats(gs: "GameState") -> None:
         def _progress(n_games):
             app.main_background()
             BS.drawEndGameText(app.screen, None,
-                               f"Indicizzo {os.path.basename(db_path)}: {n_games} partite", size=22)
+                               f"Indexing {os.path.basename(db_path)}: {n_games} games", size=22)
             BS.update()
             p.event.pump()
         _progress(0)
@@ -217,10 +217,10 @@ def _show_db_stats(gs: "GameState") -> None:
     moves_sorted = sorted(stats['moves'].items(), key=lambda kv: kv[1]['count'], reverse=True)
 
     lines = []
-    lines.append((f"Trovata {total} volte", None))
+    lines.append((f"Found {total} times", None))
     lines.append((summary, None))
     if moves_sorted:
-        lines.append(("--- Continuazioni (W/D/L) ---", None))
+        lines.append(("--- Continuations (W/D/L) ---", None))
     for uci, info in moves_sorted:
         try:
             san = board.san(chess.Move.from_uci(uci))
@@ -310,7 +310,7 @@ def chooseNextMove(gs:GameState)->chess.Move:
         except Exception:
             label = m.uci()
         items.append((label, m))
-    return _choose_panel(items, "Scegli mossa", row_h=32, font_size=18)
+    return _choose_panel(items, "Choose move", row_h=32, font_size=18)
 
 
 def chooseAnnotation(current_nags):
@@ -328,7 +328,7 @@ def chooseAnnotation(current_nags):
         items.append((label + mark, nag))
     items.append(("(remove all)", 0))
     sym_font = p.font.match_font("Segoe UI Symbol,Cambria Math,DejaVu Sans")
-    return _choose_panel(items, "Annota ultima mossa", row_h=24, font_size=16,
+    return _choose_panel(items, "Annotate last move", row_h=24, font_size=16,
                          font_path=sym_font)
 
 
@@ -436,10 +436,10 @@ def playAGame():
     ])
 
     help_text = [
-            "Istruzioni:",
+            "Instructions:",
             "- left to take back a move",
             "- right to play next move",
-            "- Q per uscire",
+            "- Q to quit",
             "- C Copy FEN to clipboard",
             "- G Copy PGN to clipboard ", 
             "- S Save game ",

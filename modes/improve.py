@@ -47,7 +47,7 @@ PRESETS = {
     },
 }
 
-_FOCUS_LABEL = {"tactics": "Tattica", "openings": "Aperture"}
+_FOCUS_LABEL = {"tactics": "Tactics", "openings": "Openings"}
 
 
 def buildImproveMenu(width, height) -> pygame_menu.Menu:
@@ -55,19 +55,19 @@ def buildImproveMenu(width, height) -> pygame_menu.Menu:
     menu = pygame_menu.Menu(
         height=height, width=width,
         theme=pygame_menu.themes.THEME_BLUE,
-        title="Migliora dalle tue partite",
+        title="Improve from your games",
     )
-    user_w = menu.add.text_input("Utente Chess.com: ", default=positionParameters.get("player") or "")
+    user_w = menu.add.text_input("Chess.com user: ", default=positionParameters.get("player") or "")
     # NB: leggiamo i valori dei selector al click su Start (get_value), NON via
     # onchange: in pygame_menu onchange scatta solo quando il valore cambia, e
     # con i default lasciati intatti non verrebbe mai impostato nulla.
-    color_w = menu.add.selector("Giochi: ", [("Bianco", "w"), ("Nero", "b"), ("Entrambi", None)],
+    color_w = menu.add.selector("You play: ", [("White", "w"), ("Black", "b"), ("Both", None)],
                                 default=REVERSE_COLOR_MAP.get(positionParameters.get("color"), 0))
-    limit_w = menu.add.selector("Partite: ", [("Ultime 500", 500), ("Ultime 1000", 1000), ("Ultime 2000", 2000), ("Tutte", None)],
+    limit_w = menu.add.selector("Games: ", [("Last 500", 500), ("Last 1000", 1000), ("Last 2000", 2000), ("All", None)],
                                 default=1)
-    focus_w = menu.add.selector("Focus: ", [("Tattica", "tactics"), ("Aperture", "openings"), ("Entrambi", "both")],
+    focus_w = menu.add.selector("Focus: ", [("Tactics", "tactics"), ("Openings", "openings"), ("Both", "both")],
                                 default=2)
-    effort_w = menu.add.selector("Accuratezza: ", [("Quick", "quick"), ("Balanced", "balanced"), ("Thorough", "thorough")],
+    effort_w = menu.add.selector("Accuracy: ", [("Quick", "quick"), ("Balanced", "balanced"), ("Thorough", "thorough")],
                                  default=1)
 
     menu.add.button("Start", lambda: runImproveWizard(
@@ -97,7 +97,7 @@ def _message(text, secs=2):
 def _progress_cb(label, total):
     def cb(n):
         app.main_background()
-        msg = f"{label}: analizzo {n}/{total}" if total else f"{label}: analizzo partita {n}"
+        msg = f"{label}: analyzing {n}/{total}" if total else f"{label}: analyzing game {n}"
         BS.drawEndGameText(app.screen, None, msg, size=24)
         p.event.pump()   # tiene viva la finestra (niente "non risponde")
     return cb
@@ -137,7 +137,7 @@ def runImproveWizard(user, color, focus, effort, limit=None):
     """Orchestrate the whole pipeline, then offer to practice locally."""
     user = (user or "").strip()
     if not user:
-        _message("Inserisci l'utente Chess.com")
+        _message("Enter the Chess.com user")
         return
 
     app.main_menu.disable()
@@ -146,16 +146,16 @@ def runImproveWizard(user, color, focus, effort, limit=None):
         pgn = f"{user}_games.pgn"                       # nome canonico, usato ovunque
         path = os.path.join(pgngamelist.PGN_FOLDER, pgn)
 
-        n_txt = "tutte" if limit is None else f"ultime {limit}"
-        _wait_screen(f"Scarico le partite di {user} ({n_txt})...")
+        n_txt = "all" if limit is None else f"last {limit}"
+        _wait_screen(f"Downloading {user}'s games ({n_txt})...")
         try:
             chess_com_download.load(user, pgn, color, max_games=limit)   # scrive PGN_FOLDER/{user}_games.pgn verbatim
         except Exception as e:                          # rete/utente/parse
-            _message(f"Errore nel download: {e}")
+            _message(f"Download error: {e}")
             return
 
         if not os.path.exists(path) or os.path.getsize(path) == 0:
-            _message(f"Nessuna partita per '{user}' (utente inesistente o nessuna partita).")
+            _message(f"No games for '{user}' (user does not exist or has no games).")
             return
 
         total = _count_games(path)
@@ -181,10 +181,10 @@ def _show_results_and_practice(results, color):
     """Summary + practice buttons; launching practice ends the wizard."""
     nonempty = [(f, b, c) for (f, b, c) in results if c > 0]
     if not nonempty:
-        _message("Nessun errore trovato da allenare.")
+        _message("No mistakes found to train on.")
         return
 
-    menu = pygame_menu.Menu("Analisi completata", app.W, app.H, theme=small_font_theme)
+    menu = pygame_menu.Menu("Analysis Complete", app.W, app.H, theme=small_font_theme)
     summary = " | ".join(f"{_FOCUS_LABEL[f]}: {c}" for (f, b, c) in results)
     menu.add.label(summary)
 
@@ -195,8 +195,8 @@ def _show_results_and_practice(results, color):
         menu.disable()          # esce dal loop locale
 
     for (f, b, c) in nonempty:
-        menu.add.button(f"Allena {_FOCUS_LABEL[f].lower()} ({c})", pick, b)
-    menu.add.button("Torna al menu", menu.disable)
+        menu.add.button(f"Train {_FOCUS_LABEL[f].lower()} ({c})", pick, b)
+    menu.add.button("Back to menu", menu.disable)
 
     _run_menu_loop(menu)
 

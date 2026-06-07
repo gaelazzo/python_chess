@@ -110,12 +110,12 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
         app.delay(2 )
 
     help_text = [
-            "Istruzioni:",
-            "- Q per uscire",
+            "Instructions:",
+            "- Q to quit",
             "- C Copy FEN to clipboard",
             "- G Copy PGN to clipboard", 
-            "- + vedi altre mosse",
-            "- H mostra la soluzione" ,
+            "- + show more moves",
+            "- H show the solution" ,
             "- E Engine ON/OFF",
             "- B show/hide book", 
             "- D show/hide moves"

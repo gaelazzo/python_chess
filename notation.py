@@ -122,7 +122,7 @@ def show_notation(gs):
     header_font = p.font.SysFont("Arial", 13, bold=True)
     spans, total_h, line_h = _layout(notation_items(gs.pgn), font, panel_w)
     max_scroll = max(0, total_h - panel_h)
-    header = "Notazione -- click: vai | <-/->: mossa | su/giu: riga | rotella: scorri | V/Esc: chiudi"
+    header = "Notation -- click: go | <-/->: move | up/down: row | wheel: scroll | V/Esc: close"
 
     move_nodes = [s[6] for s in spans if s[6] is not None]
     move_xy = [(s[0], s[1], s[6]) for s in spans if s[6] is not None]   # (x, y, node)

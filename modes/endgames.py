@@ -85,7 +85,7 @@ def _get_or_create_endgame_base(filename: str) -> Optional[LearningBase]:
         lb.save()
         return lb
     except Exception as e:
-        print(f"endgames: impossibile creare la base '{base_name}': {e}")
+        print(f"endgames: could not create base '{base_name}': {e}")
         return None
 
 
@@ -119,14 +119,14 @@ def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
                               severity=TB_ERROR_SEVERITY)
             lb.save()
         except Exception as e:
-            print(f"endgames: errore salvataggio posizione: {e}")
+            print(f"endgames: error saving position: {e}")
     elif zobrist in lb.positions:
         stored_ok = lb.positions[zobrist].ok
         try:
             lb.updatePosition(played_uci, stored_ok, game, board)
             lb.save()
         except Exception as e:
-            print(f"endgames: errore aggiornamento stats: {e}")
+            print(f"endgames: error updating stats: {e}")
 
 
 def _load_games(pgn_path: str) -> List[chess.pgn.Game]:
@@ -168,7 +168,7 @@ def _engine_eval_cp(board: chess.Board, turn: chess.Color) -> Optional[int]:
         )
         return _format_score_cp(info.get("score"), turn)
     except Exception as e:
-        print(f"endgames: engine analyse fallito: {e}")
+        print(f"endgames: engine analyse failed: {e}")
         return None
 
 
@@ -180,7 +180,7 @@ def _engine_reply(board: chess.Board) -> Optional[chess.Move]:
         result = UCIEngines.engine.play(board, chess.engine.Limit(time=ENGINE_REPLY_TIME))
         return result.move
     except Exception as e:
-        print(f"endgames: engine play fallito: {e}")
+        print(f"endgames: engine play failed: {e}")
         return None
 
 
@@ -276,8 +276,8 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
             return True, f"checkmate (WDL pre {wdl_b:+d}, DTZ pre {dtz_b})"
         if nb.is_stalemate() or nb.is_insufficient_material():
             ok = wdl_b <= 0
-            kind = "stallo" if nb.is_stalemate() else "materiale insufficiente"
-            return ok, f"{kind} forzato (WDL pre {wdl_b:+d}) -- {'patta accettabile' if ok else 'ERRORE: stavi vincendo'}"
+            kind = "stalemate" if nb.is_stalemate() else "insufficient material"
+            return ok, f"{kind} forced (WDL pre {wdl_b:+d}) -- {'draw acceptable' if ok else 'ERROR: you were winning'}"
 
         if not sh.is_in_tb_range(nb):
             return True, f"TB child out of range (WDL pre {wdl_b:+d})"
@@ -302,8 +302,8 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
             if not is_zeroing:
                 best = _best_child_dtz_among(board_before, min_our_wdl=2)
                 if best is not None and dtz_a > best:
-                    return False, (f"non ottima: DTZ {dtz_b}->{dtz_a} "
-                                   f"(ottima raggiungibile = {best})")
+                    return False, (f"not optimal: DTZ {dtz_b}->{dtz_a} "
+                                   f"(optimal reachable = {best})")
 
         return True, f"WDL {wdl_b:+d}->{wdl_a:+d}, DTZ {dtz_b}->{dtz_a}, clock {board_before.halfmove_clock}->{nb.halfmove_clock}"
 
@@ -313,7 +313,7 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
     nb.push(move)
     eval_after_opp = _engine_eval_cp(nb, not turn)
     if eval_before is None or eval_after_opp is None:
-        return True, "Engine indisponibile -- non giudicato"
+        return True, "Engine unavailable -- unjudged"
     eval_after = -eval_after_opp
     drop = eval_before - eval_after
     return drop <= BLUNDER_CP, f"Eng {eval_before}cp -> {eval_after}cp (drop {drop})"
@@ -347,7 +347,7 @@ def playEndgames() -> None:
     if not games:
         app.main_background()
         BS.drawEndGameText(app.screen, None,
-                           f"Nessuna partita in {filename}.pgn (cartella endgames/)")
+                           f"No games in {filename}.pgn (endgames/ folder)")
         BS.update()
         app.delay(2)
         app.main_menu.enable()
@@ -389,13 +389,13 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 
     human_color_chess = start_board.turn  # bool True=White
     human_color = "w" if human_color_chess else "b"
-    color_label = "Bianco" if human_color_chess else "Nero"
+    color_label = "White" if human_color_chess else "Black"
 
     title = game.headers.get("White", "") + " - " + game.headers.get("Black", "")
     site = game.headers.get("Site", "")
     if not title.strip("- "):
         title = site or f"#{idx}"
-    BS.set_context_label(f"Finale: {filename} -- {title} ({idx}/{total}, gioca {color_label})")
+    BS.set_context_label(f"Endgame: {filename} -- {title} ({idx}/{total}, playing {color_label})")
 
     BS.show_pgn = False
     BS.show_book = False
@@ -408,20 +408,20 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
     # Info iniziale: pezzi e WDL.
     n_pieces = sh.count_pieces(start_board)
     wdl0 = sh.probe_wdl(start_board)
-    wdl_txt = f"WDL={wdl0:+d}" if wdl0 is not None else "fuori TB"
-    print(f"[endgames] {title}: {n_pieces} pezzi, {wdl_txt}")
+    wdl_txt = f"WDL={wdl0:+d}" if wdl0 is not None else "outside TB"
+    print(f"[endgames] {title}: {n_pieces} pieces, {wdl_txt}")
 
     # Toolbar.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     toolbar = Toolbar([
         ToolbarAction("Flip",  "Flip board (F)",               _post_key(p.K_f)),
-        ToolbarAction("Hint",  "Mostra mossa corretta (H)",    _post_key(p.K_h)),
+        ToolbarAction("Hint",  "Show correct move (H)",    _post_key(p.K_h)),
         ToolbarAction("Eng",   "Engine on/off (E)",            _post_key(p.K_e)),
         ToolbarAction("Moves", "Toggle move list (D)",         _post_key(p.K_d)),
         ToolbarAction("C-FEN", "Copy FEN (C)",                 _post_key(p.K_c)),
-        ToolbarAction("Next",  "Prossimo finale (N)",          _post_key(p.K_n)),
-        ToolbarAction("Quit",  "Torna al menu (Q)",            _post_key(p.K_q)),
+        ToolbarAction("Next",  "Next endgame (N)",          _post_key(p.K_n)),
+        ToolbarAction("Quit",  "Back to menu (Q)",            _post_key(p.K_q)),
     ])
 
     sqSelected: tuple = ()
@@ -435,11 +435,11 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
     quit_flag = False
 
     help_text = [
-        "Istruzioni:",
-        "- click per muovere",
-        "- H mossa corretta (hint)",
-        "- N prossimo finale",
-        "- Q torna al menu",
+        "Instructions:",
+        "- click to move",
+        "- H correct move (hint)",
+        "- N next endgame",
+        "- Q back to menu",
         "- F flip board",
         "- D toggle move list",
         "- E engine on/off",
@@ -469,7 +469,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
             mv = _opponent_move(board)
             if mv is None:
                 # Patta forzata o errore: mostra un messaggio e termina.
-                show_message(gs, "Nessuna mossa avversario (TB+engine ko)")
+                show_message(gs, "No opponent move (TB+engine failed)")
                 app.delay(1)
                 break
             gs.makeMove(Move.fromChessMove(mv, gs))
@@ -516,7 +516,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                     if validMove is not None:
                         # --- Giudizio ---
                         ok, why = _judge_user_move(board, validMove.move)
-                        print(f"[endgames] mossa {validMove.move.uci()}: {'OK' if ok else 'ERR'} | {why}")
+                        print(f"[endgames] move {validMove.move.uci()}: {'OK' if ok else 'ERR'} | {why}")
                         # Logging in learning base: errore -> aggiunge/aggiorna;
                         # successo -> aggiorna stats solo se gia' tracciata.
                         _log_user_move_to_base(lb, game, board, validMove.move.uci(), ok)
@@ -527,10 +527,10 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                             validMoves = gs.stdValidMoves()
                         else:
                             # Take-back implicito: NON pushiamo la mossa, l'utente puo' riprovare.
-                            short = why.split(' (')[0] if why else "errore"
+                            short = why.split(' (')[0] if why else "error"
                             # show_message default = font 32: troppo grande per messaggi >20 char.
                             # Usiamo drawEndGameText con size piu' piccola e delay piu' lungo.
-                            BS.drawEndGameText(app.screen, gs, f"Mossa errata: {short}", size=20)
+                            BS.drawEndGameText(app.screen, gs, f"Wrong move: {short}", size=20)
                             app.delay(2.5)
                             update = True
                         sqSelected = ()
@@ -554,13 +554,13 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                     if suggestion is not None:
                         show_message(gs, f"Hint: {board.san(suggestion)}")
                     else:
-                        show_message(gs, "Nessun hint disponibile")
+                        show_message(gs, "No hint available")
                     app.delay(1)
                 elif e.key == p.K_f:
                     BS.flipBoard(app.screen)
                     animate = False
                 elif e.key == p.K_c:
-                    glc.copy_to_clipboard(board.fen(), "FEN copiata", gs)
+                    glc.copy_to_clipboard(board.fen(), "FEN copied", gs)
                 elif e.key == p.K_d:
                     glc.toggle_pgn(gs)
                 elif e.key == p.K_e:
@@ -615,9 +615,9 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 def _result_message(result: str, human_is_white: bool) -> str:
     """Messaggio finale a partire dal risultato PGN e dal lato umano."""
     if result == "1/2-1/2":
-        return "Patta"
+        return "Draw"
     if result == "1-0":
-        return "Vittoria" if human_is_white else "Sconfitta"
+        return "Win" if human_is_white else "Defeat"
     if result == "0-1":
-        return "Vittoria" if not human_is_white else "Sconfitta"
-    return "Fine"
+        return "Win" if not human_is_white else "Defeat"
+    return "end"

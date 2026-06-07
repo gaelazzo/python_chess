@@ -140,7 +140,7 @@ def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
     user_w = menu.add.text_input("Utente: ", default=positionParameters.get("player") or "")
     color_w = menu.add.selector(
         "Colore: ",
-        [("Entrambi", None), ("Bianco", "w"), ("Nero", "b")],
+        [("Both", None), ("White", "w"), ("Black", "b")],
         default=0,
     )
     addChoosePGNFile(menu)
@@ -172,10 +172,10 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
     user = (user or "").strip()
     pgn_name = positionParameters.get("filename") or ""
     if not user:
-        _message("Inserisci l'utente")
+        _message("Enter the user")
         return
     if not pgn_name:
-        _message("Scegli un file PGN")
+        _message("Choose a PGN file")
         return
 
     # addChoosePGNFile salva il filename SENZA estensione; aggiungiamo .pgn.
@@ -186,7 +186,7 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
         if os.path.exists(alt):
             pgn_path = alt
         else:
-            _message(f"PGN non trovato: {pgn_name}")
+            _message(f"PGN not found: {pgn_name}")
             return
 
     app.main_menu.disable()
@@ -195,10 +195,10 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
         _wait_screen(f"Analizzo {os.path.basename(pgn_path)} per {user}...")
         stats = analyze_pgn(pgn_path, user, color)
         if not stats:
-            _message(f"Nessuna partita di '{user}' trovata in {os.path.basename(pgn_path)}")
+            _message(f"No games by '{user}' found in {os.path.basename(pgn_path)}")
             return
-        color_label = {"w": "Bianco", "b": "Nero", None: "Entrambi"}[color]
-        header = f"Studio prioritario per {user} ({color_label}) — {sum(s.num_games for s in stats)} partite, {len(stats)} ECO"
+        color_label = {"w": "White", "b": "Black", None: "Both"}[color]
+        header = f"Study priorities for {user} ({color_label}) — {sum(s.num_games for s in stats)} games, {len(stats)} ECO"
         _show_results(stats, header, user, color, pgn_path)
     finally:
         p.event.clear()
@@ -276,9 +276,9 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
         # title
         app.screen.blit(title_font.render(header, True, FG), (margin_x, top_title))
         # hint
-        hint = ("Riga 1 = priorita' piu' alta. Score = 'Deficit' = punti persi SOTTO il 50%: "
-                "se vinci >=50% in un'apertura il deficit e' 0 (qualsiasi sia il volume). "
-                "Click su una riga -> analizzo le partite di quell'apertura e ti porto ad allenarle.")
+        hint = ("Row 1 = highest priority. Score = 'Deficit' = points lost BELOW 50%: "
+                "if you win >=50% in an opening the deficit is 0 (whatever the volume). "
+                "Click a row -> I analyze that opening's games and take you to drill them.")
         app.screen.blit(hint_font.render(hint, True, (200, 200, 200)), (margin_x, top_hint))
         # column header
         cols = [
@@ -325,7 +325,7 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
         # info bar in basso
         bar_y = app.H - 28
         info = (f"  {scroll+1}-{min(scroll+visible_rows, len(stats))} di {len(stats)}   "
-                f"|   ↑/↓ PgUp/PgDn rotella: scorri   |   click su una riga: studia quell'apertura   |   Esc/Q: chiudi")
+                f"|   ↑/↓ PgUp/PgDn wheel: scroll   |   click a row: study that opening   |   Esc/Q: close")
         p.draw.rect(app.screen, (38, 38, 52), p.Rect(0, bar_y - 4, app.W, 32))
         app.screen.blit(info_font.render(info, True, (210, 210, 170)), (margin_x, bar_y))
 
@@ -395,12 +395,12 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
 
     total = _count_games_with_eco(pgn_path, user, eco, color)
     if total == 0:
-        _message(f"Nessuna partita {eco} per '{user}' nel PGN.")
+        _message(f"No {eco} games for '{user}' in the PGN.")
         return
 
     def progress_cb(n):
         app.main_background()
-        BS.drawEndGameText(app.screen, None, f"{eco}: analizzo {n}/{total}", size=24)
+        BS.drawEndGameText(app.screen, None, f"{eco}: analyzing {n}/{total}", size=24)
         p.event.pump()
 
     # analyzePgn si aspetta il nome relativo a PGN_FOLDER
@@ -409,7 +409,7 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
     lb.save()
 
     if not lb.positions:
-        _message(f"Nessuna posizione-errore trovata per {eco}.")
+        _message(f"No mistake positions found for {eco}.")
         return
 
     # Pratica subito sulla base mirata

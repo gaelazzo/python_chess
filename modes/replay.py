@@ -47,7 +47,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
     are program-wide settings (Setup menu, persisted in config.json).
     '''
 
-    BS.set_context_label(f"Allenando: {learningBase.filename or '?'}")
+    BS.set_context_label(f"Training: {learningBase.filename or '?'}")
 
     # Stato pulito per il toggle E: se un mode precedente (es. endgames) aveva
     # lasciato l'analisi attiva, il primo E qui finirebbe nel ramo "stop"
@@ -81,12 +81,12 @@ def solvePositionsFromBase(learningBase:LearningBase):
         app.delay(2 )
 
     help_text = [
-            "Istruzioni:",
-            "- Q per uscire",
-            "- C copia la posizione FEN nella clipboard",
-            "- G copia la partita nella clipboard",
-            "- + vedi altre mosse",
-            "- H mostra la soluzione" ,
+            "Instructions:",
+            "- Q to quit",
+            "- C copy the FEN position to the clipboard",
+            "- G copy the game to the clipboard",
+            "- + show more moves",
+            "- H show the solution" ,
             "- E Engine ON/OFF",
             "- B show/hide book", 
             "- D show/hide moves"
