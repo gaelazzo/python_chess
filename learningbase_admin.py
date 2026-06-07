@@ -18,7 +18,7 @@ from state import positionParameters
 
 
 def _count_games_in_pgn(path: str) -> int:
-    """Conta veloce le partite contando le righe `[Event ...]`. 0 se errore."""
+    """Quickly count games by counting `[Event ...]` lines. 0 on error."""
     n = 0
     try:
         with open(path, encoding="utf-8") as fh:
@@ -31,8 +31,8 @@ def _count_games_in_pgn(path: str) -> int:
 
 
 def _make_progress_cb(label: str, total: int):
-    """Callback per `analyzer.analyzePgn(progress=...)`: ridisegna lo schermo
-    con N/M e fa un event.pump() per evitare il "non risponde" di Windows."""
+    """Callback for `analyzer.analyzePgn(progress=...)`: redraws the screen
+    with N/M and calls event.pump() to avoid Windows' "not responding"."""
     def cb(n: int) -> None:
         app.main_background()
         msg = f"{label}: analyzing {n}/{total}" if total else f"{label}: analyzing game {n}"
@@ -42,7 +42,7 @@ def _make_progress_cb(label: str, total: int):
 
 
 def createLearningBase():    
-    # Verifica che filename non sia vuoto
+    # Verify that filename is not empty
     filename = positionParameters.get("filename", "").strip()
     if not filename:
         raise ValueError("The 'filename' field in positionParameters is empty.")
@@ -95,7 +95,7 @@ def updateLearningBase():
 
     learningBase = learningBases.get(learningBaseName, None)
 
-    # Conteggio veloce per la barra di avanzamento (N/M durante analisi).
+    # Quick count for the progress bar (N/M during analysis).
     pgn_path = os.path.join(pgngamelist.PGN_FOLDER, pgnFileName + ".pgn")
     total = _count_games_in_pgn(pgn_path)
     progress = _make_progress_cb(f"Updating '{learningBaseName}'", total)
@@ -171,9 +171,9 @@ def readChessComGames():
 
 def readLichessGames():
     '''
-    Scarica incrementalmente le partite lichess dell'utente nel PGN scelto.
-    Stessi parametri di readChessComGames (filename, player, color) presi da
-    positionParameters; dedup automatica nel modulo lichess_download.
+    Incrementally downloads the user's lichess games into the chosen PGN.
+    Same parameters as readChessComGames (filename, player, color) taken from
+    positionParameters; automatic dedup in the lichess_download module.
     '''
     pgnFileName = positionParameters.get("filename", None)
     if pgnFileName is None:

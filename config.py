@@ -1,9 +1,9 @@
 """Persistent program configuration (loaded from / saved to config.json).
 
-Espone un SimpleNamespace `config` popolato all'import fondendo `config.json`
-con `DEFAULT_CONFIG` (le chiavi mancanti vengono aggiunte al file). Il path di
-`config.json` e' ancorato alla cartella dello script/eseguibile, cosi' funziona
-indipendentemente dalla directory di lancio (e supporta i bundle PyInstaller).
+Exposes a SimpleNamespace `config` populated at import time by merging `config.json`
+with `DEFAULT_CONFIG` (missing keys are added to the file). The path of
+`config.json` is anchored to the script/executable folder, so it works
+regardless of the launch directory (and supports PyInstaller bundles).
 """
 import os
 import json
@@ -12,7 +12,7 @@ from types import SimpleNamespace
 
 
 def get_base_path():
-    """Cartella dello script Python o dell'eseguibile PyInstaller."""
+    """Folder of the Python script or of the PyInstaller executable."""
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
@@ -31,19 +31,19 @@ DEFAULT_CONFIG = {
         "Threads": "4",
         "SyzygyPath": "",
     },
-    "maxErrorsToConsider": 10,   # capacita' della sessione di ripasso (Solve positions)
-    "correctsToLearn": 3,         # risposte corrette consecutive per uscire dalla sessione
-    "user_prefs": {},             # ultime selezioni nei menu (popolate da state.save_user_prefs)
-    # TTS: sostringa case-insensitive cercata in voice.name o voice.id; vuoto =
-    # selezione automatica per inglese. Le voci disponibili vengono stampate
-    # sulla console all'avvio (vedi GameState.Voce._select_voice).
+    "maxErrorsToConsider": 10,   # capacity of the review session (Solve positions)
+    "correctsToLearn": 3,         # consecutive correct answers needed to exit the session
+    "user_prefs": {},             # last menu selections (populated by state.save_user_prefs)
+    # TTS: case-insensitive substring searched in voice.name or voice.id; empty =
+    # automatic selection for English. The available voices are printed
+    # to the console at startup (see GameState.Voce._select_voice).
     "tts_voice": "",
-    # Velocita' TTS in parole-per-minuto (default Windows ~200). 150-180 e' la
-    # banda comoda per testi tecnici; sotto 100 = molto lento, oltre 250 = scattante.
+    # TTS speed in words-per-minute (Windows default ~200). 150-180 is the
+    # comfortable band for technical texts; below 100 = very slow, above 250 = snappy.
     "tts_rate": 170,
-    # Path assoluto a un PGN usato come "database di riferimento" dalla feature
-    # di analisi posizione (tasto Y in Play between humans). Vuoto = non
-    # configurato. Settato dal menu Setup ("Choose reference DB").
+    # Absolute path to a PGN used as the "reference database" by the position
+    # analysis feature (Y key in Play between humans). Empty = not
+    # configured. Set from the Setup menu ("Choose reference DB").
     "reference_db": "",
 }
 
@@ -51,7 +51,7 @@ config = None
 
 
 def load_config():
-    """Legge config.json e popola `config`, completando le chiavi mancanti dai default."""
+    """Read config.json and populate `config`, completing missing keys from the defaults."""
     global config
     try:
         if os.path.exists(CONFIG_FILE):
@@ -63,14 +63,14 @@ def load_config():
         merged = DEFAULT_CONFIG.copy()
         merged.update(data)
 
-        # Sotto-dizionari (engine_options): default + override utente.
+        # Sub-dictionaries (engine_options): defaults + user override.
         engine_options = DEFAULT_CONFIG["engine_options"].copy()
         engine_options.update(data.get("engine_options", {}))
         merged["engine_options"] = engine_options
 
         config = SimpleNamespace(**merged)
 
-        # Riscrive il file per propagare le chiavi di default mancanti.
+        # Rewrite the file to propagate missing default keys.
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(merged, f, indent=2, ensure_ascii=False)
 
@@ -80,7 +80,7 @@ def load_config():
 
 
 def save_config():
-    """Salva la configurazione corrente come JSON."""
+    """Save the current configuration as JSON."""
     try:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config.__dict__, f, indent=4)

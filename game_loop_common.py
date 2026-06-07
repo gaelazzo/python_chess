@@ -28,11 +28,11 @@ def engine_callback(text: str) -> None:
 
 
 def stop_speech_on_input(event) -> None:
-    """Se l'evento e' input dell'utente (tasto premuto o click del mouse),
-    interrompe la lettura TTS dei commenti in corso. Da chiamare a inizio
-    del for-event loop in ogni mode.
+    """If the event is user input (key press or mouse click),
+    stop the in-progress TTS reading of the comments. To be called at the start
+    of the for-event loop in every mode.
 
-    Import lazy di `voce` per evitare cicli con GameState.
+    Lazy import of `voce` to avoid cycles with GameState.
     """
     if event.type in (p.KEYDOWN, p.MOUSEBUTTONDOWN):
         try:

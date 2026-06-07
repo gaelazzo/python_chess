@@ -41,7 +41,7 @@ def make_updater(key, cast_type, target_dict=None, validator=None, target_module
             else:
                 mod = target_module or state
                 setattr(mod, key, casted)
-            state.save_user_prefs()  # persisti l'ultima scelta nei menu
+            state.save_user_prefs()  # persist the last choice made in the menus
         except (ValueError, TypeError):
             pass
     return updater
@@ -59,12 +59,12 @@ def make_selector_updater(key, target_dict=None):
 
 def make_selector_updater_mapped(key, target_dict, value_map):
     def updater(selection, index):
-        # Il valore del selector è nella forma: [(etichetta, valore_selettore)]
+        # The selector value has the form: [(label, selector_value)]
         selected_value = selection[0][1]
         mapped_value = value_map.get(selected_value)
 
         if target_dict is None:
-            # Se target_dict è None, il "key" è una variabile di sessione da aggiornare in state
+            # If target_dict is None, the "key" is a session variable to update in state
             setattr(state, key, mapped_value)
         else:
             target_dict[key] = mapped_value
@@ -124,10 +124,10 @@ def make_file_selector(
             allow_picking_directories=False
         )
 
-        # try/finally garantisce kill() su ogni uscita: senza, pygame_gui mantiene
-        # il dialog in app.manager e altri loop che chiamano manager.draw_ui (es. la
-        # toolbar in-gioco) lo ridipingerebbero come "finestra fantasma" sopra la
-        # scacchiera.
+        # try/finally guarantees kill() on every exit: without it, pygame_gui keeps
+        # the dialog in app.manager and other loops that call manager.draw_ui (e.g. the
+        # in-game toolbar) would repaint it as a "ghost window" over the
+        # chessboard.
         try:
             while True:
                 time_delta = app.clock.tick(60) / 1000.0
@@ -142,18 +142,18 @@ def make_file_selector(
                         if event.ui_element == file_selection.ok_button:
                             selected = file_selection.current_file_path
                             file_name_with_ext  = os.path.basename(selected)
-                            file_name, file_extension = os.path.splitext(file_name_with_ext) # <-- NUOVO
+                            file_name, file_extension = os.path.splitext(file_name_with_ext) # <-- NEW
 
                             if prefix and not file_name.startswith(prefix):
-                                 # Il file non è valido: mostriamo un messaggio e non usciamo
-                                # print(f"Errore: Il file '{file_name}' non inizia con 'base_'. Seleziona un file valido.")
-                                # Potresti anche visualizzare un messaggio popup all'utente
-                                # ad esempio con pygame_gui.windows.UIMessageWindow
+                                 # The file is not valid: we show a message and do not exit
+                                # print(f"Error: The file '{file_name}' does not start with 'base_'. Select a valid file.")
+                                # You could also display a popup message to the user
+                                # for example with pygame_gui.windows.UIMessageWindow
                                 pygame_gui.windows.UIMessageWindow(
                                     html_message=f"The selected file is not valid:<br><b>{file_name}</b><br>it must start with {prefix}.",
                                     window_title="Invalid file selection",
                                     manager=app.manager,
-                                    rect=p.Rect(app.W // 4, app.H // 4, app.W // 2, app.H // 2) # Posizione e dimensione del popup
+                                    rect=p.Rect(app.W // 4, app.H // 4, app.W // 2, app.H // 2) # Position and size of the popup
                                 )
                                 continue
 
@@ -161,11 +161,11 @@ def make_file_selector(
                             file_name = fileNameTranformer(file_name) if fileNameTranformer else file_name
                             if key:
                                 positionParameters[key] = file_name
-                                # Ricorda anche la cartella d'origine: l'utente
-                                # potrebbe aver navigato fuori dal `initial_folder`
-                                # (es. da pgn/ verso endgames/) e save_game deve
-                                # rispettare quella scelta invece di scrivere
-                                # sempre in pgn/.
+                                # Also remember the source folder: the user
+                                # may have navigated outside the `initial_folder`
+                                # (e.g. from pgn/ to endgames/) and save_game must
+                                # respect that choice instead of always writing
+                                # to pgn/.
                                 if key == "filename":
                                     positionParameters["filename_folder"] = os.path.dirname(selected)
                                 state.save_user_prefs()
@@ -248,7 +248,7 @@ def make_choose_course( labels: List,
             refresh_menu()
 
         _load_menu = pygame_menu.Menu('Select Course', app.W, app.H, theme=small_font_theme)
-        frame_width = 4 * 80 + 3 * 10  # 4 bottoni da 80px + 3 margini da 10px
+        frame_width = 4 * 80 + 3 * 10  # 4 buttons of 80px + 3 margins of 10px
         frame_height = 50
 
         def refresh_menu():
@@ -275,7 +275,7 @@ def make_choose_course( labels: List,
                 if nav_buttons:
                     nav_frame = _load_menu.add.frame_h(frame_width, frame_height, align=ALIGN_CENTER)
                     for b in nav_buttons:
-                        nav_frame.pack(b, margin=(10, 0))  # margine orizzontale tra pulsanti
+                        nav_frame.pack(b, margin=(10, 0))  # horizontal margin between buttons
 
 
             _load_menu.add.vertical_margin(20)
@@ -320,10 +320,10 @@ def addChooseCourse(menu):
 
 def make_base_selector(key, labels, callback=None):
     '''
-    Ritorna un callable che apre un piccolo pygame_menu elencando solo i file
-    base_*.json di DATA_FOLDER come pulsanti. Piu' pulito di un file-dialog
-    OS-style quando solo quei file sono scelte valide (niente piu' lessons_*
-    e altri file mostrati per sbaglio).
+    Returns a callable that opens a small pygame_menu listing only the
+    base_*.json files of DATA_FOLDER as buttons. Cleaner than an OS-style
+    file dialog when only those files are valid choices (no more lessons_*
+    and other files shown by mistake).
     '''
     def choose():
         try:
@@ -396,8 +396,8 @@ def addChoosePGNFile(menu, folder=None, title="Choose PGN file"):
     '''
     Adds a button to the menu that allows the user to choose a PGN file.
     The button will open a file selector dialog and update the positionParameters["filename"] variable with the selected file.
-    `folder` di default e' `pgngamelist.PGN_FOLDER`; passare una cartella diversa
-    (es. la cartella endgames/) per riusare il selettore in altri mode.
+    `folder` defaults to `pgngamelist.PGN_FOLDER`; pass a different folder
+    (e.g. the endgames/ folder) to reuse the selector in other modes.
     '''
     if folder is None:
         folder = pgngamelist.PGN_FOLDER

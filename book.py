@@ -7,7 +7,7 @@ from typing import Optional,List,Dict,Tuple,Dict
 from chess.polyglot import zobrist_hash
 
 def get_base_path():
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    if getattr(sys, 'frozen', False):  # If it's a PyInstaller executable
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
@@ -17,7 +17,7 @@ BOOKS_FOLDER = os.path.join(BASE_PATH, "books")
 
 
 if not os.path.exists(BOOKS_FOLDER):
-    os.makedirs(BOOKS_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)  
+    os.makedirs(BOOKS_FOLDER)  # create the folder (and all necessary subfolders)
 
 
 

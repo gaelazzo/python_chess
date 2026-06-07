@@ -1,10 +1,10 @@
-"""Rende leggibili a voce le mosse di scacchi contenute in un testo libero.
+"""Makes chess moves contained in free text readable aloud.
 
-Usato prima del text-to-speech, cosi' i token come 'Qe4' o 'Nxf3' vengono
-letti come 'Queen to e4' / 'Knight takes f3' invece che lettera per lettera.
+Used before text-to-speech, so that tokens like 'Qe4' or 'Nxf3' are
+read as 'Queen to e4' / 'Knight takes f3' instead of letter by letter.
 
-`expand_moves_for_speech` e' una funzione pura (nessuna dipendenza dal motore
-vocale), quindi e' facilmente testabile in isolamento.
+`expand_moves_for_speech` is a pure function (no dependency on the speech
+engine), so it is easily testable in isolation.
 """
 from __future__ import annotations
 
@@ -14,16 +14,16 @@ PIECE_NAMES = {
     "K": "King", "Q": "Queen", "R": "Rook", "B": "Bishop", "N": "Knight",
 }
 
-# Token SAN riconosciuti (alternative in ordine: prima le piu' lunghe/specifiche).
+# Recognized SAN tokens (alternatives in order: longest/most specific first).
 _CASTLE = r"O-O-O|O-O|0-0-0|0-0"
-# pezzo + eventuale disambiguazione + eventuale 'x' + casa di arrivo + check/matto
+# piece + optional disambiguation + optional 'x' + destination square + check/mate
 _PIECE_MOVE = r"[KQRBN][a-h]?[1-8]?x?[a-h][1-8][+#]?"
-# cattura di pedone (es. exd5), con eventuale promozione
+# pawn capture (e.g. exd5), with optional promotion
 _PAWN_CAPTURE = r"[a-h]x[a-h][1-8](?:=[QRBN])?[+#]?"
-# promozione di pedone in spinta (es. e8=Q): la '=' la rende inequivocabile
+# pawn push promotion (e.g. e8=Q): the '=' makes it unambiguous
 _PAWN_PROMO = r"[a-h][18]=[QRBN][+#]?"
-# NB: le mosse di pedone "nude" (es. 'e4') NON sono incluse di proposito:
-# sono ambigue con i riferimenti alla casa (es. "la casa e4 e' debole").
+# NB: "bare" pawn moves (e.g. 'e4') are NOT included on purpose:
+# they are ambiguous with references to the square (e.g. "the e4 square is weak").
 
 _MOVE_RE = re.compile(
     rf"\b(?:{_CASTLE}|{_PIECE_MOVE}|{_PAWN_CAPTURE}|{_PAWN_PROMO})"
@@ -31,7 +31,7 @@ _MOVE_RE = re.compile(
 
 
 def _expand_move(token: str) -> str:
-    """Espande un singolo token-mossa SAN nella sua forma parlata in inglese."""
+    """Expands a single SAN move token into its spoken English form."""
     if token in ("O-O", "0-0"):
         return "castles kingside"
     if token in ("O-O-O", "0-0-0"):
@@ -52,13 +52,13 @@ def _expand_move(token: str) -> str:
     capture = "x" in m
     m = m.replace("x", "")
 
-    dest = m[-2:]          # la casa di arrivo sono sempre gli ultimi file+riga
-    head = m[:-2]          # lettera del pezzo e/o disambiguazione
+    dest = m[-2:]          # the destination square is always the last file+rank
+    head = m[:-2]          # piece letter and/or disambiguation
 
     parts: list[str] = []
     is_pawn = not (head and head[0] in PIECE_NAMES)
     if is_pawn:
-        disamb = head      # es. la 'e' di 'exd5'
+        disamb = head      # e.g. the 'e' of 'exd5'
     else:
         parts.append(PIECE_NAMES[head[0]])
         disamb = head[1:]
@@ -68,7 +68,7 @@ def _expand_move(token: str) -> str:
     if capture:
         parts.append("takes")
     elif not is_pawn or disamb:
-        # 'to' per le mosse di pezzo; una spinta di pedone "nuda" non arriva qui
+        # 'to' for piece moves; a "bare" pawn push never reaches here
         parts.append("to")
     parts.append(dest)
 
@@ -76,9 +76,9 @@ def _expand_move(token: str) -> str:
 
 
 def expand_moves_for_speech(text: str) -> str:
-    """Sostituisce ogni mossa SAN trovata in `text` con la sua forma parlata.
+    """Replaces every SAN move found in `text` with its spoken form.
 
-    Esempi: 'Qe4' -> 'Queen to e4', 'Nxf3' -> 'Knight takes f3',
+    Examples: 'Qe4' -> 'Queen to e4', 'Nxf3' -> 'Knight takes f3',
     'exd5' -> 'e takes d5', 'O-O' -> 'castles kingside'.
     """
     if not text:

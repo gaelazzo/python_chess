@@ -1,10 +1,10 @@
-"""Helper per usare le tablebase Syzygy dalla config del programma.
+"""Helper for using the Syzygy tablebases from the program config.
 
-Espone una `Tablebase` di python-chess inizializzata lazy a partire da
-`config.engine_options['SyzygyPath']` (stringa con i percorsi separati da `;`,
-come quella che Stockfish stesso si aspetta su Windows). Le funzioni di probe
-ritornano `None` se la TB non e' configurata o se la posizione e' fuori range,
-cosi' il codice chiamante puo' fare fallback al motore senza eccezioni.
+Exposes a python-chess `Tablebase` lazily initialized from
+`config.engine_options['SyzygyPath']` (a string with the paths separated by `;`,
+like the one Stockfish itself expects on Windows). The probe functions
+return `None` if the TB is not configured or if the position is out of range,
+so the calling code can fall back to the engine without exceptions.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ _loaded_paths: List[str] = []
 
 
 def _get_syzygy_paths() -> List[str]:
-    """Percorsi Syzygy da config.json: splittati su `;`, filtrati per esistenza."""
+    """Syzygy paths from config.json: split on `;`, filtered by existence."""
     eo = config.engine_options
     raw = eo.get("SyzygyPath", "") if isinstance(eo, dict) else getattr(eo, "SyzygyPath", "")
     if not raw:
@@ -32,7 +32,7 @@ def _get_syzygy_paths() -> List[str]:
 
 
 def open_tablebase() -> Optional[chess.syzygy.Tablebase]:
-    """Apre la TB se non gia' aperta; None se nessuna cartella valida."""
+    """Opens the TB if not already open; None if no valid directory."""
     global _tablebase, _loaded_paths
     if _tablebase is not None:
         return _tablebase
@@ -52,7 +52,7 @@ def open_tablebase() -> Optional[chess.syzygy.Tablebase]:
 
 
 def close_tablebase() -> None:
-    """Chiude la TB. Idempotente."""
+    """Closes the TB. Idempotent."""
     global _tablebase, _loaded_paths
     if _tablebase is not None:
         try:
@@ -64,7 +64,7 @@ def close_tablebase() -> None:
 
 
 def reset_tablebase() -> None:
-    """Forza la riapertura al prossimo open_tablebase (es. dopo cambio config)."""
+    """Forces a reopen on the next open_tablebase (e.g. after a config change)."""
     close_tablebase()
 
 
@@ -77,16 +77,16 @@ def count_pieces(board: chess.Board) -> int:
 
 
 def is_in_tb_range(board: chess.Board, max_pieces: int = 7) -> bool:
-    """True se la posizione ha al massimo `max_pieces` pezzi totali (re inclusi)."""
+    """True if the position has at most `max_pieces` total pieces (kings included)."""
     return count_pieces(board) <= max_pieces
 
 
 def probe_wdl(board: chess.Board) -> Optional[int]:
-    """WDL dal punto di vista del side-to-move (-2..+2), o None se non disponibile.
+    """WDL from the side-to-move's point of view (-2..+2), or None if unavailable.
 
-    Nota convenzione python-chess: la TB *non* gestisce posizioni con diritto di
-    arrocco; il chiamante deve presentare una board senza castling rights se
-    rilevante. Per le posizioni-finale tipiche (re gia' mossi) la cosa non si pone.
+    python-chess convention note: the TB does *not* handle positions with castling
+    rights; the caller must provide a board without castling rights if
+    relevant. For typical endgame positions (kings already moved) this does not arise.
     """
     tb = open_tablebase()
     if tb is None or not is_in_tb_range(board):
@@ -98,8 +98,8 @@ def probe_wdl(board: chess.Board) -> Optional[int]:
 
 
 def probe_dtz(board: chess.Board) -> Optional[int]:
-    """DTZ (Distance-To-Zero, halfmoves) dal punto di vista del side-to-move,
-    o None se non disponibile. Positivo = side-to-move vince; negativo = perde."""
+    """DTZ (Distance-To-Zero, halfmoves) from the side-to-move's point of view,
+    or None if unavailable. Positive = side-to-move wins; negative = loses."""
     tb = open_tablebase()
     if tb is None or not is_in_tb_range(board):
         return None
@@ -110,18 +110,18 @@ def probe_dtz(board: chess.Board) -> Optional[int]:
 
 
 def best_tb_move(board: chess.Board) -> Optional[chess.Move]:
-    """Mossa TB-ottima per il side-to-move; None se TB indisponibile o nessuna
-    mossa probabile.
+    """TB-optimal move for the side-to-move; None if TB unavailable or no
+    probable move.
 
-    Strategia (semplice ma corretta per le esigenze del trainer):
-    - Tra tutte le mosse legali, calcola (child_wdl, child_dtz) del figlio.
-    - Sceglie il `child_wdl` minimo (avversario nello stato peggiore = noi al meglio).
-    - Tiebreak: tra figli con stesso WDL, ordina per `child_dtz` DECRESCENTE.
-      Funziona in entrambi i casi (intuizione DTZ python-chess):
-        * vincente -> child_dtz < 0 (avversario perde); piu' vicino a 0 = mate
-          piu' rapido per noi.
-        * perdente -> child_dtz > 0 (avversario vince); piu' grande = vince piu'
-          lentamente -> ci da' piu' tempo.
+    Strategy (simple but correct for the trainer's needs):
+    - Among all legal moves, compute (child_wdl, child_dtz) of the child.
+    - Picks the minimum `child_wdl` (opponent in the worst state = us at our best).
+    - Tiebreak: among children with the same WDL, sort by `child_dtz` DESCENDING.
+      Works in both cases (python-chess DTZ intuition):
+        * winning -> child_dtz < 0 (opponent loses); closer to 0 = faster mate
+          for us.
+        * losing -> child_dtz > 0 (opponent wins); larger = wins more
+          slowly -> gives us more time.
     """
     tb = open_tablebase()
     if tb is None or not is_in_tb_range(board):
@@ -147,12 +147,12 @@ def best_tb_move(board: chess.Board) -> Optional[chess.Move]:
 
 
 def wdl_after_user_move(board_before: chess.Board, move: chess.Move) -> Optional[int]:
-    """Restituisce il WDL post-mossa *dal punto di vista di chi ha mosso*, o
-    None se fuori range / TB indisponibile.
+    """Returns the post-move WDL *from the point of view of whoever moved*, or
+    None if out of range / TB unavailable.
 
-    Convenzione python-chess: dopo la push e' il turno dell'altro lato; il probe
-    sulla nuova board e' rispetto a quello, quindi va negato per ottenere il WDL
-    dal nostro punto di vista.
+    python-chess convention: after the push it is the other side's turn; the probe
+    on the new board is relative to that, so it must be negated to obtain the WDL
+    from our point of view.
     """
     tb = open_tablebase()
     if tb is None:

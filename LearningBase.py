@@ -19,8 +19,8 @@ import sys
 
 
 def get_base_path():
-    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    """Returns the path of the folder where the executable or the script is located"""
+    if getattr(sys, 'frozen', False):  # If it is a PyInstaller executable
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
@@ -31,12 +31,12 @@ DATA_FOLDER = os.path.join(BASE_PATH, "data")
 def parse_date(date_str: str) -> Optional[date]:
         if not date_str:
             return None
-        for fmt in ("%d/%m/%Y", "%Y.%m.%d", "%Y-%m-%d"):  # Prova i tre formati
+        for fmt in ("%d/%m/%Y", "%Y.%m.%d", "%Y-%m-%d"):  # Try the three formats
             try:
                 return datetime.strptime(date_str, fmt).date()
             except ValueError:
                 continue
-        raise ValueError(f"Formato data non riconosciuto: {date_str}")
+        raise ValueError(f"Unrecognized date format: {date_str}")
 
 
 @dataclass
@@ -57,7 +57,7 @@ class LearnPosition:
     serie:int = 0
     skip:bool    =False
     idquiz: Optional[int] = None
-    severity:int = 0   # peggior calo di valutazione (cp) visto per questo errore
+    severity:int = 0   # worst evaluation drop (cp) seen for this mistake
 
     def to_PgnString(self) -> str:
         pgn_game  =  self.to_Pgn()
@@ -84,7 +84,7 @@ class LearnPosition:
                 node = node.add_variation(move)
             except ValueError:
                 print(f"Error converting UCI move: {uci_move}")
-                # Opzionale: loggare o gestire errori
+                # Optional: log or handle errors
                 break
         # pgnGame.board = board
         return pgnGame
@@ -92,7 +92,7 @@ class LearnPosition:
 
     @classmethod
     def from_dict(cls, data: dict[str,Any]) -> "LearnPosition":
-        # Converte esplicitamente i dati
+        # Explicitly convert the data
         return cls(
             zobrist=int(data['zobrist']),
             fen=data['fen'],
@@ -111,7 +111,7 @@ class LearnPosition:
             move = data["move"],
             gamedate= parse_date(data["gamedate"]) if data["gamedate"] else None,
             idquiz=int(data["idquiz"]) if "idquiz" in data.keys()  and data["idquiz"] != "" else None,
-            severity=int(data.get("severity") or 0),   # default 0 per le basi vecchie (colonna assente)
+            severity=int(data.get("severity") or 0),   # default 0 for old bases (column missing)
         )
 
 
@@ -119,10 +119,10 @@ class LearnPosition:
 # fieldnames = ['zobrist', 'skip', 'fen', 'eco', 'lastTry', 'firstTry', 'ok', 'move', "moves", "successful", "ntry", "white", "black", "date"]
 def string_to_date(date_string):
     try:
-        # Prova a convertire la stringa in un oggetto datetime
+        # Try to convert the string into a datetime object
         return datetime.strptime(date_string, "%Y.%m.%d").date()
     except ValueError:
-        # Se la conversione fallisce, restituisci None
+        # If the conversion fails, return None
         return None
 
 @dataclass
@@ -229,7 +229,7 @@ class LearningBase:
 
             writer.writeheader()
             for position in self.positions.values():
-                rr = asdict(position)  # Converte la dataclass in un dizionario
+                rr = asdict(position)  # Converts the dataclass into a dictionary
 
                 rr ["skip"] = "S" if rr["skip"] else "N"
 
@@ -390,7 +390,7 @@ class LearningBase:
                 goodMove: the right move choosen by the engine
                 game: pgn game being analyzed
                 board: current chess game (BEFORE the move is played)
-                severity: calo di valutazione (cp) di questo errore; si tiene il peggiore
+                severity: evaluation drop (cp) of this mistake; the worst one is kept
             Returns:
                 True if a good move was played, also updates the statistics on the position played
         """
@@ -403,7 +403,7 @@ class LearningBase:
 
         else:
             position = self.positions[zobrist]
-            position.severity = max(position.severity, severity)   # ricorrenza: tieni il calo peggiore
+            position.severity = max(position.severity, severity)   # recurrence: keep the worst drop
             if moveMade == goodMove:
                 moveMade = position.ok # assume is the right one in order to correctly update the stats
 
@@ -412,7 +412,7 @@ class LearningBase:
         return LearningBase.updatePositionStats(position, moveMade, gamedate)
 
 if not os.path.exists(DATA_FOLDER):
-    os.makedirs(DATA_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)        
+    os.makedirs(DATA_FOLDER)  # create the folder (and all necessary subfolders)
 
 '''
    Get all base filename from the data folder

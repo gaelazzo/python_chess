@@ -58,7 +58,7 @@ def process_fen_file(input_file, output_file, depth=26, multipv=8):
     if not section_name:
         section_name = os.path.basename(input_file)  # fallback
 
-    # Estrazione FEN
+    # FEN extraction
     fens = re.findall(r"setfen=([^\n,]+)", text)
 
     with open(output_file, "w", encoding="utf-8") as out:
@@ -82,10 +82,10 @@ def process_fen_file(input_file, output_file, depth=26, multipv=8):
                     out.write(f"Problem {idx}) No solution\n")
                     continue
                 print(f"{lines[0]}\n")
-                # prendi SOLO la prima linea (come hai richiesto)
+                # take ONLY the first line (as you requested)
                 main_line = lines[0]
 
-                # formattazione numerata
+                # numbered formatting
                 formatted = format_line(board, main_line)
 
                 latex_block = format_latex_problem( fen, formatted)

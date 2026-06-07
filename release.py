@@ -24,7 +24,7 @@ DIST = ROOT / "dist"
 WINDOWS_ZIP = DIST / "HiresChess-windows.zip"
 MACOS_DMG = DIST / "HiresChess-macos.dmg"
 MACOS_STAGE = DIST / "_release_macos"
-# Nome della cartella radice dentro lo zip (l'utente estrae e trova "HiresChess/").
+# Name of the root folder inside the zip (the user extracts and finds "HiresChess/").
 PACKAGE_NAME = "HiresChess"
 REQUIRED_IMPORTS = [
     "chess",
@@ -36,35 +36,35 @@ REQUIRED_IMPORTS = [
     "requests",
 ]
 
-# Cartelle utente create nel pacchetto. Per ognuna, se nel repo esiste un
-# README (README.md / README.en.md) viene copiato dentro: cosi' l'app
-# distribuita e' auto-documentata e i README non si sovrappongono mai (ognuno
-# resta nella sua cartella).
+# User folders created in the package. For each one, if the repo contains a
+# README (README.md / README.en.md) it is copied inside: this way the
+# distributed app is self-documented and the READMEs never overlap (each one
+# stays in its own folder).
 PACKAGED_FOLDERS = ["engines", "books", "data", "pgn", "openings", "endgames"]
 FOLDER_READMES = ["README.md", "README.en.md"]
 
 ENGINES_NOTE = """\
-METTI QUI IL FILE DI STOCKFISH
+PUT THE STOCKFISH FILE HERE
 ==============================
 
-1) Scarica Stockfish (gratis) da:  https://stockfishchess.org/download/
-   -> scegli la versione "AVX2" per Windows.
-2) Estrai e copia il file  stockfish-*.exe  IN QUESTA CARTELLA.
-3) Avvia  chessMain.exe  ->  Tools  ->  Setup  ->  Choose engine
-   e selezionalo.
+1) Download Stockfish (free) from:  https://stockfishchess.org/download/
+   -> choose the "AVX2" version for Windows.
+2) Extract and copy the file  stockfish-*.exe  INTO THIS FOLDER.
+3) Launch  chessMain.exe  ->  Tools  ->  Setup  ->  Choose engine
+   and select it.
 
-Senza Stockfish non funzionano l'analisi e il gioco contro il computer.
-(Questo file di testo puoi cancellarlo.)
+Without Stockfish, analysis and playing against the computer do not work.
+(You can delete this text file.)
 """
 
 BOOKS_NOTE = """\
-LIBRO D'APERTURA (OPZIONALE)
+OPENING BOOK (OPTIONAL)
 ============================
 
-Metti qui un libro d'apertura Polyglot (file .bin) se vuoi che il computer
-giochi "su libro". Poi: chessMain.exe -> Tools -> Setup -> Choose book.
+Put a Polyglot opening book (.bin file) here if you want the computer to
+play "from the book". Then: chessMain.exe -> Tools -> Setup -> Choose book.
 
-Non e' obbligatorio. (Questo file di testo puoi cancellarlo.)
+It is not required. (You can delete this text file.)
 """
 
 LEGGIMI_TXT = """\
@@ -72,50 +72,50 @@ LEGGIMI_TXT = """\
   Hires Chess Trainer  v1.0.0
 ========================================
 
-Grazie per aver scaricato Hires Chess Trainer!
+Thank you for downloading Hires Chess Trainer!
 
 ------------------------------------------------
-PRIMO AVVIO - 3 passi
+FIRST RUN - 3 steps
 ------------------------------------------------
 
-1) SCARICA STOCKFISH (il motore scacchistico, gratis):
+1) DOWNLOAD STOCKFISH (the chess engine, free):
    https://stockfishchess.org/download/
-   Scegli la versione "AVX2" per Windows.
-   Estrai il file .exe e copialo nella cartella:
+   Choose the "AVX2" version for Windows.
+   Extract the .exe file and copy it into the folder:
         engines\\
-   (la trovi qui dentro, accanto a chessMain.exe)
+   (you'll find it in here, next to chessMain.exe)
 
-2) AVVIA il programma:
-   doppio clic su  chessMain.exe
+2) LAUNCH the program:
+   double-click on  chessMain.exe
 
-3) COLLEGA il motore:
-   nel menu vai su  Tools  ->  Setup  ->  Choose engine
-   e seleziona il file di Stockfish che hai messo in  engines\\
+3) CONNECT the engine:
+   in the menu go to  Tools  ->  Setup  ->  Choose engine
+   and select the Stockfish file you put in  engines\\
 
-Fatto! Ora puoi usare l'analisi, il gioco contro il computer e
-l'allenamento sui tuoi errori.
-
-------------------------------------------------
-LE CARTELLE
-------------------------------------------------
-- engines\\   : il motore Stockfish (vedi sopra)
-- books\\     : libro d'apertura .bin (opzionale)
-- pgn\\       : le tue partite scaricate/analizzate
-- openings\\  : il tuo repertorio d'apertura
-- endgames\\  : studi di finale
-- data\\      : le tue learning base (errori da ripassare)
-Ogni cartella contiene un README con la spiegazione.
+Done! Now you can use analysis, playing against the computer, and
+training on your own mistakes.
 
 ------------------------------------------------
-NOTE
+THE FOLDERS
 ------------------------------------------------
-- Non serve installare Python: e' tutto incluso nel pacchetto.
-- Richiede Windows 64-bit.
-- Se Windows SmartScreen avvisa "app non riconosciuta":
-  clic su "Ulteriori informazioni" -> "Esegui comunque".
-  (Succede con i programmi non firmati; e' normale.)
+- engines\\   : the Stockfish engine (see above)
+- books\\     : .bin opening book (optional)
+- pgn\\       : your downloaded/analyzed games
+- openings\\  : your opening repertoire
+- endgames\\  : endgame studies
+- data\\      : your learning bases (mistakes to review)
+Each folder contains a README with the explanation.
 
-Guida completa e codice sorgente:
+------------------------------------------------
+NOTES
+------------------------------------------------
+- No need to install Python: everything is included in the package.
+- Requires Windows 64-bit.
+- If Windows SmartScreen warns "unrecognized app":
+  click "More info" -> "Run anyway".
+  (This happens with unsigned programs; it's normal.)
+
+Full guide and source code:
 https://github.com/gaelazzo/python_chess
 """
 
@@ -149,9 +149,9 @@ def run_pyinstaller() -> None:
 
 
 def stage_user_folders(bundle_root: Path) -> None:
-    """Crea le cartelle utente accanto all'eseguibile e ci copia dentro il
-    README di ciascuna (preso dal repo). Aggiunge LEGGIMI.txt in radice e le
-    note per engines/ e books/ (che nel repo non hanno un README)."""
+    """Create the user folders next to the executable and copy each one's
+    README inside (taken from the repo). Add LEGGIMI.txt at the root and the
+    notes for engines/ and books/ (which have no README in the repo)."""
     for name in PACKAGED_FOLDERS:
         dest = bundle_root / name
         dest.mkdir(parents=True, exist_ok=True)
@@ -171,8 +171,8 @@ def package_windows() -> Path:
     if not bundle_root.exists():
         raise FileNotFoundError(f"Missing build output: {bundle_root}")
 
-    # Rinomina temporaneamente chessMain -> HiresChess cosi' lo zip ha una
-    # cartella radice "HiresChess/" (estraendo non si sparpaglia tutto).
+    # Temporarily rename chessMain -> HiresChess so the zip has a
+    # root folder "HiresChess/" (extracting doesn't scatter everything around).
     staged = DIST / PACKAGE_NAME
     if staged.exists():
         shutil.rmtree(staged)
@@ -182,7 +182,7 @@ def package_windows() -> Path:
         WINDOWS_ZIP.unlink(missing_ok=True)
         shutil.make_archive(str(WINDOWS_ZIP.with_suffix("")), "zip", root_dir=DIST, base_dir=PACKAGE_NAME)
     finally:
-        # Ripristina il nome originale per coerenza con build successive.
+        # Restore the original name for consistency with subsequent builds.
         staged.rename(bundle_root)
     return WINDOWS_ZIP
 
@@ -202,7 +202,7 @@ def package_macos() -> Path:
     staging_bundle = MACOS_STAGE / "HiresChess.app"
     staging_bundle.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(bundle_root, staging_bundle)
-    # Cartelle utente + README accanto alla .app dentro il DMG.
+    # User folders + README next to the .app inside the DMG.
     stage_user_folders(MACOS_STAGE)
     applications_alias = MACOS_STAGE / "Applications"
     if not applications_alias.exists():

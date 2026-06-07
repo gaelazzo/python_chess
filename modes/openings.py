@@ -57,10 +57,10 @@ _VARIATION_RE = re.compile(r'\(\s*(\d+)\s*(\.\.\.|\.)\s*[A-Za-z]')
 
 
 def detect_user_color_from_pgn(pgn_path: str) -> Optional[str]:
-    """Rileva il colore dell'utente contando le varianti per lato nel PGN
-    e prendendo la maggioranza.
+    """Detect the user's color by counting variations per side in the PGN
+    and taking the majority.
 
-    Ritorna 'w' / 'b' / None (nessuna variante trovata o pareggio esatto).
+    Returns 'w' / 'b' / None (no variation found or exact tie).
     """
     try:
         with open(pgn_path, encoding='utf-8', errors='replace') as f:
@@ -73,8 +73,8 @@ def detect_user_color_from_pgn(pgn_path: str) -> Optional[str]:
     black_variations = sum(1 for _num, sep in matches if sep == '...')
     white_variations = len(matches) - black_variations
     if black_variations == white_variations:
-        return None  # pareggio: ambiguo, lascia al chiamante decidere il fallback
-    # piu' varianti del Nero -> opponente e' Nero -> utente gioca Bianco
+        return None  # tie: ambiguous, let the caller decide the fallback
+    # more Black variations -> opponent is Black -> user plays White
     return 'w' if black_variations > white_variations else 'b'
 
 
@@ -158,7 +158,7 @@ def playOpening():
     app.main_menu.disable()
     app.main_menu.full_reset()
     if detected is None:
-        # informativa: nessuna variante trovata, parto da Bianco di default
+        # informational: no variation found, default to White
         app.main_background()
         BS.drawEndGameText(app.screen, None,
                            f"Color not detectable from PGN -- defaulting to White", size=18)
@@ -226,7 +226,7 @@ def playOpeningLine(filename, humanColor):
     color_label = {"w": "White", "b": "Black"}.get(humanColor, "?")
     BS.set_context_label(f"Opening: {filename} ({color_label})")
 
-    # Toolbar (fase 2): stesso pattern degli altri mode.
+    # Toolbar (phase 2): same pattern as the other modes.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     # NB: Undo is NOT exposed as a button in Study Openings: the mode is a
@@ -290,7 +290,7 @@ def playOpeningLine(filename, humanColor):
                 else:
                     move = gs.makeNextMove()
                     moreMoves = move is not None
-            # undo dell'ultima mossa: arriva l'utente che deve rigiocarla
+            # undo the last move: the user comes in and must replay it
             gs.undoMove()
         
 
@@ -307,8 +307,8 @@ def playOpeningLine(filename, humanColor):
         errors = 0
         stopCondition = False
         while running and not mustSkip:
-            time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
-            UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
+            time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar
+            UCIEngines.poll()  # drain engine info (no-op if analysis is off)
             humanCanPlay = gs.colorToMove() == humanColor
             checkMove = False
             nextMove = gs.getNextMainMove()
@@ -340,15 +340,15 @@ def playOpeningLine(filename, humanColor):
                 if e.type == p.QUIT:
                     running = False
                 elif e.type == p.MOUSEBUTTONDOWN and e.button == 1 and gameOver and not toolbar.pointer_in_toolbar(e.pos):
-                    # Solo click sinistro skippa: la rotellina (button 4/5) NO.
+                    # Only the left click skips: the scroll wheel (button 4/5) does NOT.
                     mustSkip = True
                     break
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
-                        # Mostra aiuto quando il tasto destro è premuto
+                        # Show help when the right button is pressed
                         show_help = True
                         # play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
-                        # Nasconde aiuto quando il tasto destro è rilasciato
+                        # Hide help when the right button is released
                         show_help = False
                 elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
 
@@ -385,8 +385,8 @@ def playOpeningLine(filename, humanColor):
                             _next_main = gs.getNextMainMove()
                             _correct_uci = _next_main.uci() if _next_main else None
                             if gs.checkNextMove(validMove.move):
-                                # Mossa corretta: aggiorna stats se la posizione
-                                # e' gia' nella base (no-op se non tracciata).
+                                # Correct move: update stats if the position
+                                # is already in the base (no-op if not tracked).
                                 _log_user_move_to_base(lb, game, _board_pre,
                                                        validMove.move.uci(),
                                                        _correct_uci, ok=True)
@@ -398,7 +398,7 @@ def playOpeningLine(filename, humanColor):
                                 if state.play_position:
                                     stopCondition=True
                             else:
-                                # Mossa errata: aggiunta o aggiornata nella base.
+                                # Wrong move: added or updated in the base.
                                 _log_user_move_to_base(lb, game, _board_pre,
                                                        validMove.move.uci(),
                                                        _correct_uci, ok=False)
@@ -467,7 +467,7 @@ def playOpeningLine(filename, humanColor):
                         animate = False
 
                     if e.key == p.K_h and humanCanPlay:
-                        # Hint: mostra in SAN la mossa attesa dalla mainline.
+                        # Hint: show in SAN the move expected from the mainline.
                         next_main = gs.getNextMainMove()
                         if next_main is not None:
                             try:
@@ -480,7 +480,7 @@ def playOpeningLine(filename, humanColor):
             toolbar.update(time_delta)
 
             if not update:
-                # Frame idle: ridisegniamo la toolbar (per i tooltip) e flippiamo.
+                # Idle frame: redraw the toolbar (for the tooltips) and flip.
                 toolbar.draw(app.screen)
                 p.display.update()
                 continue
@@ -491,7 +491,7 @@ def playOpeningLine(filename, humanColor):
 
             if moveMade and not mustSkip:
                 moveMade = False
-                # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+                # If analysis is active, attach the new position (no-op if off).
                 UCIEngines.update_board(gs.board(), glc.engine_callback)
                 lastMove = gs.moveLog[-1] if len(gs.moveLog) > 0 else None
                 if animate and lastMove:

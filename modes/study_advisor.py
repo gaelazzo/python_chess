@@ -1,14 +1,14 @@
-"""Study advisor: legge un PGN dell'utente (es. download da chess.com), aggrega
-le partite per codice ECO e propone un ranking di "urgenza di studio".
+"""Study advisor: reads a user's PGN (e.g. a download from chess.com), aggregates
+the games by ECO code and proposes a ranking of "study urgency".
 
-Pura analisi delle intestazioni PGN -- niente motore, niente learning base
-attraversate. Veloce anche su PGN da migliaia di partite.
+Pure analysis of the PGN headers -- no engine, no learning bases
+traversed. Fast even on PGNs with thousands of games.
 
-Score di urgenza (v1):
+Urgency score (v1):
     score = losses + 0.5 * draws
-equivalente a "punti persi nel torneo" dal punto di vista dell'utente.
-Le aperture in cima sono quelle in cui hai accumulato piu' debito di punti --
-combinano "le giochi tanto" e "le perdi spesso".
+equivalent to "points lost in the tournament" from the user's point of view.
+The openings at the top are the ones where you have accumulated the most point debt --
+they combine "you play them a lot" and "you lose them often".
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ from modes.replay import solvePositionsFromBase
 
 
 # ---------------------------------------------------------------------------
-# Analisi
+# Analysis
 # ---------------------------------------------------------------------------
 
 @dataclass
@@ -52,19 +52,19 @@ class ECOStat:
 
     @property
     def score(self) -> float:
-        # Deficit = punti persi SOTTO la soglia del 50% (= "expected score" pari).
-        # Cosi' le aperture in cui vinci >=50% hanno deficit 0 e spariscono dalla
-        # classifica indipendentemente dal volume; quelle in cima sono quelle in
-        # cui sotto-performi davvero. Privilegia la sotto-performance reale invece
-        # del puro volume.
+        # Deficit = points lost BELOW the 50% threshold (= a break-even "expected score").
+        # This way openings where you win >=50% have deficit 0 and disappear from the
+        # ranking regardless of volume; the ones at the top are those where you
+        # really under-perform. Favors actual under-performance instead
+        # of pure volume.
         expected = 0.5 * self.num_games
         actual = self.wins + 0.5 * self.draws
         return max(0.0, expected - actual)
 
 
 def _user_outcome(result: str, user_color: str) -> Optional[str]:
-    """Restituisce 'wins' / 'draws' / 'losses' dal punto di vista dell'utente,
-    o None se la partita non e' terminata."""
+    """Returns 'wins' / 'draws' / 'losses' from the user's point of view,
+    or None if the game is not finished."""
     if result == "1-0":
         return "wins" if user_color == "w" else "losses"
     if result == "0-1":
@@ -75,13 +75,13 @@ def _user_outcome(result: str, user_color: str) -> Optional[str]:
 
 
 def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOStat]:
-    """Scansiona solo le intestazioni del PGN e aggrega per ECO.
+    """Scans only the PGN headers and aggregates by ECO.
 
     Args:
-        pgn_path: percorso assoluto del PGN.
-        username: chi siamo (match case-insensitive su [White]/[Black]).
-        color: 'w' / 'b' / None (entrambi). Filtra a partite in cui l'utente
-            ha giocato col colore specificato.
+        pgn_path: absolute path of the PGN.
+        username: who we are (case-insensitive match on [White]/[Black]).
+        color: 'w' / 'b' / None (both). Filters to games where the user
+            played with the specified color.
     """
     username_lower = (username or "").lower()
     by_eco = defaultdict(lambda: {"games": 0, "wins": 0, "draws": 0, "losses": 0})
@@ -102,7 +102,7 @@ def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOS
             elif black == username_lower:
                 user_color = "b"
             else:
-                continue   # l'utente non era in questa partita
+                continue   # the user was not in this game
 
             if color is not None and user_color != color:
                 continue
@@ -111,7 +111,7 @@ def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOS
             result = headers.get("Result", "*")
             outcome = _user_outcome(result, user_color)
             if outcome is None:
-                continue   # partita non terminata
+                continue   # game not finished
 
             d = by_eco[eco]
             d["games"] += 1
@@ -120,18 +120,18 @@ def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOS
     stats = [ECOStat(eco=eco, num_games=d["games"], wins=d["wins"],
                      draws=d["draws"], losses=d["losses"])
              for eco, d in by_eco.items()]
-    # Ordine: deficit desc (sotto-performance), poi volume desc (a parita' di
-    # deficit privilegia le aperture giocate piu' spesso), poi alfabetico.
+    # Order: deficit desc (under-performance), then volume desc (for equal
+    # deficit, favor the openings played more often), then alphabetical.
     stats.sort(key=lambda s: (-s.score, -s.num_games, s.eco))
     return stats
 
 
 # ---------------------------------------------------------------------------
-# UI: menu di input
+# UI: input menu
 # ---------------------------------------------------------------------------
 
 def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
-    """Costruisce il menu 'Cosa studio adesso?' (chiamato da chessMain.mainMenu)."""
+    """Builds the 'What should I study now?' menu (called by chessMain.mainMenu)."""
     menu = pygame_menu.Menu(
         height=height, width=width,
         theme=pygame_menu.themes.THEME_BLUE,
@@ -152,7 +152,7 @@ def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
 
 
 # ---------------------------------------------------------------------------
-# Orchestrazione e schermata risultati
+# Orchestration and results screen
 # ---------------------------------------------------------------------------
 
 def _wait_screen(text: str) -> None:
@@ -178,10 +178,10 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
         _message("Choose a PGN file")
         return
 
-    # addChoosePGNFile salva il filename SENZA estensione; aggiungiamo .pgn.
+    # addChoosePGNFile saves the filename WITHOUT extension; we add .pgn.
     pgn_path = os.path.join(pgngamelist.PGN_FOLDER, pgn_name + ".pgn")
     if not os.path.exists(pgn_path):
-        # prova anche il nome così com'è (compat con chi salva senza estensione)
+        # also try the name as-is (compat with those who save without extension)
         alt = os.path.join(pgngamelist.PGN_FOLDER, pgn_name)
         if os.path.exists(alt):
             pgn_path = alt
@@ -208,16 +208,16 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
 
 def _show_results(stats: List[ECOStat], header: str, user: str,
                   color: Optional[str], pgn_path: str) -> None:
-    """Schermata custom con tabella ranked degli ECO.
-    Click su una riga -> avvia analisi mirata su quell'ECO e poi pratica.
-    Esc / Q chiude e torna al menu.
+    """Custom screen with a ranked table of the ECOs.
+    Click on a row -> starts a focused analysis on that ECO and then practice.
+    Esc / Q closes and returns to the menu.
     """
     BG = (20, 20, 28)
     FG = (235, 235, 235)
     HDR = (180, 200, 255)
     LOSE_COLOR = (240, 150, 130)
     WIN_COLOR = (170, 240, 170)
-    TOP_HIGHLIGHT = (255, 220, 90)     # banner sul #1
+    TOP_HIGHLIGHT = (255, 220, 90)     # banner on #1
     ROW_HOVER_BG = (45, 45, 70)
 
     title_font = p.font.SysFont("Arial", 22, bold=True)
@@ -306,7 +306,7 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
                 break
             s = stats[idx]
             y = top_rows + i * line_h
-            # banner "ti consiglio questa" sul primo
+            # "I recommend this one" banner on the first row
             if idx == 0:
                 p.draw.rect(app.screen, TOP_HIGHLIGHT, p.Rect(margin_x - 10, y - 2, 4, line_h - 2))
             row_color = LOSE_COLOR if s.win_rate < 0.45 else (WIN_COLOR if s.win_rate > 0.55 else FG)
@@ -322,9 +322,9 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
             for x, text in cells:
                 app.screen.blit(row_font.render(text, True, row_color), (x, y))
 
-        # info bar in basso
+        # info bar at the bottom
         bar_y = app.H - 28
-        info = (f"  {scroll+1}-{min(scroll+visible_rows, len(stats))} di {len(stats)}   "
+        info = (f"  {scroll+1}-{min(scroll+visible_rows, len(stats))} of {len(stats)}   "
                 f"|   ↑/↓ PgUp/PgDn wheel: scroll   |   click a row: study that opening   |   Esc/Q: close")
         p.draw.rect(app.screen, (38, 38, 52), p.Rect(0, bar_y - 4, app.W, 32))
         app.screen.blit(info_font.render(info, True, (210, 210, 170)), (margin_x, bar_y))
@@ -337,12 +337,12 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
 
 
 # ---------------------------------------------------------------------------
-# Analisi mirata su una singola apertura, poi pratica
+# Focused analysis on a single opening, then practice
 # ---------------------------------------------------------------------------
 
 def _count_games_with_eco(pgn_path: str, username: str, eco: str,
                           color: Optional[str]) -> int:
-    """Conta le partite che soddisfano il filtro (per il denominatore N/M)."""
+    """Counts the games that satisfy the filter (for the N/M denominator)."""
     n = 0
     target = eco.upper()
     username_lower = (username or "").lower()
@@ -372,9 +372,9 @@ def _count_games_with_eco(pgn_path: str, username: str, eco: str,
 
 def _run_focused_analysis(eco: str, user: str, color: Optional[str],
                           pgn_path: str) -> None:
-    """Analizza le sole partite con ECO indicato, costruisce/aggiorna una base
-    dedicata e propone subito la pratica via solvePositionsFromBase."""
-    # preset openings/Balanced (stesso del wizard)
+    """Analyzes only the games with the given ECO, builds/updates a dedicated
+    base and immediately proposes practice via solvePositionsFromBase."""
+    # preset openings/Balanced (same as the wizard)
     base_name = f"{user}_{eco}"
     moves_to_analyze = 16
     blunder_value = 80
@@ -403,7 +403,7 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
         BS.drawEndGameText(app.screen, None, f"{eco}: analyzing {n}/{total}", size=24)
         p.event.pump()
 
-    # analyzePgn si aspetta il nome relativo a PGN_FOLDER
+    # analyzePgn expects the name relative to PGN_FOLDER
     pgn_name = os.path.basename(pgn_path)
     analyzer.analyzePgn(pgn_name, user, lb, progress=progress_cb, eco=eco)
     lb.save()
@@ -412,8 +412,8 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
         _message(f"No mistake positions found for {eco}.")
         return
 
-    # Pratica subito sulla base mirata
+    # Practice immediately on the focused base
     positionParameters["base"] = base_name
-    positionParameters["eco"] = None        # filtro ECO gia' applicato a livello di base
+    positionParameters["eco"] = None        # ECO filter already applied at the base level
     positionParameters["color"] = color
     solvePositionsFromBase(lb)

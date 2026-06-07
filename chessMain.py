@@ -3,11 +3,11 @@ Main driver file
 
 """
 # --- Splash screen ----------------------------------------------------------
-# Apriamo la finestra pygame PRIMA degli import pesanti (GameState ->
-# pyttsx3 init, LearningBase -> lettura csv, in seguito book.open_book e
-# UCIEngines.engine_open in runMain): cosi' l'utente vede subito il logo
-# durante i ~3-4 secondi di startup, invece di una console immobile.
-# La finestra viene poi ridimensionata da p.display.set_mode in runMain.
+# We open the pygame window BEFORE the heavy imports (GameState ->
+# pyttsx3 init, LearningBase -> csv reading, then book.open_book and
+# UCIEngines.engine_open in runMain): this way the user sees the logo right away
+# during the ~3-4 seconds of startup, instead of a frozen console.
+# The window is then resized by p.display.set_mode in runMain.
 import os as _os, sys as _sys
 import pygame as _splash_p
 
@@ -46,9 +46,9 @@ _show_splash()
 
 
 def _splash_progress(text: str) -> None:
-    """Aggiorna la striscia inferiore della splash window con `text`. Usato
-    dai vari step di startup (libro, motore, indicizzazione PGN) per dare
-    feedback nei secondi di attesa. Errori non bloccanti."""
+    """Update the bottom strip of the splash window with `text`. Used
+    by the various startup steps (book, engine, PGN indexing) to give
+    feedback during the waiting seconds. Errors are non-blocking."""
     try:
         screen = _splash_p.display.get_surface()
         if screen is None:
@@ -65,7 +65,7 @@ def _splash_progress(text: str) -> None:
         pass
 
 
-# --- Fine splash; ora gli import pesanti possono procedere a finestra aperta.
+# --- End of splash; now the heavy imports can proceed with the window open.
 
 from ast import Dict
 from collections.abc import Callable
@@ -129,8 +129,8 @@ from modes.study_advisor import buildAdvisorMenu
 from modes.endgames import playEndgames, ENDGAMES_FOLDER
 
 def get_base_path():
-    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    """Return the path of the folder where the executable or the script is located"""
+    if getattr(sys, 'frozen', False):  # If it is a PyInstaller executable
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
@@ -219,13 +219,13 @@ def mainMenu(width,height, test: bool = False) -> None:
                                        onchange=make_updater("elomax",bool,playParameters))
     # playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,
     #                                   onchange=make_updater("num_moves_to_show",int),
-    #             default=state.num_moves_to_show)  # Aggiungi questa riga
+    #             default=state.num_moves_to_show)  # Add this line
 
     def playComputerGame():
-        # onchange del selettore scatta solo quando il valore cambia: applico
-        # comunque il colore corrente, altrimenti col default (o dopo "Play
-        # between humans") whiteCPU/blackCPU resterebbero a False e il computer
-        # non muoverebbe.
+        # The selector's onchange fires only when the value changes: I apply
+        # the current color anyway, otherwise with the default (or after "Play
+        # between humans") whiteCPU/blackCPU would stay False and the computer
+        # would not move.
         setPlayColor(playColorSelector.get_value(), playColorSelector.get_index())
         playGame()
 
@@ -239,18 +239,18 @@ def mainMenu(width,height, test: bool = False) -> None:
         width=width
     )    
     solvePositionsMenu.add.text_input('ECO (optional)', default=positionParameters["eco"] or "", onchange=setPositionEco)
-    # NB: nessun selettore di colore in Solve positions. Una base ha gia' un suo
-    # colore-al-tratto implicito (es. una base tattica da analyzePgn ha posizioni
-    # col turno del giocatore analizzato; una base di repertorio d'apertura ha
-    # posizioni col colore per cui e' stata costruita). Filtrare ulteriormente
-    # qui esclude soltanto posizioni utili. Il filtro ECO resta per drillare un
-    # sottoinsieme specifico.
+    # NB: no color selector in Solve positions. A base already has its own
+    # implicit side-to-move (e.g. a tactical base from analyzePgn has positions
+    # with the turn of the analyzed player; an opening repertoire base has
+    # positions with the color it was built for). Filtering further
+    # here would only exclude useful positions. The ECO filter stays to drill a
+    # specific subset.
     addChooseBaseFile(solvePositionsMenu)
 
     solvePositionsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     solvePositionsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1, onchange=make_updater("num_moves_to_show",int),
                                      value_format=lambda x: str(round(x, 0)),
-                default=state.num_moves_to_show)  # Aggiungi questa riga
+                default=state.num_moves_to_show)  # Add this line
     solvePositionsMenu.add.selector('Practice order', [("Priority", "priority"), ("Random", "random")],
                                     default=(0 if state.practice_order == "priority" else 1),
                                     onchange=make_selector_updater("practice_order"))
@@ -265,14 +265,14 @@ def mainMenu(width,height, test: bool = False) -> None:
         width=width
     )
 
-    # NB: nessun selettore "You play" in Study openings: il colore del lato
-    # che si esercita viene RILEVATO automaticamente dal contenuto del PGN
-    # (vedi detect_user_color_from_pgn in modes/openings.py). Le PGN di
-    # repertorio hanno una struttura "una sola continuazione del lato proprio,
-    # tante varianti del lato opponente": basta guardare la prima variante.
+    # NB: no "You play" selector in Study openings: the color of the side
+    # being practiced is DETECTED automatically from the PGN content
+    # (see detect_user_color_from_pgn in modes/openings.py). Repertoire PGNs
+    # have a structure of "a single continuation for one's own side,
+    # many variations for the opponent's side": just look at the first variation.
     openingsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
                                        onchange=make_updater("num_moves_to_show",int),
-                default=state.num_moves_to_show)  # Aggiungi questa riga
+                default=state.num_moves_to_show)  # Add this line
     addChoosePGNFile(openingsMenu, folder=OPENINGS_FOLDER, title='Choose opening PGN')
     openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     openingsMenu.add.button('Play', playOpening)
@@ -307,7 +307,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         )        
         addChooseCourse(BrainMasterMenu)
         BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
-                    default=state.num_moves_to_show, increment=1)  # Aggiungi questa riga
+                    default=state.num_moves_to_show, increment=1)  # Add this line
         BrainMasterMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
         BrainMasterMenu.add.button('Exercise', playBrainMasterBase)
 
@@ -416,7 +416,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     )    
     configureGame.add.text_input('base_url:', default=config.base_url or "", 
                                             onchange=combine_onchange(make_updater("base_url",str,config), save_config))
-    configureGame.add.text_input('id studente:', default=config.id_student or "",
+    configureGame.add.text_input('student id:', default=config.id_student or "",
                                         onchange=combine_onchange(make_updater("id_student",str,config), save_config))
 
     def choose_engine(engine):
@@ -450,9 +450,9 @@ def mainMenu(width,height, test: bool = False) -> None:
 
     # configureGame.add.text_input('engine:', default=config.engine or "", onchange=combine_onchange(make_updater("engine",str,config), restart_engine))
 
-    # Parametri della sessione "Solve positions" (program-wide, salvati in config.json).
-    # NB: uso target_module=config (setattr su SimpleNamespace) invece del 3o positional
-    # target_dict, che con un SimpleNamespace fallirebbe silenziosamente.
+    # Parameters of the "Solve positions" session (program-wide, saved in config.json).
+    # NB: I use target_module=config (setattr on SimpleNamespace) instead of the 3rd positional
+    # target_dict, which with a SimpleNamespace would fail silently.
     configureGame.add.range_slider('Max errors in session', range_values=(2, 30), increment=1,
                                    onchange=combine_onchange(make_updater("maxErrorsToConsider", int, target_module=config), save_config),
                                    value_format=lambda x: str(int(round(x, 0))),
@@ -468,17 +468,17 @@ def mainMenu(width,height, test: bool = False) -> None:
                                    value_format=lambda x: str(int(round(x, 0))),
                                    default=config.tts_rate)
 
-    # DB di riferimento per le statistiche di posizione (vedi position_stats.py).
-    # Selezione tramite file selector (parte da pgn/ ma puoi navigare ovunque);
-    # salva il percorso completo cosi' va a buon fine anche se il file non e' in pgn/.
+    # Reference DB for position statistics (see position_stats.py).
+    # Selection via file selector (starts from pgn/ but you can browse anywhere);
+    # saves the full path so it works even if the file is not in pgn/.
     import position_stats as _pstats
     def choose_reference_db(selected_path):
-        # `selected_path` e' il path COMPLETO (pathlib.Path) scelto nel dialog.
-        # Salviamo l'intero path -- il PGN puo' stare fuori da pgn/.
+        # `selected_path` is the FULL path (pathlib.Path) chosen in the dialog.
+        # We save the whole path -- the PGN can live outside pgn/.
         config.reference_db = os.fspath(selected_path)
         save_config()
-        _pstats.invalidate_cache()  # forza re-build alla prossima query
-        # Aggiorna label coi nome file (senza percorso).
+        _pstats.invalidate_cache()  # force re-build on the next query
+        # Update label with the file name (without path).
         new_label = os.path.basename(config.reference_db) or "No reference DB"
         for lbl in ref_labels:
             if lbl:
@@ -541,18 +541,18 @@ def mainMenu(width,height, test: bool = False) -> None:
         events = p.event.get()
         for event in events:
             if event.type == p.QUIT:
-                app.main_running = False          # chiusura finestra
+                app.main_running = False          # window close
             elif event.type == p.KEYDOWN and event.key == p.K_q:
-                app.main_running = False          # 'q' esce dal programma
+                app.main_running = False          # 'q' quits the program
 
 
         # Main menu
         if app.main_menu.is_enabled():
-            app.main_menu.update(events)   # Gestisce gli eventi del menu
-            app.main_menu.draw(surface)    # Disegna il menu sulla finestra
+            app.main_menu.update(events)   # Handles the menu events
+            app.main_menu.draw(surface)    # Draws the menu on the window
             #app.main_menu.mainloop(surface, main_background, disable_loop=test, fps_limit=FPS)
         else:
-            app.main_running = False  # Chiude il programma se il menu sparisce
+            app.main_running = False  # Closes the program if the menu disappears
 
         # Flip surface
         p.display.flip()
@@ -563,7 +563,7 @@ def mainMenu(width,height, test: bool = False) -> None:
 
 
 def resource_path(relative_path):
-    """Restituisce il path assoluto, compatibile con PyInstaller."""
+    """Return the absolute path, compatible with PyInstaller."""
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
@@ -577,11 +577,11 @@ def runMain():
     book.open_book()
     UCIEngines.engine_open()
 
-    # Preload dell'indice del DB di riferimento (se configurato). 3 livelli di
-    # cache in position_stats: RAM, disco (`<pgn>.idx` accanto al PGN, valida
-    # finche' mtime/size del PGN non cambiano), rebuild. Il primo avvio costa
-    # ~10-15s per 40k partite e poi salva il `.idx`; gli avvii successivi
-    # caricano dal disco in ~1-3s. Su tasto Y poi le query sono O(1).
+    # Preload of the reference DB index (if configured). 3 levels of
+    # cache in position_stats: RAM, disk (`<pgn>.idx` next to the PGN, valid
+    # as long as the PGN's mtime/size do not change), rebuild. The first run costs
+    # ~10-15s for 40k games and then saves the `.idx`; subsequent runs
+    # load from disk in ~1-3s. With the Y key the queries are then O(1).
     try:
         import position_stats
         ref_db = (getattr(config, 'reference_db', '') or '').strip()

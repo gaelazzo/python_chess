@@ -40,8 +40,8 @@ def save_game(gs:GameState):
         BS.update()
         app.delay(2 )
         return
-    # Rispetta la cartella scelta dall'utente nel file selector (es. endgames/);
-    # se nessuna e' stata registrata si ricade su pgn/.
+    # Honor the folder chosen by the user in the file selector (e.g. endgames/);
+    # if none was registered we fall back to pgn/.
     folder = positionParameters.get("filename_folder") or None
     gamelist = pgngamelist.PgnGameList(positionParameters["filename"], folder=folder)
     positionParameters["gameid"] = gamelist.save_game(gs, positionParameters["gameid"])
@@ -105,7 +105,7 @@ def load_game(gs:GameState):
 
     _load_menu = pygame_menu.Menu('Select Game', app.W, app.H, 
                              theme=small_font_theme)
-    frame_width = 4 * 80 + 3 * 10  # 4 bottoni da 80px + 3 margini da 10px
+    frame_width = 4 * 80 + 3 * 10  # 4 buttons of 80px + 3 margins of 10px
     frame_height = 50
 
     def refresh_menu():
@@ -136,7 +136,7 @@ def load_game(gs:GameState):
             if nav_buttons:
                 nav_frame = _load_menu.add.frame_h(frame_width, frame_height, align=ALIGN_CENTER)
                 for b in nav_buttons:
-                    nav_frame.pack(b, margin=(10, 0))  # margine orizzontale tra pulsanti
+                    nav_frame.pack(b, margin=(10, 0))  # horizontal margin between buttons
 
 
         _load_menu.add.vertical_margin(20)
@@ -220,9 +220,9 @@ def save_menu(GS:GameState):
     _save_menu.add.text_input('Black:', default=playParameters["black"] or "", onchange=make_updater("black",str,playParameters))
     _save_menu.add.text_input('Event:', default=playParameters["event"] or "", onchange=make_updater("event",str,playParameters))
     _save_menu.add.text_input('Site:', default=playParameters["site"] or "", onchange=make_updater("site",str,playParameters))
-    # Result e' uno dei 4 valori standard PGN, scegli da selettore (era un
-    # text-input libero ma "Result: lol" non si conforma al formato e
-    # confonde i parser PGN downstream).
+    # Result is one of the 4 standard PGN values, chosen from a selector (it was a
+    # free text-input but "Result: lol" does not conform to the format and
+    # confuses downstream PGN parsers).
     _result_options = [
         ("*  (in progress / unknown)",   "*"),
         ("1-0  (White wins)",            "1-0"),

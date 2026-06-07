@@ -43,8 +43,8 @@ import threading
 
 
 def get_base_path():
-    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    """Return the path of the folder where the executable or script is located"""
+    if getattr(sys, 'frozen', False):  # If it is a PyInstaller executable
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
@@ -55,19 +55,19 @@ ENGINE_FOLDER = os.path.join(BASE_PATH, "engines")
 
 
 if not os.path.exists(ENGINE_FOLDER):
-    os.makedirs(ENGINE_FOLDER)  # crea la cartella (e tutte le sottocartelle necessarie)        
+    os.makedirs(ENGINE_FOLDER)  # create the folder (and all necessary subfolders)
 
 
 def _getEngineFileName() -> str:
-    """Restituisce il nome del file dell'engine configurato."""
+    """Return the file name of the configured engine."""
     if config.engine is None or config.engine == "":
         raise ValueError("Engine name is not configured.")
     return os.path.abspath(os.path.join(ENGINE_FOLDER,config.engine))
 
 def engine_open():
     global engine, already_closing
-    # Resetta il flag di "already_closing": senza questo, dopo il primo close
-    # il flag restava True e una successiva engine_close veniva ignorata.
+    # Reset the "already_closing" flag: without this, after the first close
+    # the flag stayed True and a subsequent engine_close was ignored.
     already_closing = False
     try:
         engine = chess.engine.SimpleEngine.popen_uci(_getEngineFileName())
@@ -89,7 +89,7 @@ def cpu_is_on():
 def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants=3) -> list[str]:
     result_lines = []
 
-    # Prendi i dati generali dal primo info (ad es. tempo e nodi)
+    # Take the general data from the first info (e.g. time and nodes)
     if info_list:
         info0 = info_list[0]
         time_str = f"Time: {info0.get('time', 0):.2f}s"
@@ -102,8 +102,8 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
         if score:
             s = score.relative
             if isinstance(s, chess.engine.Mate):
-                # .mate() ritorna il numero di MOSSE al matto, con segno:
-                # positivo = stiamo matando, negativo = veniamo matati.
+                # .mate() returns the number of MOVES to mate, with sign:
+                # positive = we are delivering mate, negative = we are being mated.
                 parts.append(f"Mate in {s.mate()}")
             elif isinstance(s, chess.engine.Cp):
                 parts.append(f"Eval {s.score() / 100:.2f}")
@@ -123,22 +123,22 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
 
 
 
-analysis_results = []  # Lista di dizionari validi con score + pv
-latest_status_line = ""  # Ultima riga dello stato corrente
+analysis_results = []  # List of valid dictionaries with score + pv
+latest_status_line = ""  # Last line of the current status
 
 
-# Architettura "single-engine-thread, polling dal main".
-# Non spawniamo un thread di analisi nostro: il SimpleEngine di python-chess
-# gia' tiene un thread asyncio dedicato che riceve gli aggiornamenti dal
-# processo Stockfish e popola `SimpleAnalysisResult.multipv` (e .info) in modo
-# thread-safe. Il MainThread del programma chiama `poll()` ogni frame, legge
-# uno snapshot del multipv (atomico via GIL) e invoca la callback per ridisegnare
-# il pannello CPU.
+# "single-engine-thread, polling from main" architecture.
+# We do not spawn our own analysis thread: python-chess's SimpleEngine
+# already keeps a dedicated asyncio thread that receives updates from the
+# Stockfish process and populates `SimpleAnalysisResult.multipv` (and .info) in a
+# thread-safe way. The program's MainThread calls `poll()` every frame, reads
+# a snapshot of the multipv (atomic via GIL) and invokes the callback to redraw
+# the CPU panel.
 #
-# Vantaggi:
-# - Nessun thread aggiuntivo: solo MainThread + SimpleEngine (interno).
-# - Nessuna race con start/stop rapidi: tutto sequenziale sul main.
-# - Niente join/timeout: stop_analysis() e' davvero immediato.
+# Advantages:
+# - No additional thread: only MainThread + SimpleEngine (internal).
+# - No race with rapid start/stop: everything sequential on main.
+# - No join/timeout: stop_analysis() is truly immediate.
 _active_analysis: Optional["chess.engine.SimpleAnalysisResult"] = None
 _active_callback = None
 _active_interval = 1.0
@@ -146,7 +146,7 @@ _last_callback_time = 0.0
 
 
 def _engine_alive() -> bool:
-    """True se la SimpleEngine e il suo transport asyncio sono utilizzabili."""
+    """True if the SimpleEngine and its asyncio transport are usable."""
     if engine is None:
         return False
     try:
@@ -162,12 +162,12 @@ def _engine_alive() -> bool:
 
 
 def is_analysing() -> bool:
-    """True se c'e' un'analisi attiva non ancora fermata."""
+    """True if there is an active analysis not yet stopped."""
     return _active_analysis is not None
 
 
 def stop_analysis() -> None:
-    """Ferma l'analisi attiva. Idempotente. Non lancia."""
+    """Stop the active analysis. Idempotent. Does not raise."""
     global _active_analysis, _active_callback, stopper
     sa = _active_analysis
     _active_analysis = None
@@ -176,17 +176,17 @@ def stop_analysis() -> None:
     if sa is None:
         return
     try:
-        # `stop()` segnala lo stop al motore; la chiusura effettiva del task
-        # asyncio avviene dietro le quinte (SimpleEngine thread), e una eventuale
-        # successiva engine.analysis() viene serializzata dal lock interno.
+        # `stop()` signals the stop to the engine; the actual closing of the
+        # asyncio task happens behind the scenes (SimpleEngine thread), and any
+        # subsequent engine.analysis() is serialized by the internal lock.
         sa.stop()
     except Exception as e:
         print(f"stop_analysis: {e}")
 
 
 def start_analysis(board, callback, interval_sec=1.0) -> None:
-    """Avvia un'analisi sulla `board`. Ferma quella in corso, se c'e'.
-    Riapre l'engine se morto. Non lancia eccezioni al chiamante."""
+    """Start an analysis on the `board`. Stop the current one, if any.
+    Reopen the engine if dead. Does not raise exceptions to the caller."""
     global _active_analysis, _active_callback, _active_interval, _last_callback_time
     global analysis_results, latest_status_line, stopper
 
@@ -226,22 +226,22 @@ def start_analysis(board, callback, interval_sec=1.0) -> None:
     _last_callback_time = 0.0
     analysis_results = []
     latest_status_line = ""
-    stopper = object()  # legacy: marca "qualcosa sta girando" per chi testa truthiness
+    stopper = object()  # legacy: marks "something is running" for those testing truthiness
 
 
 def poll() -> None:
-    """Da chiamare ogni frame dal MainThread.
+    """To be called every frame from the MainThread.
 
-    Legge lo stato corrente dell'analisi (snapshot atomico di `multipv`),
-    aggiorna il pannello CPU al massimo `_active_interval` volte/s.
-    No-op se nessuna analisi e' attiva.
+    Reads the current state of the analysis (atomic snapshot of `multipv`),
+    updates the CPU panel at most `_active_interval` times/s.
+    No-op if no analysis is active.
     """
     global _active_analysis, _last_callback_time, analysis_results, latest_status_line, stopper
     sa = _active_analysis
     if sa is None or _active_callback is None:
         return
 
-    # Detect crash dell'engine: il transport e' morto sotto di noi.
+    # Detect engine crash: the transport died under us.
     if not _engine_alive():
         print("poll: engine not alive, cleanup and reopen")
         _active_analysis = None
@@ -256,15 +256,15 @@ def poll() -> None:
             print(f"poll: reopen failed: {e}")
         return
 
-    # Snapshot del multipv. La lista e' aggiornata dal thread SimpleEngine; la
-    # copia (`list(...)`) e' atomica grazie al GIL.
+    # Snapshot of the multipv. The list is updated by the SimpleEngine thread; the
+    # copy (`list(...)`) is atomic thanks to the GIL.
     try:
         multipv = list(sa.multipv)
     except Exception as e:
         print(f"poll: read multipv failed: {e}")
         return
 
-    # Status line: lo prendiamo da `sa.info` (ultimo info ricevuto, qualsiasi tipo).
+    # Status line: we take it from `sa.info` (last info received, any type).
     try:
         info = sa.info
         if info and "currmove" in info:
@@ -289,20 +289,20 @@ def poll() -> None:
         print(f"poll: callback failed: {e}")
 
 
-# Alias retro-compatibile: i vecchi mode chiamavano analyze_forever.
+# Backward-compatible alias: the old modes called analyze_forever.
 def analyze_forever(board, callback, interval_sec=1.0):
     start_analysis(board, callback, interval_sec)
 
 
 def update_board(board: chess.Board, callback, interval_sec=1.0) -> None:
-    """Riggancia l'analisi alla nuova posizione SOLO se sta gia' girando."""
+    """Re-attach the analysis to the new position ONLY if it is already running."""
     if not is_analysing():
         return
     start_analysis(board, callback, interval_sec)
 
 
 def engine_on_off(board, callback, interval_sec=1.0) -> None:
-    """Toggle utente: se sta analizzando ferma, altrimenti avvia."""
+    """User toggle: if analyzing then stop, otherwise start."""
     if is_analysing():
         stop_analysis()
         try:
@@ -376,7 +376,7 @@ def extract_lines(board, depth=None, multipv=1, time=None, root_moves=None, mate
     elif depth is not None:
         limit = chess.engine.Limit(depth=depth)
     else:
-        raise ValueError("Devi specificare almeno uno tra depth, time o mate")
+        raise ValueError("You must specify at least one of depth, time or mate")
 
     infos = engine.analyse(
         board,
@@ -417,7 +417,7 @@ def solve_position(board, depth, multipv, time=None, root_moves=None, mate=None)
         s = l["score"].white()
         return s.score(mate_score=10000)
 
-    # ordina per punteggio decrescente
+    # sort by descending score
     lines.sort(key=score_key, reverse=True)
 
     result = []
@@ -431,10 +431,10 @@ def solve_position(board, depth, multipv, time=None, root_moves=None, mate=None)
 
 def analyse_chessbase_style(board, time_limit=30, max_depth=40, multipv=10):
     """
-    Emula comportamento tipo ChessBase:
+    Emulate ChessBase-like behavior:
     - iterative deepening
-    - accumulo PV globali
-    - ranking stabile finale
+    - global PV accumulation
+    - stable final ranking
     """
     global engine
     import time
@@ -464,13 +464,13 @@ def analyse_chessbase_style(board, time_limit=30, max_depth=40, multipv=10):
 
             score = info["score"].white().score(mate_score=10000)
 
-            # conserva solo il meglio per quella PV
+            # keep only the best for that PV
             if pv not in pv_map or score > pv_map[pv]:
                 pv_map[pv] = score
 
         depth += 1
 
-    # ranking finale globale
+    # global final ranking
     sorted_lines = sorted(
         pv_map.items(),
         key=lambda x: x[1],

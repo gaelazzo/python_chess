@@ -123,12 +123,12 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     show_help = False
 
     start_stamp = None
-    # show_cpu deve seguire lo stato reale dell'engine, altrimenti se l'analisi
-    # era rimasta attiva il pannello CPU resta vuoto mentre il motore gira.
+    # show_cpu must follow the engine's real state, otherwise if the analysis
+    # was left active the CPU panel stays empty while the engine is running.
     BS.show_cpu = UCIEngines.is_analysing()
     BS.clearCPU(app.screen)
 
-    # Toolbar (fase 2): stesso pattern degli altri mode.
+    # Toolbar (phase 2): same pattern as the other modes.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     toolbar = Toolbar([
@@ -192,8 +192,8 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
         last_stamp= datetime.now()
 
         while running and not mustSkip:
-            time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
-            UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
+            time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar
+            UCIEngines.poll()  # drain the engine info (no-op if analysis off)
             updateStats = False
             update = False
 
@@ -251,14 +251,14 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                 if e.type == p.QUIT:
                     running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
-                        # Mostra aiuto quando il tasto destro è premuto
+                        # Show help when the right button is pressed
                         show_help = True
                         #play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
-                        # Nasconde aiuto quando il tasto destro è rilasciato
+                        # Hide help when the right button is released
                         show_help = False
                 elif e.type == p.MOUSEBUTTONDOWN and e.button == 1 and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
-                    # Solo click sinistro skippa: la rotellina (button 4/5) NO.
+                    # Only a left click skips: the mouse wheel (button 4/5) does NOT.
                     mustSkip = True
                     update=True
                     break
@@ -340,7 +340,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                         mustSkip = True
                         break
 
-                    if e.key == p.K_h and not isNewPosition:  # Mostra la soluzione ma non se sta ancora risolvendo
+                    if e.key == p.K_h and not isNewPosition:  # Show the solution but not if it is still being solved
                         if solution:
                             show_message(gs, f"Solution: {solution}")                            
                             app.delay(2 )
@@ -353,13 +353,13 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
                 continue
 
             if not update:
-                # Frame idle: ridisegniamo la toolbar (per i tooltip) e flippiamo.
+                # Idle frame: redraw the toolbar (for the tooltips) and flip.
                 toolbar.draw(app.screen)
                 p.display.update()
                 continue
             if moveMade and not mustSkip:
                 moveMade = False
-                # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+                # If the analysis is active, attach the new position (no-op if off).
                 UCIEngines.update_board(gs.board(), glc.engine_callback)
                 lastMove = gs.moveLog[-1]
                 stop_stamp = datetime.now()
@@ -446,9 +446,9 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
 # Study a course from the BrainMaster module, eventually unlocking new lessons and playing quizzes
 def playBrainMaster(learningBaseName:str):
 
-    # Stato pulito per il toggle E: se un mode precedente aveva lasciato
-    # l'analisi attiva, il primo E qui finirebbe nel ramo "stop" invece di
-    # avviarla.
+    # Clean state for the E toggle: if a previous mode had left
+    # the analysis active, the first E here would end up in the "stop" branch
+    # instead of starting it.
     UCIEngines.stop_analysis()
 
     #eventually unlocks new lessons

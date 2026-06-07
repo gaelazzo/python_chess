@@ -35,32 +35,32 @@ def playGame():
 
 def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
                   font_path: Optional[str] = None):
-    """Pannello selettore laterale alla scacchiera. Riutilizzato da
-    `chooseNextMove` (varianti) e `chooseAnnotation` (NAG).
+    """Side selector panel next to the board. Reused by
+    `chooseNextMove` (variations) and `chooseAnnotation` (NAG).
 
-    `items` e' una lista di tuple `(label, value)`. Ritorna il `value`
-    selezionato, oppure `None` se l'utente annulla (Cancel button / Esc).
+    `items` is a list of `(label, value)` tuples. Returns the selected
+    `value`, or `None` if the user cancels (Cancel button / Esc).
 
-    Navigazione: click / hover, **freccia su/giu'** per spostarsi, **Enter**
-    per confermare, **Esc** per annullare. La scacchiera (a sinistra del
-    pannello) NON viene ridipinta -- resta quella disegnata dal main loop
-    prima della chiamata, cosi' l'utente la vede in chiaro.
+    Navigation: click / hover, **up/down arrow** to move, **Enter**
+    to confirm, **Esc** to cancel. The board (to the left of the
+    panel) is NOT redrawn -- it stays as drawn by the main loop
+    before the call, so the user can still see it clearly.
 
-    `font_path` permette di specificare un font con copertura Unicode (es.
-    per i glifi NAG: 'Segoe UI Symbol').
+    `font_path` lets you specify a font with Unicode coverage (e.g.
+    for the NAG glyphs: 'Segoe UI Symbol').
     """
     if not items:
         return None
 
     PANEL_X = BS.BOARD_WIDTH
     PANEL_Y = BS.BOARD_Y
-    PANEL_W = BS.SCREEN_WIDTH - BS.BOARD_WIDTH  # copre move log + book/pgn
+    PANEL_W = BS.SCREEN_WIDTH - BS.BOARD_WIDTH  # covers move log + book/pgn
     title_h = row_h
     cancel_h = row_h
     n = len(items)
     PANEL_H = title_h + n * row_h + cancel_h
-    # Se sfora l'altezza dello schermo cap-piamo: in pratica chooseAnnotation
-    # con row_h=24 sta dentro 512, ma per sicurezza.
+    # If it exceeds the screen height we cap it: in practice chooseAnnotation
+    # with row_h=24 fits within 512, but just to be safe.
     PANEL_H = min(PANEL_H, BS.BOARD_HEIGHT)
 
     title_rect = p.Rect(PANEL_X, PANEL_Y, PANEL_W, title_h)
@@ -90,21 +90,21 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
             if r.collidepoint(mouse_pos):
                 hovered_idx = i
                 break
-        # Solo se il mouse si muove davvero, l'hover prende il sopravvento sul
-        # selected_index della tastiera (cosi' ↓↓↓ Enter funziona senza che il
-        # cursore "rubi" la selezione).
+        # Only if the mouse actually moves does hover take precedence over the
+        # keyboard's selected_index (so ↓↓↓ Enter works without the
+        # cursor "stealing" the selection).
         if hovered_idx is not None and mouse_pos != last_mouse_pos:
             selected_index = hovered_idx
         last_mouse_pos = mouse_pos
         cancel_hover = cancel_rect.collidepoint(mouse_pos)
 
-        # Sfondo + titolo
+        # Background + title
         p.draw.rect(app.screen, p.Color('black'), full_panel)
         p.draw.rect(app.screen, p.Color('steelblue'), title_rect)
         txt = font_title.render(title, True, p.Color('white'))
         app.screen.blit(txt, txt.get_rect(center=title_rect.center))
 
-        # Voci
+        # Items
         for i, (label, _) in enumerate(items):
             rect = item_rects[i]
             bg = p.Color(80, 80, 120) if i == selected_index else p.Color(40, 40, 60)
@@ -141,9 +141,9 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
                 elif ev.key == p.K_END:
                     selected_index = n - 1
                 elif ev.key in (p.K_RETURN, p.K_KP_ENTER, p.K_RIGHT):
-                    # Right arrow accettato come Enter: e' il tasto usato per
-                    # "vai alla prossima mossa" e quindi naturale per
-                    # confermare la variante / l'annotazione scelta.
+                    # Right arrow accepted as Enter: it's the key used for
+                    # "go to next move" and therefore natural for
+                    # confirming the chosen variation / annotation.
                     result = items[selected_index][1]
             elif ev.type == p.MOUSEBUTTONDOWN and ev.button == 1:
                 picked = False
@@ -159,10 +159,10 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
 
 
 def _show_db_stats(gs: "GameState") -> None:
-    """Cerca la posizione corrente nel DB di riferimento (config.reference_db)
-    e mostra un pannello laterale con le statistiche (vedi position_stats.py).
+    """Look up the current position in the reference DB (config.reference_db)
+    and show a side panel with the statistics (see position_stats.py).
 
-    POV dei risultati: dal **Bianco** sempre (convenzione DB scacchistico).
+    Results POV: always from **White** (chess DB convention).
     """
     import os
     import position_stats
@@ -171,16 +171,16 @@ def _show_db_stats(gs: "GameState") -> None:
 
     db_path = (getattr(_cfg, 'reference_db', '') or '').strip()
     if not db_path or not os.path.exists(db_path):
-        # font 20 invece di show_message default 32: il messaggio e' lungo e
-        # supererebbe BOARD_WIDTH, finendo fuori a sinistra.
-        BS.drawEndGameText(app.screen, gs, "Imposta il DB di riferimento in Tools -> Setup", size=20)
+        # font 20 instead of show_message default 32: the message is long and
+        # would exceed BOARD_WIDTH, spilling off to the left.
+        BS.drawEndGameText(app.screen, gs, "Set the reference DB in Tools -> Setup", size=20)
         BS.update()
         app.delay(2.5)
         return
 
     board = gs.node.board()
 
-    # Indice non in cache? Mostra una schermata "Indicizzo..." mentre si scansiona.
+    # Index not in cache? Show an "Indexing..." screen while scanning.
     cached = db_path in position_stats._cache
     if not cached:
         def _progress(n_games):
@@ -191,7 +191,7 @@ def _show_db_stats(gs: "GameState") -> None:
             p.event.pump()
         _progress(0)
         position_stats.get_index(db_path, progress=_progress)
-        # Ridisegna game state perche' lo abbiamo sovrascritto
+        # Redraw game state because we overwrote it
         app.main_background()
         BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()
@@ -206,14 +206,14 @@ def _show_db_stats(gs: "GameState") -> None:
         app.delay(2.5)
         return
 
-    # Costruisci le righe del pannello
+    # Build the panel rows
     res = stats['results']
     w, d, lo = res.get(1, 0), res.get(0, 0), res.get(-1, 0)
     def _pct(n):
         return (n * 100 / total) if total else 0
     summary = f"W {w} ({_pct(w):.0f}%)  D {d} ({_pct(d):.0f}%)  L {lo} ({_pct(lo):.0f}%)"
 
-    # Ordina le mosse successive per frequenza decrescente
+    # Sort the following moves by descending frequency
     moves_sorted = sorted(stats['moves'].items(), key=lambda kv: kv[1]['count'], reverse=True)
 
     lines = []
@@ -237,8 +237,8 @@ def _show_db_stats(gs: "GameState") -> None:
 
 
 def _show_info_panel(lines, title: str, row_h: int = 24, font_size: int = 14):
-    """Pannello laterale display-only. `lines` e' una lista di (text, _payload).
-    Chiusura: Esc, click su Close, o click su una riga qualsiasi."""
+    """Display-only side panel. `lines` is a list of (text, _payload).
+    Close: Esc, click on Close, or click on any row."""
     PANEL_X = BS.BOARD_WIDTH
     PANEL_Y = BS.BOARD_Y
     PANEL_W = BS.SCREEN_WIDTH - BS.BOARD_WIDTH
@@ -261,11 +261,11 @@ def _show_info_panel(lines, title: str, row_h: int = 24, font_size: int = 14):
     while running:
         app.clock.tick(60)
         p.draw.rect(app.screen, p.Color('black'), full_panel)
-        # Titolo
+        # Title
         p.draw.rect(app.screen, p.Color('steelblue'), title_rect)
         txt = font_title.render(title, True, p.Color('white'))
         app.screen.blit(txt, txt.get_rect(center=title_rect.center))
-        # Righe
+        # Rows
         for i, (text, _) in enumerate(lines):
             rect = line_rects[i]
             p.draw.rect(app.screen, p.Color(30, 30, 45), rect)
@@ -294,8 +294,8 @@ def _show_info_panel(lines, title: str, row_h: int = 24, font_size: int = 14):
 
 
 def chooseNextMove(gs:GameState)->chess.Move:
-    """Pannello laterale con le varianti disponibili dalla posizione corrente.
-    Mostra le mosse in SAN. Single-variant -> ritorno diretto senza UI.
+    """Side panel with the variations available from the current position.
+    Shows the moves in SAN. Single-variant -> direct return without UI.
     """
     next_moves = gs.getNextMoves()
     if not next_moves:
@@ -314,13 +314,13 @@ def chooseNextMove(gs:GameState)->chess.Move:
 
 
 def chooseAnnotation(current_nags):
-    """Pannello laterale con i glifi NAG di annotazione per l'ultima mossa.
-    Ritorna il NAG scelto, 0 per rimuovere tutte le annotazioni, o None se
-    annullato. I glifi gia' presenti sulla mossa sono marcati con '*'.
+    """Side panel with the NAG annotation glyphs for the last move.
+    Returns the chosen NAG, 0 to remove all annotations, or None if
+    cancelled. The glyphs already present on the move are marked with '*'.
 
-    Layout compatto (row_h=24, font 16) per stare dentro l'altezza della
-    scacchiera anche con 16 NAG + "remove all"; usa un font Unicode (Segoe
-    UI Symbol / DejaVu Sans) per rendere correttamente i simboli ⩲ ± ∓ ∞.
+    Compact layout (row_h=24, font 16) to fit within the board's
+    height even with 16 NAGs + "remove all"; uses a Unicode font (Segoe
+    UI Symbol / DejaVu Sans) to render the symbols ⩲ ± ∓ ∞ correctly.
     """
     items = []
     for nag, label in NAG_CHOICES:
@@ -333,8 +333,8 @@ def chooseAnnotation(current_nags):
 
 
 def editComment(current_text):
-    """Menu con campo di testo per il commento della mossa corrente.
-    Ritorna il testo inserito, o None se annullato."""
+    """Menu with a text field for the current move's comment.
+    Returns the entered text, or None if cancelled."""
     result = [None]
     menu_running = True
 
@@ -361,7 +361,7 @@ def editComment(current_text):
                 p.quit()
                 sys.exit()
             if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
-                result[0] = None  # annulla come il pulsante Cancel
+                result[0] = None  # cancel like the Cancel button
                 menu_running = False
         surface.fill((0, 0, 0))
         menu.update(events)
@@ -405,9 +405,9 @@ def playAGame():
 
     BS.clearCPU(app.screen)
 
-    # Toolbar in alto: ogni pulsante posta la stessa scorciatoia da tastiera
-    # corrispondente, cosi' il codice dei KEYDOWN gestisce tutto e non duplichiamo
-    # logica. Le scorciatoie restano funzionanti in parallelo.
+    # Toolbar at the top: each button posts the same corresponding keyboard
+    # shortcut, so the KEYDOWN code handles everything and we don't duplicate
+    # logic. The shortcuts keep working in parallel.
     def _post_key(key):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key))
     _is_analysis = lambda: (not whiteCPU) and (not blackCPU)
@@ -451,8 +451,8 @@ def playAGame():
             "- D show/hide moves"
         ]
     if not whiteCPU and not blackCPU:
-        # "Load game" compare solo senza computer (modalita' analisi)
-        # disponibili solo senza computer (modalita' analisi)
+        # "Load game" appears only without a computer (analysis mode)
+        # available only without a computer (analysis mode)
         help_text.insert(7, "- L Load game ")
         help_text.insert(8, "- N Annotate move (! ? !? ...)")
         help_text.insert(9, "- T Comment move (text)")
@@ -463,8 +463,8 @@ def playAGame():
 
 
     while running:
-        time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar/manager
-        UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
+        time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar/manager
+        UCIEngines.poll()  # drains the engine info (no-op if analysis off)
         update = False
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
@@ -488,15 +488,15 @@ def playAGame():
                 if e.type == p.QUIT:
                     running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
-                        # Mostra aiuto quando il tasto destro è premuto
+                        # Show help when the right button is pressed
                         show_help = True
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
-                        # Nasconde aiuto quando il tasto destro è rilasciato
+                        # Hide help when the right button is released
                         show_help = False
 
                 elif e.type == p.MOUSEBUTTONDOWN  and e.button == 1 and not gameOver:
                     if toolbar.pointer_in_toolbar(e.pos):
-                        continue                 # click sulla toolbar, non sulla board
+                        continue                 # click on the toolbar, not on the board
                     #tak
                     row,col = BS.getRowColFromLocation(p.mouse.get_pos())
                     update = True
@@ -570,40 +570,40 @@ def playAGame():
 
 
                     if e.key == p.K_u and not whiteCPU and not blackCPU:
-                        # Setup posizione (modal sub-mode). Solo in analisi.
+                        # Position setup (modal sub-mode). Analysis only.
                         import position_setup
                         applied = position_setup.run(gs)
-                        # Ripulisci lo schermo: il setup disegna la palette nella
-                        # striscia CPU, all'uscita resta a video finche' qualcuno
-                        # non ridipinge sopra. drawGameState ridisegna solo
-                        # board+movelog+book+pgn, non la striscia CPU.
+                        # Clear the screen: setup draws the palette in the
+                        # CPU strip, on exit it stays on screen until someone
+                        # repaints over it. drawGameState only redraws
+                        # board+movelog+book+pgn, not the CPU strip.
                         app.main_background()
                         if applied:
-                            # Posizione cambiata: refresh validMoves e force redraw.
+                            # Position changed: refresh validMoves and force redraw.
                             validMoves = gs.stdValidMoves()
                             moveMade = True
                             animate = False
-                            # La toolbar e' stata "scoperta" dal modal -- ridisegna.
+                            # The toolbar was "uncovered" by the modal -- redraw.
                             BS.setWhiteUp(app.screen, gs.node.board().turn == chess.BLACK)
 
                     if e.key == p.K_k and not whiteCPU and not blackCPU:
-                        # Salva posizione corrente + ultima mossa come tattica
-                        # in una learning base scelta dall'utente.
+                        # Save current position + last move as a tactic
+                        # in a learning base chosen by the user.
                         import add_to_base
                         add_to_base.addPositionToBaseMenu(gs)
                         app.main_background()
                         continue
 
                     if e.key == p.K_y and not whiteCPU and not blackCPU:
-                        # Statistiche di posizione contro il DB di riferimento.
+                        # Position statistics against the reference DB.
                         _show_db_stats(gs)
                         app.main_background()
                         continue
 
                     if e.key == p.K_a:
                         analyze = not analyze
-                        # esci dall'analisi -> ri-orienta subito la scacchiera
-                        # (altrimenti il lato cambierebbe solo alla mossa dopo)
+                        # exit analysis -> immediately re-orient the board
+                        # (otherwise the side would only change on the next move)
                         if not whiteCPU and not blackCPU and not analyze:
                             BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
                     
@@ -614,20 +614,20 @@ def playAGame():
                    
                     if e.key== p.K_s: # save the game
                         save_menu(gs)
-                        app.main_background()  # vedi note sul K_l
+                        app.main_background()  # see the note on K_l
 
                     if e.key == p.K_e:  # Engine on /off
                         glc.toggle_engine(gs)
 
                     if e.key == p.K_l and not whiteCPU and not blackCPU:
-                        # Caricamento abilitato solo SENZA computer (modalita' analisi):
-                        # la partita parte dalla prima mossa e si scorre in avanti con
-                        # la freccia destra (chooseNextMove), esplorando le varianti.
-                        # Contro il computer il caricamento e' disabilitato.
+                        # Loading enabled only WITHOUT a computer (analysis mode):
+                        # the game starts from the first move and you scroll forward with
+                        # the right arrow (chooseNextMove), exploring the variations.
+                        # Against the computer, loading is disabled.
                         load_menu(gs)
-                        # Pulisci lo schermo: pygame_menu disegna a tutto schermo, e
-                        # alla chiusura le scritte (titolo "Load Game") restano sotto
-                        # i pannelli se non rinfreschiamo lo sfondo prima del redraw.
+                        # Clear the screen: pygame_menu draws full-screen, and
+                        # on close the text (the "Load Game" title) remains under
+                        # the panels if we don't refresh the background before the redraw.
                         app.main_background()
                         moveMade = False # a move was made
                         animate = False  # move must be showed
@@ -636,36 +636,36 @@ def playAGame():
                         continue
 
                     if e.key == p.K_n and not whiteCPU and not blackCPU:
-                        # Annota l'ultima mossa (solo in analisi, senza computer)
+                        # Annotate the last move (analysis only, no computer)
                         if len(gs.moveLog) > 0:
                             nag = chooseAnnotation(gs.node.nags)
                             if nag == 0:
                                 gs.clearMoveNags()
                             elif nag is not None:
                                 gs.setMoveNag(nag)
-                        # il menu disegna a tutto schermo: ripulisco prima di
-                        # ridisegnare la scacchiera (incluso lo strip CPU sotto)
+                        # the menu draws full-screen: clear before
+                        # redrawing the board (including the CPU strip below)
                         app.main_background()
                         BS.clearCPU(app.screen)
                         continue
 
                     if e.key == p.K_t and not whiteCPU and not blackCPU:
-                        # Commento testuale sull'ultima mossa (solo in analisi)
+                        # Text comment on the last move (analysis only)
                         if len(gs.moveLog) > 0:
                             text = editComment(gs.getMoveComment())
                             if text is not None:
                                 gs.setMoveComment(text)
-                        # il menu disegna a tutto schermo: ripulisco prima di
-                        # ridisegnare la scacchiera (incluso lo strip CPU sotto)
+                        # the menu draws full-screen: clear before
+                        # redrawing the board (including the CPU strip below)
                         app.main_background()
                         BS.clearCPU(app.screen)
                         continue
 
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
-                        # Pannello notazione: intera partita + varianti + annotazioni
+                        # Notation panel: whole game + variations + annotations
                         notation.show_notation(gs)
-                        # il pannello disegna a tutto schermo: ripulisco prima di
-                        # ridisegnare la scacchiera (incluso lo strip CPU sotto)
+                        # the panel draws full-screen: clear before
+                        # redrawing the board (including the CPU strip below)
                         app.main_background()
                         BS.clearCPU(app.screen)
                         moveMade = False
@@ -678,9 +678,9 @@ def playAGame():
                         glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_f:
-                        # Flip della scacchiera: NON impostare moveMade=True, altrimenti
-                        # il blocco "if moveMade" chiama setWhiteUp che reimposta
-                        # l'orientamento in base al turno e annulla la flip.
+                        # Flip the board: do NOT set moveMade=True, otherwise
+                        # the "if moveMade" block calls setWhiteUp which resets
+                        # the orientation based on the turn and cancels the flip.
                         BS.flipBoard(app.screen)
 
                     if e.key == p.K_r:
@@ -700,8 +700,8 @@ def playAGame():
                 continue
 
         if not update:
-            # Frame idle: ridisegniamo comunque la toolbar (per le animazioni
-            # del tooltip on-hover) e flippiamo il display.
+            # Idle frame: we redraw the toolbar anyway (for the on-hover
+            # tooltip animations) and flip the display.
             toolbar.draw(app.screen)
             p.display.update()
             continue
@@ -725,11 +725,11 @@ def playAGame():
                 # textsurface = app.myfont.render('Checkmate', False, p.Color("red"))
             else:
                 text = "Stalemate"
-            # Mostra il risultato ma NON chiudere la maschera: l'utente resta
-            # sulla posizione finale e chiude quando vuole (Q), cosi' puo'
-            # ancora salvare (S), tornare indietro (freccia sx) o resettare (R).
-            # gameOver viene ricalcolato a ogni giro, quindi undo/reset
-            # riprendono la partita; la mossa col mouse e' gia' bloccata.
+            # Show the result but do NOT close the screen: the user stays
+            # on the final position and closes when they want (Q), so they can
+            # still save (S), go back (left arrow) or reset (R).
+            # gameOver is recomputed every loop, so undo/reset
+            # resume the game; mouse moves are already blocked.
             show_message(gs, text)
 
         else:

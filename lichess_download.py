@@ -1,16 +1,16 @@
-"""Download incrementale + dedup di partite lichess via API pubblica.
+"""Incremental download + dedup of lichess games via the public API.
 
-Mirror funzionale di chess_com_download.py, ma con due semplificazioni:
- - lichess espone un endpoint unico (/api/games/user/{user}) che ritorna PGN
-   streaming, quindi nessun "elenco archivi mensili" da iterare;
- - il parametro `since` (timestamp ms UNIX) limita la query alle partite dopo
-   un certo istante: un solo HTTP fa l'intero incrementale.
+Functional mirror of chess_com_download.py, but with two simplifications:
+ - lichess exposes a single endpoint (/api/games/user/{user}) that returns a
+   streaming PGN, so there is no "monthly archive list" to iterate over;
+ - the `since` parameter (UNIX ms timestamp) limits the query to games after
+   a given instant: a single HTTP request does the entire incremental update.
 
-Il file di output puo' essere lo stesso usato per chess.com: la dedup per
-signature (URL di [Site]/[Link] o composito di intestazioni) elimina i
-duplicati e preserva eventuali partite di altre fonti gia' presenti.
+The output file can be the same one used for chess.com: dedup by
+signature (URL from [Site]/[Link] or a composite of headers) removes
+duplicates and preserves any games from other sources already present.
 
-Riferimento API: https://lichess.org/api#tag/Games/operation/apiGamesUser
+API reference: https://lichess.org/api#tag/Games/operation/apiGamesUser
 """
 from __future__ import annotations
 
@@ -35,8 +35,8 @@ def _grab(pgn_text: str, tag: str) -> str:
 
 
 def _signature_from_pgn_text(pgn_text: str) -> str:
-    """Signature univoca per dedup. Preferisce gli URL di [Site] (lichess) o
-    [Link] (chess.com). Fallback: composito di intestazioni di base."""
+    """Unique signature for dedup. Prefers the URLs from [Site] (lichess) or
+    [Link] (chess.com). Fallback: a composite of basic headers."""
     site = _grab(pgn_text, "Site")
     if "//" in site:
         return site
@@ -53,11 +53,11 @@ def _signature_from_pgn_text(pgn_text: str) -> str:
 
 
 def _read_existing_state(path: str) -> Tuple[Set[str], Optional[int]]:
-    """Scansiona il PGN esistente. Ritorna:
-      - set delle signature (per dedup, copre TUTTE le fonti, anche chess.com),
-      - timestamp ms UNIX della partita lichess piu' recente (None se assente).
-    Quest'ultimo serve come `since` per l'API: lichess ritornera' solo partite
-    posteriori a quell'istante.
+    """Scan the existing PGN. Returns:
+      - the set of signatures (for dedup, covers ALL sources, including chess.com),
+      - UNIX ms timestamp of the most recent lichess game (None if absent).
+    The latter is used as `since` for the API: lichess will return only games
+    after that instant.
     """
     sigs: Set[str] = set()
     latest_ts_ms: Optional[int] = None
@@ -87,7 +87,7 @@ def _read_existing_state(path: str) -> Tuple[Set[str], Optional[int]]:
                     h.get("Black") or "?",
                     h.get("Result") or "?",
                 ]))
-            # cutoff timestamp solo per le partite lichess
+            # cutoff timestamp only for lichess games
             if "lichess.org" in site or "lichess.org" in link:
                 ud = h.get("UTCDate") or h.get("Date") or ""
                 ut = h.get("UTCTime") or "00:00:00"
@@ -103,13 +103,13 @@ def _read_existing_state(path: str) -> Tuple[Set[str], Optional[int]]:
 
 def load(user_name: str, output_file: str, color: Optional[str] = None,
          max_games: Optional[int] = None):
-    """Scarica le partite lichess di `user_name` in modo incrementale.
+    """Download the lichess games of `user_name` incrementally.
 
-    - Se il file esiste, dedup-a per signature; appende soltanto le NUOVE.
-    - Usa il parametro `since` di lichess per scaricare solo le partite
-      successive all'ultima lichess gia' presente nel file.
-    - `color`: 'w'/'b'/None (convertito a 'white'/'black' per l'API).
-    - `max_games`: passato come `max` all'API.
+    - If the file exists, dedup by signature; append only the NEW ones.
+    - Use the lichess `since` parameter to download only the games
+      after the last lichess one already present in the file.
+    - `color`: 'w'/'b'/None (converted to 'white'/'black' for the API).
+    - `max_games`: passed as `max` to the API.
     """
     output_path = os.path.join(pgngamelist.PGN_FOLDER, output_file)
     os.makedirs(pgngamelist.PGN_FOLDER, exist_ok=True)
@@ -124,7 +124,7 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
 
     params = {"sort": "dateDesc"}
     if since_ts is not None:
-        # +1 ms per saltare la partita stessa (la dedup catturerebbe comunque i duplicati).
+        # +1 ms to skip the game itself (dedup would catch the duplicates anyway).
         params["since"] = str(since_ts + 1)
     if max_games is not None:
         params["max"] = str(max_games)
@@ -150,7 +150,7 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
         print("Lichess returned no games.")
         return
 
-    # Split del response in singoli blocchi PGN (a ogni nuovo [Event ...]).
+    # Split the response into individual PGN blocks (at each new [Event ...]).
     chunks = re.split(r'(?=\[Event\s+")', pgn_text)
     kept = []
     for chunk in chunks:

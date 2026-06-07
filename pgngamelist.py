@@ -11,7 +11,7 @@ import sys
 import random
 
 def get_base_path():
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    if getattr(sys, 'frozen', False):  # If it is a PyInstaller executable
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
@@ -30,8 +30,8 @@ class PgnGameList:
         return len(self.games) == 0
 
     def __init__(self, filename, folder: Optional[str] = None):
-        """`folder` di default e' `pgn/` (PGN_FOLDER). Passare un'altra cartella
-        (es. la endgames/) per leggere/scrivere fuori da pgn/."""
+        """`folder` defaults to `pgn/` (PGN_FOLDER). Pass another folder
+        (e.g. endgames/) to read/write outside of pgn/."""
         if folder is None:
             folder = PGN_FOLDER
         self.fName:str = os.path.join(folder, filename) + ".pgn"
@@ -77,12 +77,12 @@ class PgnGameList:
             if N < len(self.games):
                 self.games[N] = new_game
             else:
-                # Aggiungi partite vuote fino a N, poi inserisci la nuova
+                # Add empty games up to N, then insert the new one
                 while len(self.games) < N:
-                    self.games.append(chess.pgn.Game())  # placeholder vuoto
+                    self.games.append(chess.pgn.Game())  # empty placeholder
                 self.games.append(new_game)
 
-        # Rewrite all games (sempre, anche per una partita nuova)
+        # Rewrite all games (always, even for a new game)
         with open(self.fName, "w", encoding="utf-8") as f:
             for game in self.games:
                 exporter = FileExporter(f)

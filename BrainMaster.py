@@ -10,8 +10,8 @@ from config import config
 import sys
 
 def get_base_path():
-    """Restituisce il percorso della cartella dove si trova l'eseguibile o lo script"""
-    if getattr(sys, 'frozen', False):  # Se è un eseguibile PyInstaller
+    """Return the path of the folder where the executable or the script is located"""
+    if getattr(sys, 'frozen', False):  # If it is a PyInstaller executable
         return os.path.dirname(sys.executable)
     else:
         return os.path.dirname(os.path.abspath(__file__))
@@ -19,10 +19,10 @@ def get_base_path():
 BASE_PATH = get_base_path()
 DATA_FOLDER = os.path.join(BASE_PATH, "data")
 
-# Nome del file di configurazione
+# Name of the configuration file
 
 
-# URL del tuo servizio Flask
+# URL of your Flask service
 #base_url = 'http://localhost:5000/api/'
 #id_student = 'gaetano.lazzo'
 
@@ -43,10 +43,10 @@ def create_course(id_course:str):
     try:        
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
             print('Course created successfully!')
-            #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
+            #print('Response:', response.json())  # If you return a JSON from the backend
         else:
             print('Error:', response.status_code, response.text)
     except Exception as e:
@@ -72,10 +72,10 @@ def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
     try:
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
-            print(f'Lezione {id_lesson} creata con successo!')
-            #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
+            print(f'Lesson {id_lesson} created successfully!')
+            #print('Response:', response.json())  # If you return a JSON from the backend
         else:
             print('Error:', response.status_code, response.text)
     except Exception as e:
@@ -100,10 +100,10 @@ def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
     try:
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
-            print(f'Domanda {id_question} {id_lesson} creata con successo!')
-            #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
+            print(f'Question {id_question} {id_lesson} created successfully!')
+            #print('Response:', response.json())  # If you return a JSON from the backend
         else:
             print('Error:', response.status_code, response.text)
     except Exception as e:
@@ -113,9 +113,9 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
     '''
         Unlock a lesson for a student
         Args:
-            id_course(str)  chiave della tabella mdl_course
-            id_student(str) chiave della tabella mdl_user
-            id_lesson(str)  chiave della tabella mdl_course_modules
+            id_course(str)  key of the mdl_course table
+            id_student(str) key of the mdl_user table
+            id_lesson(str)  key of the mdl_course_modules table
     '''  
     url = f'{config.base_url}unlock_lesson'
     payload = {
@@ -127,7 +127,7 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
     try:
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
             result = response.json()
             return result
@@ -167,7 +167,7 @@ class QuestionData:
 
     @classmethod
     def from_dict(cls, data: dict[str,Any]) -> "QuestionData":
-        # Converte esplicitamente i dati
+        # Explicitly convert the data
         return cls(
             id_question=data['id_question'],
             id_test=data['id_test'],
@@ -193,7 +193,7 @@ def ask_for_quiz(id_course:str, id_student:str):
     
     '''
     url = f'{config.base_url}suggest_action'
-    # I dati che vuoi inviare al servizio
+    # The data you want to send to the service
     payload = {
         'id_course': id_course,
         'id_student': id_student
@@ -202,10 +202,10 @@ def ask_for_quiz(id_course:str, id_student:str):
     try:
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
             res = response.json()
-            print(f'Quiz ricevuto: {res["action"]} {res["description"]}')
+            print(f'Quiz received: {res["action"]} {res["description"]}')
             return res
         else:
             print('Error:', response.status_code, response.text)
@@ -224,7 +224,7 @@ def give_answers(id_course:str, action:int, answers:List[AnswerData]):
     '''
     url = f'{config.base_url}give_answers'
        
-    # I dati che vuoi inviare al servizio
+    # The data you want to send to the service
     payload = {
         'id_course': id_course,
         'id_student': config.id_student,
@@ -235,9 +235,9 @@ def give_answers(id_course:str, action:int, answers:List[AnswerData]):
     try:
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
-            print('Dati inviati con successo.')
+            print('Data sent successfully.')
             return response.json()
         else:
             print('Error:', response.status_code, response.text)
@@ -293,7 +293,7 @@ def list_courses() -> List[str]:
     try:
         response = requests.get(url)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:
             res = response.json()
             return res
@@ -319,7 +319,7 @@ def unlock_new_lesson(id_course:str)->str:
     try:
         response = requests.post(url, json=payload)
     
-        # Controllo del risultato
+        # Check the result
         if response.status_code == 200:                        
             res = response.json()["result"]
             if not res: return False

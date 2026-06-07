@@ -95,7 +95,7 @@ def _get_or_create_endgame_base(filename: str) -> Optional[LearningBase]:
 
 
 def _best_move_for_position(board: chess.Board) -> Optional[chess.Move]:
-    """Migliore mossa: TB ottima se in range, altrimenti Stockfish."""
+    """Best move: TB-optimal if in range, otherwise Stockfish."""
     mv = sh.best_tb_move(board)
     if mv is not None:
         return mv
@@ -137,7 +137,7 @@ def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
 
 
 def _load_games(pgn_path: str) -> List[chess.pgn.Game]:
-    """Carica tutte le partite dal file PGN."""
+    """Load all games from the PGN file."""
     games: List[chess.pgn.Game] = []
     if not os.path.exists(pgn_path):
         return games
@@ -151,12 +151,12 @@ def _load_games(pgn_path: str) -> List[chess.pgn.Game]:
 
 
 def _format_score_cp(score: chess.engine.PovScore, turn: chess.Color) -> Optional[int]:
-    """Score in centipawns dal punto di vista di `turn`, mate-adjusted."""
+    """Score in centipawns from `turn`'s point of view, mate-adjusted."""
     if score is None:
         return None
     pov = score.pov(turn)
     if pov.is_mate():
-        # Mate per noi: +30000; subito mate: -30000 (mate counter ridotto = piu' grave).
+        # Mate for us: +30000; getting mated: -30000 (lower mate counter = more severe).
         m = pov.mate()
         if m is None:
             return None
@@ -165,7 +165,7 @@ def _format_score_cp(score: chess.engine.PovScore, turn: chess.Color) -> Optiona
 
 
 def _engine_eval_cp(board: chess.Board, turn: chess.Color) -> Optional[int]:
-    """Eval in cp di `board` dal POV di `turn`; None if engine fails or returns no score."""
+    """Eval in cp of `board` from `turn`'s POV; None if engine fails or returns no score."""
     if UCIEngines.engine is None:
         return None
     try:
@@ -278,7 +278,7 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
         nb = board_before.copy(stack=False)
         nb.push(move)
 
-        # Caso 1+2: posizione figlia terminale.
+        # Case 1+2: terminal child position.
         if nb.is_checkmate():
             return True, f"checkmate (WDL pre {wdl_b:+d}, DTZ pre {dtz_b})"
         if nb.is_stalemate() or nb.is_insufficient_material():
@@ -296,7 +296,7 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
         wdl_a = -cwdl
         dtz_a = -cdtz
 
-        # Caso 3: WDL clean peggiorato.
+        # Case 3: clean WDL worsened.
         if wdl_a < wdl_b:
             return False, f"WDL drop {wdl_b:+d}->{wdl_a:+d} (DTZ {dtz_b}->{dtz_a})"
 
@@ -327,7 +327,7 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
 
 
 def _opponent_move(board: chess.Board) -> Optional[chess.Move]:
-    """Mossa dell'avversario: TB-ottima se possibile, altrimenti Stockfish."""
+    """Opponent's move: TB-optimal if possible, otherwise Stockfish."""
     mv = sh.best_tb_move(board)
     if mv is not None:
         return mv
@@ -335,7 +335,7 @@ def _opponent_move(board: chess.Board) -> Optional[chess.Move]:
 
 
 def playEndgames() -> None:
-    """Entry-point dal menu: carica le partite e cicla finche' utente non esce."""
+    """Entry-point from the menu: load the games and loop until the user exits."""
     from state import positionParameters
     filename = positionParameters.get("filename")
     if not filename:
@@ -343,9 +343,9 @@ def playEndgames() -> None:
     pgn_path = os.path.join(ENDGAMES_FOLDER, filename + ".pgn")
     games = _load_games(pgn_path)
 
-    # Stato di partenza pulito per il toggle E: se un mode precedente aveva
-    # lasciato l'analisi attiva, il primo E qui finirebbe nel ramo "stop"
-    # (visualizzando 'engine stopped') invece di avviare l'analisi.
+    # Clean starting state for the E toggle: if a previous mode had left
+    # analysis active, the first E here would land in the "stop" branch
+    # (showing 'engine stopped') instead of starting analysis.
     UCIEngines.stop_analysis()
 
     app.main_menu.disable()
@@ -360,7 +360,7 @@ def playEndgames() -> None:
         app.main_menu.enable()
         return
 
-    # Sessione: pesca senza rimpiazzo; quando finisce, ricomincia.
+    # Session: draw without replacement; when it runs out, start over.
     pool: List[chess.pgn.Game] = list(games)
     random.shuffle(pool)
 
@@ -381,14 +381,14 @@ def playEndgames() -> None:
 
 
 def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -> str:
-    """Esercita una singola posizione. Ritorna 'next' o 'quit'."""
-    # Stato di gioco: posizione iniziale = root del PGN (FEN header se presente).
+    """Practice a single position. Returns 'next' or 'quit'."""
+    # Game state: initial position = PGN root (FEN header if present).
     gs = GameState()
     gs.setPgn(game)
     start_board = gs.node.board()
 
     if start_board.is_game_over():
-        # Posizione gia' terminale: salta.
+        # Position already terminal: skip.
         return "next"
 
     # Learning base for errors in this file: created/opened on first entry.
@@ -454,7 +454,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 
     while not must_skip and not quit_flag:
         time_delta = app.clock.tick(60) / 1000.0
-        UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
+        UCIEngines.poll()  # drain engine info (no-op if analysis off)
         humanCanPlay = gs.colorToMove() == human_color and not gameOver
         update = False
 
@@ -471,11 +471,11 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
             # interrupts; the next iteration of the outer while loop selects another game.            
             break
 
-        # --- Mossa avversario ---
+        # --- Opponent move ---
         if not gameOver and not humanCanPlay and not moveMade:
             mv = _opponent_move(board)
             if mv is None:
-                # Patta forzata o errore: mostra un messaggio e termina.
+                # Forced draw or error: show a message and end.
                 show_message(gs, "No opponent move (TB+engine failed)")
                 app.delay(1)
                 break
@@ -485,7 +485,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
             validMoves = gs.stdValidMoves()
             update = True
 
-        # --- Eventi ---
+        # --- Events ---
         for e in p.event.get():
             app.manager.process_events(e)
             glc.stop_speech_on_input(e)
@@ -511,7 +511,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 
                 if len(playerClicks) == 2:
                     move = Move(playerClicks[0], playerClicks[1], gs)
-                    # Promozione
+                    # Promotion
                     if move.pieceMoved[1] == "P" and (row == 0 or row == 7):
                         promos = [m for m in validMoves
                                   if m.startRow == playerClicks[0][0] and m.startCol == playerClicks[0][1]
@@ -521,11 +521,11 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                             move = move.promoteToPiece(piece)
                     validMove = next((m for m in validMoves if move == m), None)
                     if validMove is not None:
-                        # --- Giudizio ---
+                        # --- Judgment ---
                         ok, why = _judge_user_move(board, validMove.move)
                         print(f"[endgames] move {validMove.move.uci()}: {'OK' if ok else 'ERR'} | {why}")
-                        # Logging in learning base: errore -> aggiunge/aggiorna;
-                        # successo -> aggiorna stats solo se gia' tracciata.
+                        # Logging in learning base: error -> add/update;
+                        # success -> update stats only if already tracked.
                         _log_user_move_to_base(lb, game, board, validMove.move.uci(), ok)
                         if ok:
                             gs.makeMove(validMove)
@@ -533,10 +533,10 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                             animate = True
                             validMoves = gs.stdValidMoves()
                         else:
-                            # Take-back implicito: NON pushiamo la mossa, l'utente puo' riprovare.
+                            # Implicit take-back: we do NOT push the move, the user can retry.
                             short = why.split(' (')[0] if why else "error"
-                            # show_message default = font 32: troppo grande per messaggi >20 char.
-                            # Usiamo drawEndGameText con size piu' piccola e delay piu' lungo.
+                            # show_message default = font 32: too large for messages >20 chars.
+                            # We use drawEndGameText with a smaller size and a longer delay.
                             BS.drawEndGameText(app.screen, gs, f"Wrong move: {short}", size=20)
                             app.delay(2.5)
                             update = True
@@ -556,7 +556,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                 elif e.key == p.K_n:
                     must_skip = True
                 elif e.key == p.K_h:
-                    # Hint: mostra la mossa TB-ottima (o engine se fuori TB).
+                    # Hint: show the TB-optimal move (or engine if outside TB).
                     suggestion = sh.best_tb_move(board) or _engine_reply(board)
                     if suggestion is not None:
                         show_message(gs, f"Hint: {board.san(suggestion)}")
@@ -620,7 +620,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 
 
 def _result_message(result: str, human_is_white: bool) -> str:
-    """Messaggio finale a partire dal risultato PGN e dal lato umano."""
+    """Final message based on the PGN result and the human side."""
     if result == "1/2-1/2":
         return "Draw"
     if result == "1-0":

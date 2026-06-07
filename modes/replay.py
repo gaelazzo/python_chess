@@ -49,17 +49,17 @@ def solvePositionsFromBase(learningBase:LearningBase):
 
     BS.set_context_label(f"Training: {learningBase.filename or '?'}")
 
-    # Stato pulito per il toggle E: se un mode precedente (es. endgames) aveva
-    # lasciato l'analisi attiva, il primo E qui finirebbe nel ramo "stop"
-    # (mostrando "engine stopped") invece di avviarla -- da fuori sembra "il
-    # motore non si avvia".
+    # Clean state for the E toggle: if a previous mode (e.g. endgames) had left
+    # analysis active, the first E here would fall into the "stop" branch
+    # (showing "engine stopped") instead of starting it -- from outside it looks
+    # like "the engine won't start".
     UCIEngines.stop_analysis()
 
-    # Filter locale: ECO da positionParameters (se l'utente lo ha digitato nel
-    # menu), color=None sempre. Il colore-al-tratto e' gia' implicito nella base
-    # (rimosso dal menu come selettore separato), e positionParameters["color"]
-    # potrebbe essere stato settato da altri menu (Download chess.com/lichess)
-    # senza che l'utente intenda filtrare la pratica.
+    # Local filter: ECO from positionParameters (if the user typed it in the
+    # menu), color=None always. The side-to-move is already implicit in the base
+    # (removed from the menu as a separate selector), and positionParameters["color"]
+    # may have been set by other menus (Download chess.com/lichess)
+    # without the user intending to filter the practice.
     filter_ = {"eco": positionParameters.get("eco"), "color": None}
     # ll is a copy (not a deep copy) of data in the csv, not the same structure
     ll = analyzer.getPositions(learningBase, filter_, order=state.practice_order)
@@ -94,12 +94,12 @@ def solvePositionsFromBase(learningBase:LearningBase):
     show_help = False
     BS.clearCPU(app.screen)
 
-    # Toolbar (fase 2): stesso pattern di play_game -- ogni pulsante posta
-    # la stessa scorciatoia da tastiera, cosi' il codice di gestione resta
-    # singolo. Alcuni pulsanti hanno predicato `enabled` che legge le variabili
-    # di stato dell'inner loop (humanCanPlay, updateStats).
-    # NOTA: humanCanPlay/updateStats sono locali e riassegnati durante il loop;
-    # le lambda li risolvono al call time, quindi vedono sempre il valore corrente.
+    # Toolbar (phase 2): same pattern as play_game -- each button posts
+    # the same keyboard shortcut, so the handling code stays
+    # single. Some buttons have an `enabled` predicate that reads the state
+    # variables of the inner loop (humanCanPlay, updateStats).
+    # NOTE: humanCanPlay/updateStats are local and reassigned during the loop;
+    # the lambdas resolve them at call time, so they always see the current value.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     toolbar = Toolbar([
@@ -144,8 +144,8 @@ def solvePositionsFromBase(learningBase:LearningBase):
         #       f"len(numberOfErrors) is {len(numberOfErrors)}")
         # print(errorsMade)
         fen = pos.fen.split()
-        # Header tollerante: i campi opzionali (eco/data) e i player "?" sono
-        # comuni nelle PGN di finali / studi -- skip se assenti.
+        # Tolerant header: the optional fields (eco/date) and the "?" players are
+        # common in endgame / study PGNs -- skip if absent.
         header = []
         for label, value in (("White", pos.white), ("Black", pos.black), ("ECO", pos.eco)):
             if value and value != "?":
@@ -157,30 +157,30 @@ def solvePositionsFromBase(learningBase:LearningBase):
 
 
 
-        # Setup della posizione. La posizione finale e' SEMPRE `pos.fen`
-        # (canonica nella learning base). Quel che cambia e' il percorso:
+        # Position setup. The final position is ALWAYS `pos.fen`
+        # (canonical in the learning base). What changes is the path:
         #
-        # - Se `pos.moves` e' ricostruibile dalla scacchiera iniziale standard
-        #   (caso tipico: tattica/aperture salvate da PGN normali), si usa il
-        #   replay delle mosse -> `gs` mantiene la cronologia completa: il
-        #   Lead-in "Replay" funziona, il pannello Notation (V) mostra il
-        #   path d'arrivo, undo (Z/<-) torna indietro tra le mosse storiche.
+        # - If `pos.moves` is reconstructable from the standard starting board
+        #   (typical case: tactics/openings saved from normal PGNs), the
+        #   move replay is used -> `gs` keeps the full history: the
+        #   "Replay" lead-in works, the Notation panel (V) shows the
+        #   arrival path, undo (Z/<-) steps back through the historical moves.
         #
-        # - Se invece le mosse non sono applicabili dallo start standard
-        #   (caso tipico: finali da PGN con header `[FEN]` custom, posizioni
-        #   Chess960 / studi), si fa setup diretto da `pos.fen`. Si perde la
-        #   cronologia (Lead-in Replay non ha nulla da mostrare) ma la
-        #   posizione e' corretta.
+        # - If instead the moves are not applicable from the standard start
+        #   (typical case: endgames from PGN with custom `[FEN]` header,
+        #   Chess960 positions / studies), direct setup from `pos.fen` is used.
+        #   The history is lost (Replay lead-in has nothing to show) but the
+        #   position is correct.
         moves = pos.moves.split() if pos.moves else []
         try:
             _probe = chess.Board()
             for _u in moves:
                 _m = chess.Move.from_uci(_u)
                 if not _probe.is_pseudo_legal(_m):
-                    raise ValueError(f"non pseudo-legale: {_u}")
+                    raise ValueError(f"not pseudo-legal: {_u}")
                 _probe.push(_m)
-            # Sanity finale: dopo aver applicato tutte le mosse, devo essere
-            # esattamente in pos.fen (altrimenti la base ha incoerenze).
+            # Final sanity: after applying all the moves, I must be
+            # exactly at pos.fen (otherwise the base has inconsistencies).
             _replayable = (_probe.fen().split()[0] == pos.fen.split()[0]
                            and _probe.turn == chess.Board(pos.fen).turn)
         except (chess.IllegalMoveError, chess.InvalidMoveError, AssertionError, ValueError):
@@ -192,7 +192,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
             _seed.headers["FEN"] = pos.fen
             _seed.headers["SetUp"] = "1"
             gs.setPgn(_seed)
-            moves = []  # gia' alla posizione, niente da rigiocare
+            moves = []  # already at the position, nothing to replay
         gs.setHeader(header)
         #gs.setFen(pos["fen"])
         #BS.setWhiteUp(app.screen, not gs.whiteToMove())
@@ -200,11 +200,11 @@ def solvePositionsFromBase(learningBase:LearningBase):
         BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()
         solution = pos.ok
-        # show_cpu deve riflettere lo stato reale dell'engine: se update_board()
-        # ha tenuto attiva l'analisi durante la continuazione della posizione
-        # precedente, "stopper" e' ancora set ma `show_cpu=False` silenzierebbe
-        # drawCpu, dando l'illusione che il motore non scriva piu'. Per la nuova
-        # posizione mostriamo le info se e solo se l'analisi e' davvero in corso.
+        # show_cpu must reflect the real engine state: if update_board()
+        # kept analysis active during the continuation of the previous
+        # position, "stopper" is still set but `show_cpu=False` would silence
+        # drawCpu, giving the illusion that the engine no longer writes. For the new
+        # position we show the info if and only if analysis is actually running.
         BS.show_cpu = UCIEngines.is_analysing()
 
         currentMove = 0
@@ -212,20 +212,20 @@ def solvePositionsFromBase(learningBase:LearningBase):
         engineMove = 0
         mustSkip = False        # mustSkip determines the exit from the cycle
         humanCanPlay = True
-        # Reset di stato per la nuova posizione: moveMade/animate sono locali alla
-        # funzione ma persistono fra una posizione e l'altra. Se nella posizione
-        # precedente l'utente ha cliccato per saltare proprio nel frame in cui
-        # l'engine aveva appena giocato (moveMade=True + mustSkip=True), il
-        # blocco di pulizia a riga 369 non fira e moveMade resta True. Alla
-        # nuova posizione gs.moveLog e' vuoto -> moveLog[-1] esplode.
+        # State reset for the new position: moveMade/animate are local to the
+        # function but persist between one position and the next. If in the previous
+        # position the user clicked to skip in the very frame in which
+        # the engine had just played (moveMade=True + mustSkip=True), the
+        # cleanup block at line 369 does not fire and moveMade stays True. At the
+        # new position gs.moveLog is empty -> moveLog[-1] blows up.
         moveMade = False
         animate = False
         
        
 
         while running and not mustSkip:
-            time_delta = app.clock.tick(60) / 1000.0   # pace + dt per la toolbar
-            UCIEngines.poll()  # drena gli info engine (no-op se analisi off)
+            time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar
+            UCIEngines.poll()  # drains the engine info (no-op if analysis off)
             update  = False
             updateStats = False
 
@@ -282,17 +282,17 @@ def solvePositionsFromBase(learningBase:LearningBase):
                 if e.type == p.QUIT:
                     running = False
                 elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
-                        # Mostra aiuto quando il tasto destro è premuto
+                        # Show help when the right button is pressed
                         show_help = True
                         # play_position = 1
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
-                        # Nasconde aiuto quando il tasto destro è rilasciato
+                        # Hide help when the right button is released
                         show_help = False
                 elif e.type == p.MOUSEBUTTONDOWN and e.button == 1 and not humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
-                    # Solo click sinistro skippa al prossimo esercizio. Senza
-                    # `button==1` la rotellina del mouse (button 4/5 in pygame)
-                    # farebbe saltare di posizione mentre l'utente guarda la
-                    # continuazione.
+                    # Only the left click skips to the next exercise. Without
+                    # `button==1` the mouse wheel (button 4/5 in pygame)
+                    # would jump position while the user is watching the
+                    # continuation.
                     mustSkip = True
                     break
                 elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
@@ -372,7 +372,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
                         mustSkip = True
                         break
 
-                    if e.key == p.K_h and not updateStats:  # Mostra la soluzione
+                    if e.key == p.K_h and not updateStats:  # Show the solution
                         if solution:
                             show_message(gs, f"Solution: {solution}")
                             app.delay(2)
@@ -386,19 +386,19 @@ def solvePositionsFromBase(learningBase:LearningBase):
                 continue
 
             if not update:
-                # Frame idle: ridisegniamo la toolbar (per i tooltip on-hover) e flippiamo.
+                # Idle frame: redraw the toolbar (for the on-hover tooltips) and flip.
                 toolbar.draw(app.screen)
                 p.display.update()
                 continue
 
             if moveMade and not mustSkip:
                 moveMade = False
-                # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+                # If analysis is active, attach the new position (no-op if off).
                 UCIEngines.update_board(gs.board(), glc.engine_callback)
-                # Guard difensivo: in teoria se moveMade era True ci dovrebbe
-                # essere stata una makeMove e moveLog non sarebbe vuoto, ma e'
-                # capitato in passato (vedi reset di moveMade sopra). Saltiamo
-                # l'animazione invece di crashare.
+                # Defensive guard: in theory if moveMade was True there should
+                # have been a makeMove and moveLog would not be empty, but it has
+                # happened in the past (see the moveMade reset above). We skip
+                # the animation instead of crashing.
                 lastMove = gs.moveLog[-1] if gs.moveLog else None
                 if animate and lastMove is not None:
                     BS.animateMove(lastMove, app.screen, gs)

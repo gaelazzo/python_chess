@@ -22,8 +22,8 @@ MAX_FPS = 60
 factor = 2.0
 IMAGES:Dict[str,p.Surface] = {}
 
-# Fascia in alto per la toolbar dei pulsanti-icona. Tutto il resto (scacchiera +
-# pannelli + striscia CPU) scende di TOOLBAR_HEIGHT.
+# Top strip for the icon-button toolbar. Everything else (board +
+# panels + CPU strip) is pushed down by TOOLBAR_HEIGHT.
 TOOLBAR_HEIGHT = 40
 BOARD_Y = TOOLBAR_HEIGHT
 
@@ -63,16 +63,16 @@ show_book = True
 show_pgn = True
 show_cpu = True
 
-# Etichetta di contesto mostrata in cima al move log (es. "Allenando: c96" o
-# "Apertura: openings.pgn") e replicata nel caption della finestra. Settata
-# dai vari mode all'ingresso e azzerata in uscita. None = nessuna etichetta.
+# Context label shown at the top of the move log (e.g. "Training: c96" or
+# "Opening: openings.pgn") and replicated in the window caption. Set by
+# the various modes on entry and cleared on exit. None = no label.
 context_label: Optional[str] = None
 _DEFAULT_CAPTION = 'Chess trainer'
 
 
 def set_context_label(label: Optional[str]) -> None:
-    """Imposta l'etichetta di contesto (move log + caption finestra).
-    Passa None per resettare (tipicamente in finally a fine mode)."""
+    """Set the context label (move log + window caption).
+    Pass None to reset (typically in a finally at the end of a mode)."""
     global context_label
     context_label = label
     try:
@@ -81,7 +81,7 @@ def set_context_label(label: Optional[str]) -> None:
         else:
             p.display.set_caption(_DEFAULT_CAPTION)
     except p.error:
-        pass   # display non ancora inizializzato (es. test headless)
+        pass   # display not yet initialized (e.g. headless test)
 
 def getFactor():
     global factor
@@ -160,8 +160,8 @@ def choosePromotion(screen, color):
         update()
 
 def getRowColFromLocation(location):
-    # Click sopra la fascia board (es. nella toolbar) -> coordinate fuori scacchiera
-    # cosi' i chiamanti (che gia' filtrano col>=8 / row>=8) lo ignorano in sicurezza.
+    # Click above the board strip (e.g. in the toolbar) -> coordinates outside the board
+    # so callers (which already filter col>=8 / row>=8) ignore it safely.
     y = location[1] - BOARD_Y
     if y < 0:
         return 8, 8
@@ -170,7 +170,7 @@ def getRowColFromLocation(location):
     return row, col
 
 def resource_path(relative_path):
-    """Restituisce il path assoluto, compatibile con PyInstaller."""
+    """Return the absolute path, compatible with PyInstaller."""
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
@@ -321,7 +321,7 @@ def drawBook(screen, gs: GameState):
     padding = 5
     textY = padding
     lineSpacing = 2
-    textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
+    textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
     for entry in book[:10]:
         textY+= add_txt_line(entry.move.uci(), textY, myfont, screen, bookRect, padding, lineSpacing)
         
@@ -342,7 +342,7 @@ def drawCpu(screen, text:List[str]):
     padding = 5
     textY = padding
     lineSpacing = 2
-    textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
+    textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
     for txt in text:
         textY+= add_txt_line(txt, textY, myfont, screen, cpuRect, padding, lineSpacing)
     update()
@@ -366,7 +366,7 @@ def drawPgn(screen, gs: GameState):
     padding = 5
     textY = padding
     lineSpacing = 2
-    textY += textsurface.get_height() + lineSpacing  # <-- AGGIUNGI QUESTA RIGA
+    textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
    
     for move in moves:
         textY+= add_txt_line(move.uci(), textY, myfont, screen, pgnRect, padding, lineSpacing)
@@ -403,9 +403,9 @@ def drawMoveLog(screen, gs):
     moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
 
-    # Clip al rettangolo del pannello: un commento (o una lista mosse) lungo
-    # non puo' piu' sconfinare nei riquadri sottostanti, che questa funzione
-    # non ripulisce (era la causa del testo "fantasma" rimasto in basso).
+    # Clip to the panel rectangle: a long comment (or move list)
+    # can no longer overflow into the boxes below, which this function
+    # does not clear (this was the cause of the "ghost" text left at the bottom).
     prev_clip = screen.get_clip()
     screen.set_clip(moveLogRect)
     try:
@@ -421,8 +421,8 @@ def drawMoveLog(screen, gs):
         textY = padding
         lineSpacing = 2
 
-        # Etichetta di contesto (cosa sto allenando): se presente, prima riga
-        # in ciano cosi' si stacca dai normali header di partita.
+        # Context label (what I am training): if present, first line
+        # in cyan so it stands out from the normal game headers.
         if context_label:
             textY += add_txt_line(context_label, textY, font, screen, moveLogRect, padding, lineSpacing, color="cyan")
 
@@ -459,7 +459,7 @@ def drawMoveLog(screen, gs):
                     line = trial
             if line:
                 lines.append(line)
-            # tieni solo le righe che entrano nel pannello; se troncato, "..."
+            # keep only the lines that fit in the panel; if truncated, "..."
             lineHeight = font.get_height() + lineSpacing
             maxLines = max(0, (MOVE_LOG_HEIGHT - textY) // lineHeight)
             if len(lines) > maxLines:

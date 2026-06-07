@@ -57,9 +57,9 @@ small_font_theme.widget_font_size = 18
 # --- Reassigned session scalars (access as state.<name> so writes propagate) ---
 num_moves_to_show = 4
 play_position = 1  # 1 = skip initial stored moves, 0 = play them all
-practice_order = "random"   # "priority" | "random"  -- ordinamento in Solve positions
-                            # default Random: con basi reali (specie aperture) priority
-                            # satura la sessione sulle stesse 3-4 posizioni a wrong altissimo.
+practice_order = "random"   # "priority" | "random"  -- ordering in Solve positions
+                            # default Random: with real bases (especially openings) priority
+                            # saturates the session on the same 3-4 positions with a very high wrong count.
 
 # Selected BrainMaster course (set from the course-chooser menu).
 id_course = None
@@ -75,21 +75,21 @@ current_filename_label4 = None
 current_ChessComFile_label = None
 
 
-# --- Persistenza delle ultime selezioni nei menu ----------------------------
+# --- Persistence of the last menu selections --------------------------------
 #
-# Chiavi che vengono caricate da `config.user_prefs` all'avvio e salvate ogni
-# volta che un updater dei menu (`make_updater`/`make_selector_updater` in
-# menu_helpers.py) modifica un valore. In pratica: la maschera "Solve
-# positions", "Study openings", "Play vs computer" etc. al ri-avvio mostra
-# l'ultimo valore scelto invece dei default hard-coded sopra.
+# Keys that are loaded from `config.user_prefs` at startup and saved every
+# time a menu updater (`make_updater`/`make_selector_updater` in
+# menu_helpers.py) modifies a value. In practice: the "Solve positions",
+# "Study openings", "Play vs computer" etc. screens show, on restart, the
+# last value chosen instead of the hard-coded defaults above.
 #
-# Forma: (target, key)
+# Form: (target, key)
 # - target == "pp" -> positionParameters[key]
 # - target == "play" -> playParameters[key]
 # - target == "state" -> module-level scalar
 #
-# Volutamente NON include "gameid", "result", "courses", "id_course" -- sono
-# volatili o caricati da BrainMaster, non hanno senso come "ultima scelta".
+# Intentionally does NOT include "gameid", "result", "courses", "id_course" -- they are
+# volatile or loaded from BrainMaster, they make no sense as a "last choice".
 _PERSIST_SPEC = [
     ("pp", "eco"),
     ("pp", "color"),
@@ -115,17 +115,17 @@ _PERSIST_SPEC = [
 
 
 def _saving_enabled() -> bool:
-    """Disabilita il salvataggio durante load (evita rumore in config.json)."""
+    """Disable saving during load (avoids noise in config.json)."""
     return _save_armed
 
 
-_save_armed = False  # armato solo dopo load_user_prefs()
+_save_armed = False  # armed only after load_user_prefs()
 
 
 def load_user_prefs() -> None:
-    """Carica le ultime selezioni dei menu da `config.user_prefs` nei dict
-    e nelle variabili di modulo. Tipi gia' corretti perche' JSON serializza
-    int/float/str/bool/None nativi (cosi' come li scriviamo)."""
+    """Load the last menu selections from `config.user_prefs` into the dicts
+    and the module variables. Types are already correct because JSON serializes
+    native int/float/str/bool/None (just as we write them)."""
     global _save_armed
     import config as _cfg
     prefs = getattr(_cfg.config, "user_prefs", None) or {}
@@ -143,8 +143,8 @@ def load_user_prefs() -> None:
 
 
 def save_user_prefs() -> None:
-    """Snapshot delle selezioni correnti dentro `config.user_prefs` e flush
-    su disco. Chiamata da ogni updater dei menu (idempotente)."""
+    """Snapshot the current selections into `config.user_prefs` and flush
+    to disk. Called by every menu updater (idempotent)."""
     if not _save_armed:
         return
     import config as _cfg
@@ -160,6 +160,6 @@ def save_user_prefs() -> None:
     _cfg.save_config()
 
 
-# Carica subito: al primo import di state, i dict sono gia' popolati con
-# l'ultima selezione dell'utente. Da questo momento save_user_prefs() e' armato.
+# Load immediately: on the first import of state, the dicts are already populated
+# with the user's last selection. From this moment save_user_prefs() is armed.
 load_user_prefs()

@@ -32,7 +32,7 @@ def getLearningBaseClassified(learningBase: LearningBase) -> List[tuple[str, Dic
         stats["total"] += pos.ntry  
         stats["distinct"] += 1 
 
-    # Ordina le classificazioni ECO per frequenza (numero totale di posizioni)
+    # Sort the ECO classifications by frequency (total number of positions)
     sortedEcoStats = sorted(ecoStats.items(), key=lambda item: item[1]["distinct"], reverse=True)
     return sortedEcoStats
 
@@ -59,7 +59,7 @@ def _makeQuizzes_by_eco(learningBase:LearningBase, quiz_size:int=5):
     curr_quiz_size = 0
     sortedEcoStats = getLearningBaseClassified(learningBase)
     
-    # id del massimo quiz presente nella learning base
+    # id of the highest quiz present in the learning base
     max_id_quiz=0
     for pos in learningBase.positions.values():
         if pos.idquiz is None:
@@ -125,11 +125,11 @@ def nameQuizzes_by_eco(learningBase:LearningBase)->Dict[int,str]:
             eco.add(learnPos.eco)
         
         if len(eco) == 1:
-            quizzesName[idquiz] = next(iter(eco))  # L'unico elemento in eco
+            quizzesName[idquiz] = next(iter(eco))  # The only element in eco
         elif len(eco) == 2:
-            quizzesName[idquiz] = ' '.join(eco)  # I due elementi in eco
+            quizzesName[idquiz] = ' '.join(eco)  # The two elements in eco
         else:
-            quizzesName[idquiz] = 'mix'  # Più di due elementi 
+            quizzesName[idquiz] = 'mix'  # More than two elements
     
     return quizzesName
     

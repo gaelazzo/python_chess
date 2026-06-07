@@ -66,11 +66,11 @@ def getPositions(learningBase:LearningBase, filter=None, order:str="priority")->
         Returns a filtered list of positions from the learning base.
 
         `order`:
-          - "priority" (default): la piu' alta (ntry-successful, severity) finisce
-            in FONDO alla lista, cosi' il consumatore che fa pop() allena per prime
-            le posizioni piu' ricorrenti/gravi. Tiebreak casuale tra pari priorita'.
-          - "random": solo random.shuffle, niente ordinamento. Adatto a basi appena
-            create dove le posizioni hanno gli stessi contatori e per la varieta'.
+          - "priority" (default): the highest (ntry-successful, severity) ends up
+            at the BOTTOM of the list, so that the consumer calling pop() trains
+            the most recurring/serious positions first. Random tiebreak among equal priorities.
+          - "random": only random.shuffle, no ordering. Suitable for freshly
+            created bases where positions have the same counters and for variety.
 
         Args:
             learningBase: the database of positions
@@ -94,7 +94,7 @@ def getPositions(learningBase:LearningBase, filter=None, order:str="priority")->
         l.append(row)
     random.shuffle(l)
     if order == "priority":
-        # sort stabile: lo shuffle precedente fa da tiebreak tra pari priorita'.
+        # stable sort: the previous shuffle acts as a tiebreak among equal priorities.
         l.sort(key=lambda pos: (pos.ntry - pos.successful, pos.severity))
     return l
 
@@ -162,7 +162,7 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
             board: board position AFTER the move was made
             learningBase: the learning base to update
             goodMove: the right move to do
-            severity: calo di valutazione (cp) dell'errore (per la priorita' in pratica)
+            severity: evaluation drop (cp) of the mistake (in practice used for priority)
         Returns:
             updates the stats
     """
@@ -177,7 +177,7 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
     
    
 def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None):
-    """`eco` (es. "B01"): se non None, filtra alle sole partite con quell'ECO header."""
+    """`eco` (e.g. "B01"): if not None, filters to only the games with that ECO header."""
     pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco)
     pg.analyzeDataBase(start_from,skip_player, progress=progress)
     
@@ -192,12 +192,12 @@ class PgnAnalyzer:
         '''
             Args:
             playerName: the name of the player to analyze
-            pgnfile: the name of the pgn file to analyze (con o senza .pgn)
+            pgnfile: the name of the pgn file to analyze (with or without .pgn)
             learningBase: the learning base to update
-            eco: se non None, filtra alle sole partite con quell'ECO (case-insensitive)
+            eco: if not None, filters to only the games with that ECO (case-insensitive)
         '''
-        # make_file_selector salva il filename senza estensione, ma su disco i
-        # PGN ce l'hanno -- appendiamo .pgn se manca (mirroring PgnGameList,
+        # make_file_selector saves the filename without extension, but on disk the
+        # PGN files have it -- we append .pgn if it is missing (mirroring PgnGameList,
         # openings.py, endgames.py).
         if not filename.lower().endswith(".pgn"):
             filename = filename + ".pgn"
@@ -210,7 +210,7 @@ class PgnAnalyzer:
         self.blunderValue = learningBase.blunderValue
         self.ponderTime = learningBase.ponderTime
         self.learningBase = learningBase
-        # estrai il nome del file senza estensione, diventa il nome della lezione che conterrà il file pgn
+        # extract the file name without extension, it becomes the name of the lesson that will contain the pgn file
         pass
 
  
@@ -253,7 +253,7 @@ class PgnAnalyzer:
             game = chess.pgn.read_game(self.pgn)
             if game is None:
                 return None, True
-            # Filtro ECO opzionale: salta le partite con un ECO diverso da quello richiesto.
+            # Optional ECO filter: skip games with an ECO different from the requested one.
             if self.eco_filter is not None:
                 eco_h = (game.headers.get("ECO") or "").strip().upper()
                 if eco_h != self.eco_filter:
@@ -286,7 +286,7 @@ class PgnAnalyzer:
                 return best_score, board.uci(best_move) if best_move else None
 
     def esplora_rami(self, game: chess.pgn.Game, colorSide:bool)->List[LearnPosition]:
-        """Esplora tutti i rami di una partita PGN e raccoglie le posizioni rilevanti per un colore specifico"""
+        """Explores all branches of a PGN game and collects the positions relevant to a specific color"""
         positions:List[LearnPosition] = []
 
         def esplora_nodo(nodo, board):
@@ -295,14 +295,14 @@ class PgnAnalyzer:
 
             for variation in nodo.variations:
                 
-                # Memorizza solo le posizioni del colore specificato
+                # Store only the positions of the specified color
                 if board.turn == colorSide:
-                    # La mossa da giocare è la prossima mossa del nodo corrente (variation.move)
-                    # La posizione "prima" della mossa è la scacchiera prima di push, quindi dobbiamo passare la board "prima" della mossa
-                    # Ma ora board è già aggiornato con la mossa, quindi facciamo così:                    
-                    moveMade =  variation.move.uci()  # La mossa da giocare
+                    # The move to play is the next move of the current node (variation.move)
+                    # The position "before" the move is the board before push, so we must pass the board "before" the move
+                    # But now board is already updated with the move, so we do it like this:
+                    moveMade =  variation.move.uci()  # The move to play
                     position = self.learningBase.addPosition(game, board, moveMade)
-                    if position: # se è nuova o da aggiornare
+                    if position: # if it is new or needs updating
                         positions.append(position)
 
                 board.push(variation.move)
@@ -405,7 +405,7 @@ class PgnAnalyzer:
             evaluation, nextBestMove = self.getPositionEvaluation(board,colorToAnalyze)
 
             if evaluation < (prevScore - self.blunderValue) and bestMove is not None: # bestMove could be None if this is the start of a handicap Game
-                updatePosition(game, board, self.learningBase, bestMove, severity=int(prevScore - evaluation))  # entita' del calo = gravita'
+                updatePosition(game, board, self.learningBase, bestMove, severity=int(prevScore - evaluation))  # magnitude of the drop = severity
                 return board
             
             prevScore = evaluation
@@ -449,7 +449,7 @@ def unrollPgn_as_lesson(pgnFileName:str, learningBase:LearningBase, colorToAnaly
         oldQuizNames = json_helper.read_struct(fName)
         oldQuizNames = {int(k): v for k, v in oldQuizNames.items()}
 
-        # 🔎 Controllo: se lessonName è già presente → avviso e stop
+        # 🔎 Check: if lessonName is already present → warn and stop
         if lessonName in oldQuizNames.values():
             print(f"[WARNING] Lesson '{lessonName}' already present, no action taken.")
             return

@@ -7,7 +7,7 @@ import os
 import urllib
 import urllib.request
 import tempfile
-from shutil import rmtree  # Per la cancellazione ricorsiva
+from shutil import rmtree  # For recursive deletion
 
 import requests as requests
 import pgngamelist
@@ -16,13 +16,13 @@ from typing import Optional, Tuple, Set
 import re
 
 try:
-    import chess.pgn  # per leggere le intestazioni delle partite gia' presenti
+    import chess.pgn  # to read the headers of games already present
 except ImportError:
-    chess = None    # gestiamo fallback se python-chess non c'e' (improbabile)
+    chess = None    # handle fallback if python-chess is not available (unlikely)
 
 def get_player_color(pgn_text, username):
     """
-    Restituisce 'white', 'black' o None se lo username non è presente nella partita.
+    Returns 'white', 'black' or None if the username is not present in the game.
     """
     white_player = re.search(r'\[White\s+"(.+?)"\]', pgn_text)
     black_player = re.search(r'\[Black\s+"(.+?)"\]', pgn_text)
@@ -77,8 +77,8 @@ def _grab(pgn_text: str, tag: str) -> str:
 
 
 def _signature_from_pgn_text(pgn_text: str) -> str:
-    """Signature univoca per dedup. Preferisce gli URL di [Link] (chess.com) o
-    [Site] (lichess). Fallback: composito di intestazioni di base."""
+    """Unique signature for dedup. Prefers the URLs of [Link] (chess.com) or
+    [Site] (lichess). Fallback: composite of basic headers."""
     link = _grab(pgn_text, "Link")
     if "//" in link:
         return link
@@ -95,10 +95,10 @@ def _signature_from_pgn_text(pgn_text: str) -> str:
 
 
 def _read_existing_state(path: str) -> Tuple[Set[str], Optional[Tuple[int, int]]]:
-    """Scansiona le intestazioni del PGN esistente. Ritorna:
-      - set delle signature (per dedup),
-      - (year, month) della partita chess.com piu' recente, o None se non ce ne sono.
-    L'ultima informazione permette di saltare gli archivi mensili gia' coperti.
+    """Scans the headers of the existing PGN. Returns:
+      - set of signatures (for dedup),
+      - (year, month) of the most recent chess.com game, or None if there are none.
+    The latter information allows skipping monthly archives already covered.
     """
     sigs: Set[str] = set()
     chesscom_latest: Optional[Tuple[int, int]] = None
@@ -128,9 +128,9 @@ def _read_existing_state(path: str) -> Tuple[Set[str], Optional[Tuple[int, int]]
                     h.get("Black") or "?",
                     h.get("Result") or "?",
                 ]))
-            # cutoff: solo per le partite chess.com (il file potrebbe contenere
-            # anche lichess o altre, ma per il fetching chess.com ci basano sulle
-            # date dei suoi propri archivi).
+            # cutoff: only for chess.com games (the file might also contain
+            # lichess or others, but for chess.com fetching we rely on the
+            # dates of its own archives).
             if "chess.com" in link or "chess.com" in site:
                 date = h.get("Date") or h.get("UTCDate") or ""
                 parts = date.split(".")
@@ -145,7 +145,7 @@ def _read_existing_state(path: str) -> Tuple[Set[str], Optional[Tuple[int, int]]
 
 
 def _archive_yyyymm(url: str) -> Optional[Tuple[int, int]]:
-    """Estrae (anno, mese) da un URL d'archivio chess.com tipo .../games/2025/03."""
+    """Extracts (year, month) from a chess.com archive URL like .../games/2025/03."""
     m = re.search(r'/(\d{4})/(\d{1,2})\b', url)
     if m:
         return (int(m.group(1)), int(m.group(2)))
@@ -153,15 +153,15 @@ def _archive_yyyymm(url: str) -> Optional[Tuple[int, int]]:
 
 
 def load(user_name: str, output_file: str, color: str, max_games: Optional[int] = None):
-    """Scarica le partite chess.com in modo INCREMENTALE.
+    """Downloads chess.com games INCREMENTALLY.
 
-    - Se il file esiste, dedup-a per signature (Link/Site URL o composito di
-      Date|UTCTime|White|Black|Result) cosi' non riscrive ne' duplica nulla --
-      anche partite lichess merged a mano restano intoccate.
-    - Salta gli archivi mensili antecedenti l'ultima partita chess.com gia'
-      presente (i mesi vecchi sono immutabili lato chess.com).
-    - `max_games` ora significa: al massimo N NUOVE partite aggiunte.
-    - Append-only sul file (non sovrascrive).
+    - If the file exists, dedup by signature (Link/Site URL or composite of
+      Date|UTCTime|White|Black|Result) so it neither rewrites nor duplicates
+      anything -- even lichess games merged by hand remain untouched.
+    - Skips monthly archives prior to the last chess.com game already
+      present (old months are immutable on the chess.com side).
+    - `max_games` now means: at most N NEW games added.
+    - Append-only on the file (does not overwrite).
     """
     output_dir = os.path.join(pgngamelist.PGN_FOLDER, output_file)
     os.makedirs(pgngamelist.PGN_FOLDER, exist_ok=True)
@@ -180,14 +180,14 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
             print(f"User {user_name} does not exist")
             return
 
-        # Skip dei mesi precedenti al cutoff (i mesi vecchi non cambiano).
+        # Skip months prior to the cutoff (old months do not change).
         if cutoff is not None:
             archives = [a for a in archives
                         if _archive_yyyymm(a) is None or _archive_yyyymm(a) >= cutoff]
             print(f"Archives to fetch: {len(archives)} (filtered by cutoff)")
 
-        # Dal mese piu' recente all'indietro -- dedup per signature, filtro
-        # colore, max_games sulle NUOVE.
+        # From the most recent month backwards -- dedup by signature, color
+        # filter, max_games on the NEW ones.
         kept = []
         for archive in reversed(archives):
             print(archive)
@@ -200,7 +200,7 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
                 if color is not None and color != get_player_color(pgn, user_name):
                     continue
                 kept.append(pgn)
-                existing_sigs.add(sig)   # evita duplicati anche all'interno della stessa run
+                existing_sigs.add(sig)   # avoid duplicates even within the same run
                 if max_games is not None and len(kept) >= max_games:
                     break
             if max_games is not None and len(kept) >= max_games:
@@ -210,11 +210,11 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
             print("No new games to add.")
             return
 
-        # Append (o creazione) -- assicura separazione dalle partite gia' presenti.
+        # Append (or creation) -- ensures separation from games already present.
         already_has_content = os.path.exists(output_dir) and os.path.getsize(output_dir) > 0
         with open(output_dir, 'a' if already_has_content else 'w', encoding='utf-8') as f:
             if already_has_content:
-                f.write('\n')   # safety: un newline separatore
+                f.write('\n')   # safety: a separator newline
             for pgn in kept:
                 f.write(pgn)
                 f.write('\n' * 2)

@@ -58,9 +58,9 @@ def buildImproveMenu(width, height) -> pygame_menu.Menu:
         title="Improve from your games",
     )
     user_w = menu.add.text_input("Chess.com user: ", default=positionParameters.get("player") or "")
-    # NB: leggiamo i valori dei selector al click su Start (get_value), NON via
-    # onchange: in pygame_menu onchange scatta solo quando il valore cambia, e
-    # con i default lasciati intatti non verrebbe mai impostato nulla.
+    # NOTE: we read selector values on Start click (get_value), NOT via
+    # onchange: in pygame_menu, onchange only fires when the value changes, and
+    # with defaults left untouched nothing would ever be set.
     color_w = menu.add.selector("You play: ", [("White", "w"), ("Black", "b"), ("Both", None)],
                                 default=REVERSE_COLOR_MAP.get(positionParameters.get("color"), 0))
     limit_w = menu.add.selector("Games: ", [("Last 500", 500), ("Last 1000", 1000), ("Last 2000", 2000), ("All", None)],
@@ -83,7 +83,7 @@ def buildImproveMenu(width, height) -> pygame_menu.Menu:
 def _wait_screen(text):
     """Draw a blocking 'please wait' frame (no delay) and pump events."""
     app.main_background()
-    BS.drawEndGameText(app.screen, None, text, size=24)  # chiama gia' update()
+    BS.drawEndGameText(app.screen, None, text, size=24)  # already calls update()
     p.event.pump()
 
 
@@ -99,7 +99,7 @@ def _progress_cb(label, total):
         app.main_background()
         msg = f"{label}: analyzing {n}/{total}" if total else f"{label}: analyzing game {n}"
         BS.drawEndGameText(app.screen, None, msg, size=24)
-        p.event.pump()   # tiene viva la finestra (niente "non risponde")
+        p.event.pump()  # keeps the window alive (prevents "not responding")
     return cb
 
 
@@ -143,14 +143,14 @@ def runImproveWizard(user, color, focus, effort, limit=None):
     app.main_menu.disable()
     app.main_menu.full_reset()
     try:
-        pgn = f"{user}_games.pgn"                       # nome canonico, usato ovunque
+        pgn = f"{user}_games.pgn"             # canonical name, used everywhere
         path = os.path.join(pgngamelist.PGN_FOLDER, pgn)
 
         n_txt = "all" if limit is None else f"last {limit}"
         _wait_screen(f"Downloading {user}'s games ({n_txt})...")
         try:
-            chess_com_download.load(user, pgn, color, max_games=limit)   # scrive PGN_FOLDER/{user}_games.pgn verbatim
-        except Exception as e:                          # rete/utente/parse
+            chess_com_download.load(user, pgn, color, max_games=limit)   # writes PGN_FOLDER/{user}_games.pgn verbatim
+        except Exception as e:                          # network/user/parse
             _message(f"Download error: {e}")
             return
 
@@ -192,7 +192,7 @@ def _show_results_and_practice(results, color):
 
     def pick(base):
         chosen["base"] = base
-        menu.disable()          # esce dal loop locale
+        menu.disable()          # exits the local loop
 
     for (f, b, c) in nonempty:
         menu.add.button(f"Train {_FOCUS_LABEL[f].lower()} ({c})", pick, b)
@@ -204,7 +204,7 @@ def _show_results_and_practice(results, color):
         positionParameters["base"] = chosen["base"]
         positionParameters["eco"] = None
         positionParameters["color"] = color
-        solvePositionsFromBase(learningBases[chosen["base"]])   # riabilita il menu alla fine
+        solvePositionsFromBase(learningBases[chosen["base"]])  # re-enable the menu at the end
 
 
 def _run_menu_loop(menu):

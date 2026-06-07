@@ -19,34 +19,34 @@ from move_speech import expand_moves_for_speech
 
 
 class Voce:
-    """TTS asincrono.
+    """Asynchronous TTS.
 
-    Architettura: un singolo worker thread persistente possiede l'engine
-    pyttsx3 e consuma una queue di richieste. La voce viene selezionata UNA
-    volta dal worker (non dal main thread). Questo evita il problema di
-    apartment-threading di SAPI5 su Windows: la `setProperty('voice', ...)`
-    eseguita su un thread COM diverso da quello che fa `say()` viene
-    silenziosamente ignorata, facendo cadere la lettura sulla voce di default
-    di sistema (es. italiana se il sistema lo e').
+    Architecture: a single persistent worker thread owns the pyttsx3 engine
+    and consumes a queue of requests. The voice is selected ONCE by the worker
+    (not by the main thread). This avoids the SAPI5 apartment-threading problem
+    on Windows: a `setProperty('voice', ...)` executed on a COM thread
+    different from the one that runs `say()` is silently ignored, causing the
+    reading to fall back to the system default voice (e.g. Italian if that is
+    what the system is set to).
     """
 
     def __init__(self, lang_prefix="en"):
         self._lang_prefix = lang_prefix
         self._queue: "queue.Queue[str]" = queue.Queue()
-        self._engine = None  # creato nel worker
-        self._voice_id = None  # popolato da _apply_voice
+        self._engine = None  # created in the worker
+        self._voice_id = None  # populated by _apply_voice
         self._engine_ready = threading.Event()
         self._worker_thread = threading.Thread(
             target=self._worker, name="TTSWorker", daemon=True
         )
         self._worker_thread.start()
-        # Attendiamo brevemente l'inizializzazione, cosi' la prima leggi()
-        # non parte prima che engine e voce siano pronti.
+        # We briefly wait for initialization, so the first leggi() does not
+        # start before the engine and voice are ready.
         self._engine_ready.wait(timeout=3.0)
 
     def _find_target_voice_id(self, voices):
-        """Restituisce voice.id da impostare, o None se nessuna voce inglese
-        trovata. Ordine di precedenza identico a `_select_voice`."""
+        """Returns the voice.id to set, or None if no English voice was found.
+        Precedence order identical to `_select_voice`."""
         try:
             from config import config as _cfg
             target = (getattr(_cfg, 'tts_voice', '') or '').strip().lower()
@@ -75,10 +75,10 @@ class Voce:
         return None, None
 
     def _apply_rate_from_config(self):
-        """Imposta la rate del motore TTS.
+        """Sets the rate of the TTS engine.
 
-        Su Windows usiamo il driver SAPI5 direttamente; sugli altri sistemi
-        lasciamo gestire la property al driver di pyttsx3.
+        On Windows we use the SAPI5 driver directly; on other systems we let
+        the pyttsx3 driver handle the property.
         """
         try:
             from config import config as _cfg
@@ -91,7 +91,7 @@ class Voce:
             except Exception:
                 pass
             return
-        # Conversione wpm -> SAPI5 rate (-10..+10). 200 wpm = 0 (default Windows).
+        # Conversion wpm -> SAPI5 rate (-10..+10). 200 wpm = 0 (Windows default).
         if wpm < 100:
             sapi_rate = -10
         elif wpm > 350:
@@ -109,7 +109,7 @@ class Voce:
             print(f"TTS apply rate failed: {e}")
 
     def _apply_voice(self, voice_id, source):
-        """Imposta la voce del motore TTS."""
+        """Sets the voice of the TTS engine."""
         if sys.platform != 'win32':
             try:
                 self._engine.setProperty('voice', voice_id)
@@ -120,7 +120,7 @@ class Voce:
                 print(f"TTS apply voice failed: {e}")
                 return False
 
-        # Path canonico verso SAPI5 in pyttsx3 moderno
+        # Canonical path to SAPI5 in modern pyttsx3
         driver = getattr(getattr(self._engine, 'proxy', None), '_driver', None)
         sapi = getattr(driver, '_tts', None)
         if sapi is None:
@@ -134,7 +134,7 @@ class Voce:
                 if token.Id == voice_id:
                     sapi.Voice = token
                     self._voice_id = voice_id
-                    # Verifica diretta sul COM object
+                    # Direct verification on the COM object
                     actual = sapi.Voice.Id if sapi.Voice else None
                     print(f"TTS: voice applied (source={source}) "
                           f"actual={actual} -> "
@@ -145,7 +145,7 @@ class Voce:
         return False
 
     def _select_voice(self):
-        """Sceglie e applica una voce inglese; stampa diagnostica all'avvio."""
+        """Chooses and applies an English voice; prints diagnostics at startup."""
         try:
             voices = list(self._engine.getProperty('voices'))
         except Exception as e:
@@ -176,11 +176,11 @@ class Voce:
 
         while True:
             text = self._queue.get()
-            if text is None:  # sentinel (non usato oggi: thread e' daemon)
+            if text is None:  # sentinel (unused today: thread is a daemon)
                 break
             try:
-                # Su Windows alcune versioni di pyttsx3 SAPI5 perdono il
-                # setting tra say() consecutive e tornano al default.
+                # On Windows some pyttsx3 SAPI5 versions lose the setting
+                # between consecutive say() calls and revert to the default.
                 if sys.platform == 'win32' and self._voice_id is not None:
                     try:
                         driver = getattr(getattr(self._engine, 'proxy', None),
@@ -198,13 +198,13 @@ class Voce:
                 self._engine.say(text)
                 self._engine.runAndWait()
             except Exception as e:
-                # Tipicamente "run loop already started" se stop() arriva
-                # mentre say() e' in fila: no-op.
+                # Typically "run loop already started" if stop() arrives
+                # while say() is queued: no-op.
                 print(f"TTS warning: {e}")
 
     def leggi(self, testo: str):
-        """Accoda un testo da leggere; eventuale lettura in corso viene
-        interrotta. Ritorna immediatamente (non blocca)."""
+        """Queues a text to read; any reading in progress is interrupted.
+        Returns immediately (does not block)."""
         if self._engine is None:
             return
         self._drain_queue()
@@ -213,13 +213,13 @@ class Voce:
         self._queue.put(testo)
 
     def stop(self):
-        """Interrompe la lettura TTS in corso (no-op se non e' in corso)."""
+        """Interrupts the TTS reading in progress (no-op if none is in progress)."""
         self._drain_queue()
         self._engine_stop_safe()
 
     def refresh_rate(self):
-        """Ri-applica la rate dal `config.tts_rate` corrente. Da chiamare dopo
-        un onchange dello slider TTS speed nel menu Setup."""
+        """Re-applies the rate from the current `config.tts_rate`. To be called
+        after an onchange of the TTS speed slider in the Setup menu."""
         if self._engine is None:
             return
         self._apply_rate_from_config()
@@ -357,7 +357,7 @@ class GameState:
         Returns a PGN game 
         """
         header = self.getHeader()
-        # Set header, se disponibili
+        # Set headers, if available
         if header:
             headers = dict(zip(header[::2], header[1::2]))
             for key, value in headers.items():
@@ -398,7 +398,7 @@ class GameState:
         self.pgn = chess.pgn.Game()
         self.pgn.headers["FEN"] = fen
         self.pgn.setup(fen)
-        self.pgn.variations = []  # rimuove tutte le mosse precedenti
+        self.pgn.variations = []  # removes all previous moves
         self.node = self.pgn
         self.moveLog = []
 
@@ -413,7 +413,7 @@ class GameState:
        if self.node is None:
          return False
      
-       # Verifica se la mossa è già presente tra le variazioni
+       # Check whether the move is already present among the variations
        for idx, child in enumerate(self.node.variations):
             existing_move = child.move
             if existing_move == move:
@@ -421,8 +421,8 @@ class GameState:
                 self.leggiCommentoCorrente()
                 return False
 
-       # Altrimenti: crea nuova variazione
-       new_node = self.node.add_variation(move)  # crea e aggiunge
+       # Otherwise: create a new variation
+       new_node = self.node.add_variation(move)  # creates and adds
        self.node = new_node
        return True
     
@@ -496,7 +496,7 @@ class GameState:
              return False
     
          while self.node.variations:
-             node = self.node.variations[0]  # Segui solo la linea principale
+             node = self.node.variations[0]  # Follow only the main line
              move = Move.fromChessMove(node.move, self)
              self.makeMove(move)
              
@@ -752,17 +752,17 @@ class Move:
 
 
     def promoteToPiece(self, p) -> "Move":
-        """Aggiunge il suffisso di promozione e ritorna `self`.
+        """Adds the promotion suffix and returns `self`.
 
-        Accetta in input due forme storicamente passate dai callers:
-        - `chess.PieceType` (int 1..6), usata dal codice interno (es. stdValidMoves).
-        - Stringa terminante col simbolo del pezzo ('q'/'Q'/'wQ'/'bN'/...) come
-          ritornata da `BoardScreen.choosePromotion` (formato "<color><piece>").
-        None / stringa vuota / pezzo non promovibile -> no-op.
+        Accepts as input two forms historically passed by callers:
+        - `chess.PieceType` (int 1..6), used by internal code (e.g. stdValidMoves).
+        - A string ending with the piece symbol ('q'/'Q'/'wQ'/'bN'/...) as
+          returned by `BoardScreen.choosePromotion` (format "<color><piece>").
+        None / empty string / non-promotable piece -> no-op.
 
-        Ritorna `self` (Move) -- non `self.move` (chess.Move) -- cosi' che
-        `move = move.promoteToPiece(piece)` continui a tenere un Move e
-        l'`__eq__` con le voci di validMoves continui a funzionare.
+        Returns `self` (Move) -- not `self.move` (chess.Move) -- so that
+        `move = move.promoteToPiece(piece)` keeps holding a Move and the
+        `__eq__` against the validMoves entries keeps working.
         """
         if not p:
             return self

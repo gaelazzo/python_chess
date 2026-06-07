@@ -23,22 +23,22 @@ from app_context import app
 
 @dataclass
 class ToolbarAction:
-    label: str                                      # testo del bottone (1-2 char)
-    tooltip: str                                    # testo on-hover
-    handler: Callable[[], None]                     # callback al click
-    enabled: Callable[[], bool] = field(default=lambda: True)  # rivalutato a ogni frame
-    active: Callable[[], bool] = field(default=lambda: False)   # True -> bottone "premuto" (rivalutato a ogni frame)
+    label: str                                      # button text (1-2 chars)
+    tooltip: str                                    # on-hover text
+    handler: Callable[[], None]                     # callback on click
+    enabled: Callable[[], bool] = field(default=lambda: True)  # re-evaluated every frame
+    active: Callable[[], bool] = field(default=lambda: False)   # True -> button "pressed" (re-evaluated every frame)
 
 
-_BTN_WIDTH = 56     # abbastanza largo per parole brevi tipo "Undo"/"Reset"
+_BTN_WIDTH = 56     # wide enough for short words like "Undo"/"Reset"
 _BTN_GAP = 4
 _BTN_MARGIN_X = 8
 _BTN_MARGIN_Y = 4
 
 
 class Toolbar:
-    """Fascia di pulsanti-icona in alto. Usa l'UIManager gia' inizializzato
-    in `chessMain.runMain` (lo stesso che ospita i file dialog).
+    """Top row of icon buttons. Uses the UIManager already initialized
+    in `chessMain.runMain` (the same one that hosts the file dialogs).
     """
 
     def __init__(self, actions: List[ToolbarAction], y: int = 0, height: int = BS.TOOLBAR_HEIGHT):
@@ -48,9 +48,9 @@ class Toolbar:
         self._buttons: List[UIButton] = []
         x = _BTN_MARGIN_X
         btn_h = max(16, height - 2 * _BTN_MARGIN_Y)
-        # Larghezza bottone adattiva: se i bottoni non ci stanno tutti dentro lo
-        # schermo con _BTN_WIDTH=56, restringiamo per evitare che l'ultimo (Quit)
-        # finisca tagliato. Per toolbar piu' piccole il default 56 resta.
+        # Adaptive button width: if the buttons don't all fit within the
+        # screen with _BTN_WIDTH=56, we shrink them to avoid the last one (Quit)
+        # getting cut off. For smaller toolbars the default 56 stays.
         n = max(1, len(self._actions))
         available = BS.SCREEN_WIDTH - 2 * _BTN_MARGIN_X - (n - 1) * _BTN_GAP
         btn_width = min(_BTN_WIDTH, max(36, available // n))
@@ -65,7 +65,7 @@ class Toolbar:
             x += btn_width + _BTN_GAP
 
     def process_event(self, event) -> bool:
-        """Ritorna True se l'evento e' un click su uno dei nostri bottoni."""
+        """Returns True if the event is a click on one of our buttons."""
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
             for i, btn in enumerate(self._buttons):
                 if event.ui_element is btn:
@@ -74,14 +74,14 @@ class Toolbar:
         return False
 
     def update(self, time_delta: float) -> None:
-        """Rivaluta gli enabled, poi aggiorna il manager."""
+        """Re-evaluates the enabled states, then updates the manager."""
         for a, btn in zip(self._actions, self._buttons):
             if a.enabled():
                 btn.enable()
             else:
                 btn.disable()
-            # stato "attivo/premuto": usa lo stato selected di pygame_gui
-            # (reso con i colori @selected del tema)
+            # "active/pressed" state: use pygame_gui's selected state
+            # (rendered with the theme's @selected colors)
             if a.active():
                 if not btn.is_selected:
                     btn.select()
@@ -94,12 +94,12 @@ class Toolbar:
         app.manager.draw_ui(surface)
 
     def pointer_in_toolbar(self, pos) -> bool:
-        """True se le coordinate cadono dentro la fascia toolbar."""
+        """True if the coordinates fall within the toolbar strip."""
         return self._y <= pos[1] < self._y + self._height
 
     def kill(self) -> None:
-        """Rimuove tutti i nostri UIButton dal manager. Da chiamare quando
-        si esce dal mode, altrimenti i bottoni si accumulerebbero tra invocazioni.
+        """Removes all our UIButtons from the manager. Must be called when
+        leaving the mode, otherwise the buttons would accumulate across invocations.
         """
         for btn in self._buttons:
             btn.kill()
