@@ -215,7 +215,9 @@ def save_menu(GS:GameState):
 
     _save_menu = pygame_menu.Menu('Save Game', app.W, app.H,
                              theme=pygame_menu.themes.THEME_BLUE)
-    addChoosePGNFile(_save_menu)
+    # create=True: the file dialog lets you type a NEW file name (e.g. to start a
+    # new opening file), not only pick an existing PGN.
+    addChoosePGNFile(_save_menu, title="Choose or create PGN file", create=True)
     _save_menu.add.text_input('White:', default=playParameters["white"] or "", onchange=make_updater("white",str,playParameters))
     _save_menu.add.text_input('Black:', default=playParameters["black"] or "", onchange=make_updater("black",str,playParameters))
     _save_menu.add.text_input('Event:', default=playParameters["event"] or "", onchange=make_updater("event",str,playParameters))

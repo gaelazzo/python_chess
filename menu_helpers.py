@@ -392,17 +392,19 @@ def addChooseBaseFile(menu):
     labels.append(label)
 
 
-def addChoosePGNFile(menu, folder=None, title="Choose PGN file"):
+def addChoosePGNFile(menu, folder=None, title="Choose PGN file", create=False):
     '''
     Adds a button to the menu that allows the user to choose a PGN file.
     The button will open a file selector dialog and update the positionParameters["filename"] variable with the selected file.
     `folder` defaults to `pgngamelist.PGN_FOLDER`; pass a different folder
     (e.g. the endgames/ folder) to reuse the selector in other modes.
+    `create=True` lets the user type a NEW file name (not only pick an existing
+    one) -- e.g. when saving a game into a brand-new PGN/opening file.
     '''
     if folder is None:
         folder = pgngamelist.PGN_FOLDER
     labels = []
-    chooseModelFile = make_file_selector("filename", None , labels, folder, ".pgn", title, None)
+    chooseModelFile = make_file_selector("filename", None , labels, folder, ".pgn", title, None, create=create)
     menu.add.button(title, chooseModelFile)
     default_value = str(positionParameters.get("filename", "No selection"))
     label = menu.add.button(default_value, chooseModelFile, font_size=20,
