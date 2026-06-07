@@ -555,6 +555,33 @@ class GameState:
         self.evaluation = None
         
 
+    def truncateAfterCurrent(self) -> bool:
+        '''
+        Delete every move/variation that follows the current position
+        (the current node is kept). Returns True if something was removed.
+        '''
+        if self.node is None or not self.node.variations:
+            return False
+        self.node.variations = []
+        self.evaluation = None
+        return True
+
+    def deleteCurrentVariation(self) -> bool:
+        '''
+        Remove the current move (and everything after it) from the game tree and
+        step back to the parent node. Returns False on the start position
+        (there is no move to delete).
+        '''
+        if self.node is None or self.node.parent is None:
+            return False
+        parent = self.node.parent
+        parent.remove_variation(self.node.move)
+        self.node = parent
+        if self.moveLog:
+            del self.moveLog[-1]
+        self.evaluation = None
+        return True
+
     def setMoveNag(self, nag: int) -> bool:
         '''
         Set the (single) annotation glyph on the current move, REPLACING any

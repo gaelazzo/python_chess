@@ -28,6 +28,24 @@ from modes.common import show_message, setAlfa
 import notation
 
 
+def _confirm(prompt: str) -> bool:
+    """Blocking Yes/No prompt drawn over the board. Returns True only on 'Y'."""
+    app.main_background()
+    BS.drawEndGameText(app.screen, None, prompt + "   [Y = yes / N = no]", size=22)
+    BS.update()
+    while True:
+        for e in p.event.get():
+            if e.type == p.QUIT:
+                p.quit()
+                sys.exit()
+            if e.type == p.KEYDOWN:
+                if e.key == p.K_y:
+                    return True
+                if e.key in (p.K_n, p.K_ESCAPE):
+                    return False
+        app.clock.tick(30)
+
+
 def playGame():
     app.main_menu.disable()
     app.main_menu.full_reset()
@@ -457,6 +475,8 @@ def playAGame():
         help_text.insert(8, "- N Annotate move (! ? !? ...)")
         help_text.insert(9, "- T Comment move (text)")
         help_text.insert(10, "- V Notation panel (variations)")
+        help_text.append("- Del: truncate moves after current")
+        help_text.append("- Backspace: delete current variation")
     show_help = False
     def do_show_help():
         glc.draw_help_overlay(help_text, height=400)
@@ -680,6 +700,26 @@ def playAGame():
 
                     if e.key == p.K_g:  # copy to clipboard
                         glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
+
+                    if e.key == p.K_DELETE and not whiteCPU and not blackCPU:
+                        # Truncate: delete the moves/variations after the current position.
+                        if gs.node is not None and gs.node.variations:
+                            if _confirm("Delete the moves after the current position?"):
+                                gs.truncateAfterCurrent()
+                                validMoves = gs.stdValidMoves()
+                        app.main_background()
+                        continue
+
+                    if e.key == p.K_BACKSPACE and not whiteCPU and not blackCPU:
+                        # Delete the current move and its whole variation, stepping back to the parent.
+                        if gs.node is not None and gs.node.parent is not None:
+                            if _confirm("Delete the current move and everything after it?"):
+                                gs.deleteCurrentVariation()
+                                validMoves = gs.stdValidMoves()
+                                moveMade = True
+                                animate = False
+                        app.main_background()
+                        continue
 
                     if e.key == p.K_f:
                         # Flip the board: do NOT set moveMade=True, otherwise
