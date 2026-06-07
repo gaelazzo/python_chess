@@ -13,10 +13,10 @@ def _get_base_path():
     return os.path.dirname(os.path.abspath(os.path.join(__file__, "..")))
 
 
-# Cartella dedicata ai PGN di repertorio d'apertura. Mirror di `endgames/`:
-# tieni qui le sole linee-modello che vuoi vedere in Study openings, senza
-# mescolarle ai PGN delle tue partite in `pgn/`. Creata al primo import se
-# non esiste.
+# Dedicated folder for opening repertoire PGNs. Mirrors `endgames/`:
+# keep here only the model lines you want to use in Study Openings, without
+# mixing them with the PGNs of your games stored in `pgn/`. Created
+# automatically on first import if it does not already exist.
 BASE_PATH = _get_base_path()
 OPENINGS_FOLDER = os.path.join(BASE_PATH, "openings")
 if not os.path.exists(OPENINGS_FOLDER):
@@ -46,13 +46,13 @@ from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 
 
-# Euristica: nelle PGN di repertorio d'apertura il lato che si esercita ha le
-# proprie mosse fisse (mainline) mentre l'opponente ha varianti.
-#   (N... mossa  -> variante del NERO (utente gioca Bianco)
-#   (N.  mossa   -> variante del BIANCO (utente gioca Nero)
-# Decidiamo per maggioranza su tutte le varianti del file: una singola
-# variante "anomala" (es. ramo esplorativo nell'altro lato) non ribalta la
-# scelta come faceva il vecchio first-match.
+# Heuristic: in opening repertoire PGNs, the side being trained follows
+# fixed mainline moves while the opponent has alternative variations.
+#   (N... move -> BLACK variation (user plays White)
+#   (N.  move  -> WHITE variation (user plays Black)
+# We decide by majority across all variations in the file: a single
+# "anomalous" variation (e.g. an exploratory branch for the other side)
+# does not override the decision as the old first-match approach did.
 _VARIATION_RE = re.compile(r'\(\s*(\d+)\s*(\.\.\.|\.)\s*[A-Za-z]')
 
 
@@ -78,18 +78,19 @@ def detect_user_color_from_pgn(pgn_path: str) -> Optional[str]:
     return 'w' if black_variations > white_variations else 'b'
 
 
-# Severity uniforme per errori di apertura (cp di calo "equivalente"); usata
-# per la priorita' di pratica in Solve positions (vedi analyzer.getPositions).
+# Uniform severity for opening errors (equivalent centipawn drop);
+# used for practice prioritization in Solve Positions
+# (see analyzer.getPositions).
 OPENING_ERROR_SEVERITY = 100
 
 
 def _get_or_create_opening_base(filename: str) -> Optional[LearningBase]:
-    """Recupera o crea la learning base associata al file PGN del repertorio.
+    """Retrieve or create the learning base associated with the repertoire PGN file.
 
-    Naming convention: `openings_<filename>` (mirror di `endgames_<filename>`).
-    Cosi' la base appare in `Solve positions` come una qualsiasi altra base,
-    e l'utente puo' ripassare gli errori commessi nel repertorio con lo stesso
-    flusso della tattica/finali.
+    Naming convention: `openings_<filename>` (mirror of `endgames_<filename>`).
+    This way, the base appears in `Solve positions` like any other training base,
+    and the user can review mistakes from the repertoire using the same workflow
+    as tactics/endgame training.
     """
     base_name = f"openings_{filename}"
     if base_name in learningBases:
@@ -113,13 +114,13 @@ def _get_or_create_opening_base(filename: str) -> Optional[LearningBase]:
 def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
                            board: chess.Board, played_uci: str,
                            correct_uci: Optional[str], ok: bool) -> None:
-    """Aggiorna la learning base degli errori per le aperture.
+    """Update the opening error learning base.
 
-    - Errore: aggiunge (o aggiorna) la posizione con la mossa giusta
-      (mainline del PGN), severity=OPENING_ERROR_SEVERITY.
-    - Successo su posizione gia' tracciata: aggiorna stats riusando
-      `position.ok` -- evita di ricalcolare la mossa giusta sulla via felice.
-    - Successo su posizione mai vista: no-op (non spammiamo la base).
+    - Error: adds (or updates) the position with the correct move
+    (PGN mainline), severity=OPENING_ERROR_SEVERITY.
+    - Success on a previously tracked position: updates stats reusing
+    `position.ok` -- avoids recomputing the correct move on the happy path.
+    - Success on a previously unseen position: no-op (we avoid polluting the base).
     """
     if lb is None:
         return
@@ -139,7 +140,7 @@ def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
             lb.updatePosition(played_uci, stored_ok, game, board)
             lb.save()
         except Exception as e:
-            print(f"openings: update stats fallito: {e}")
+            print(f"openings: update stats failed: {e}")
 
 
 # "Study openings": you must always play the best move while the computer replies
@@ -148,9 +149,8 @@ def playOpening():
     filename = positionParameters.get("filename")
     if filename is None:
         return
-
-    # Auto-rileva il colore dell'utente dal contenuto del PGN. Fallback a Bianco
-    # se il file non contiene varianti (es. una sola linea, niente da dedurre).
+    # Automatically detects the user's color from the PGN content. Defaults to White
+    # if the file does not contain variations (e.g. a single line, nothing to infer).
     pgn_path = os.path.join(OPENINGS_FOLDER, filename + ".pgn")
     detected = detect_user_color_from_pgn(pgn_path)
     human_color = detected or "w"
@@ -173,16 +173,16 @@ def playOpeningLine(filename, humanColor):
         while the computer answers with one of the lines stored in the game
         (typically an opening repertoire).
     '''
-    # Stato pulito per il toggle E: se un mode precedente aveva lasciato
-    # l'analisi attiva, il primo E qui finirebbe nel ramo "stop" invece di
-    # avviarla.
+    # Clean state for the E toggle: if a previous mode left analysis running,
+    # the first E here would incorrectly trigger the "stop" branch instead of
+    # starting it.
     UCIEngines.stop_analysis()
 
     gamelist = pgngamelist.PgnGameList(filename, folder=OPENINGS_FOLDER)
 
-    # Learning base degli errori per questo file di repertorio (mirror del
-    # pattern usato in `Allena finali`). Creata/aperta una sola volta per
-    # tutta la sessione di study openings.
+    # Learning base for errors in this repertoire file (mirror of the
+    # pattern used in `Endgame Training`). Created/opened only once for
+    # the entire study openings session.
     lb = _get_or_create_opening_base(filename)
 
     running = True
@@ -192,9 +192,9 @@ def playOpeningLine(filename, humanColor):
     animate = False
     BS.show_pgn = False
     BS.show_book=False
-    # show_cpu deve seguire lo stato reale dell'engine, altrimenti se l'analisi
-    # era rimasta attiva dalla posizione precedente il pannello CPU resta vuoto
-    # mentre il motore gira in background.
+    # show_cpu must follow the actual engine state; otherwise, if analysis
+    # was left running from the previous position, the CPU panel stays empty
+    # while the engine is still running in the background.
     BS.show_cpu = UCIEngines.is_analysing()
     BS.clearCPU(app.screen)
     
@@ -229,11 +229,11 @@ def playOpeningLine(filename, humanColor):
     # Toolbar (fase 2): stesso pattern degli altri mode.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
-    # NB: Undo NON e' esposto come pulsante in Study openings: il mode e' un
-    # esercizio "trova-la-mossa-giusta", non free play, e gs.undoMove()
-    # interagisce in modo non intuitivo con la sequenza (stopCondition / auto-
-    # moves dell'avversario), facendo "saltare" passi della soluzione. La
-    # scorciatoia tastiera Z/Left resta disponibile per uso volontario.
+    # NB: Undo is NOT exposed as a button in Study Openings: the mode is a
+    # "find the correct move" exercise, not free play, and gs.undoMove()
+    # interacts in a non-intuitive way with the sequence (stopCondition /
+    # opponent auto-moves), causing solution steps to be skipped. The
+    # keyboard shortcut Z/Left remains available for manual use.
     toolbar = Toolbar([
         ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
         ToolbarAction("Eval",  "Evaluate position (S)",                   _post_key(p.K_s)),
@@ -255,13 +255,13 @@ def playOpeningLine(filename, humanColor):
         gs.setPgn(game)      
 
         if state.play_position:
-            # Lead-in Skip: scegli uniformemente la profondita' di partenza tra
-            # tutti i turni utente della linea. Pre-scan della mainline a partire
-            # da gs.node per contare N turni utente, poi target = randint(1, N).
-            # Camminiamo la linea (mainline per l'utente, variante random per il
-            # computer) e ci fermiamo al target-esimo turno utente. La vecchia
-            # versione (1/3 di break ad ogni turno utente) dava una distribuzione
-            # geometrica che privilegiava fortemente le prime mosse del repertorio.
+            # Lead-in Skip: choose uniformly the starting depth among
+            # all user turns in the line. Pre-scan the mainline starting
+            # from gs.node to count N user turns, then target = randint(1, N).
+            # Walk the line (user mainline, random opponent variation) and stop
+            # at the target-th user move. The old version (1/3 break probability
+            # at each user turn) produced a geometric distribution that heavily
+            # biased early repertoire moves.
             cur_turn_is_white = gs.node.board().turn
             n_player_turns = 0
             node = gs.node
@@ -378,9 +378,9 @@ def playOpeningLine(filename, humanColor):
                         # print(move.getChessNotation())
                         validMove = next((m for m in validMoves if move == m), None)
                         if validMove is not None:
-                            # Stato della board PRIMA della mossa: serve per il
-                            # logging in learning base (chiave = zobrist della
-                            # posizione dove l'utente ha mosso).
+                            # Board state BEFORE the move: used for
+                            # learning-base logging (key = Zobrist hash of
+                            # the position where the user made the move).
                             _board_pre = gs.node.board()
                             _next_main = gs.getNextMainMove()
                             _correct_uci = _next_main.uci() if _next_main else None
@@ -460,9 +460,9 @@ def playOpeningLine(filename, humanColor):
                         glc.toggle_engine(gs)
 
                     if e.key == p.K_f:
-                        # Bugfix: prima questa branca scriveva "whiteUp = not whiteUp"
-                        # ma whiteUp non era una locale -> UnboundLocalError al runtime.
-                        # Ora usa BS.flipBoard come gli altri mode.
+                        # Bugfix: previously this branch used "whiteUp = not whiteUp"
+                        # but whiteUp was not a local variable -> UnboundLocalError at runtime.
+                        # Now it uses BS.flipBoard like the other modes.
                         BS.flipBoard(app.screen)
                         animate = False
 

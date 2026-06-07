@@ -337,7 +337,7 @@ def make_base_selector(key, labels, callback=None):
 
         menu = pygame_menu.Menu("Choose base file", app.W, app.H, theme=small_font_theme)
         if not entries:
-            menu.add.label("Nessuna learning base trovata in data/.")
+            menu.add.label("No learning base found in data/.")
 
         def pick(name):
             if key:

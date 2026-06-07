@@ -86,7 +86,7 @@ def _draw_buttons(screen, buttons: List[Tuple[p.Rect, str]], stm_white: bool,
         screen.blit(txt, txt.get_rect(center=rect.center))
     if error:
         font_err = p.font.SysFont('Arial', 14, bold=True)
-        msg = font_err.render(f"Errore: {error}", False, p.Color('red'))
+        msg = font_err.render(f"Error: {error}", False, p.Color('red'))
         screen.blit(msg, (8, BS.CPU_Y + BS.CPU_HEIGHT - 22))
 
 
@@ -100,28 +100,28 @@ def _validate(board: chess.Board) -> Tuple[bool, str]:
     n_wk = chess.popcount(board.kings & board.occupied_co[chess.WHITE])
     n_bk = chess.popcount(board.kings & board.occupied_co[chess.BLACK])
     if n_wk != 1:
-        return False, f"servono esattamente 1 re bianco (trovati {n_wk})"
+        return False, f"exactly 1 white king required (found {n_wk})"
     if n_bk != 1:
-        return False, f"servono esattamente 1 re nero (trovati {n_bk})"
+        return False, f"exactly 1 black king required (found {n_bk})"
     # Pedoni sulla 1a o 8a riga = posizione illegale
     pawns = int(board.pawns)
     if pawns & 0x00000000000000FF or pawns & 0xFF00000000000000:
-        return False, "pedoni sulla 1a o 8a riga"
+        return False, "pawns on the 1st or 8th rank"
     # FEN parsabile?
     try:
         chess.Board(board.fen())
     except Exception as ex:
-        return False, f"FEN non parsabile ({ex})"
+        return False, f"FEN not parsable ({ex})"
     # Il re avversario NON puo' essere sotto scacco quando tocca a noi: vorrebbe
     # dire che l'avversario nella mossa precedente ha lasciato il proprio re in
     # presa, posizione impossibile da raggiungere in partita.
     opp = not board.turn
     opp_king_sq = board.king(opp)
     if opp_king_sq is not None and board.is_attacked_by(board.turn, opp_king_sq):
-        opp_name = "nero" if opp == chess.BLACK else "bianco"
-        side_name = "bianco" if board.turn == chess.WHITE else "nero"
-        return False, (f"re {opp_name} sotto scacco ma e' il {side_name} al tratto "
-                       f"(posizione illegale)")
+        opp_name = "black" if opp == chess.BLACK else "white"
+        side_name = "white" if board.turn == chess.WHITE else "black"
+        return False, (f"{opp_name} king in check but it's {side_name} to move "
+                       f"(illegal position)")
     return True, ""
 
 

@@ -192,32 +192,32 @@ def start_analysis(board, callback, interval_sec=1.0) -> None:
 
     stop_analysis()
     if not _engine_alive():
-        print("start_analysis: engine non vivo, riapertura...")
+        print("start_analysis: engine not alive, reopening...")
         try:
             engine_open()
         except Exception as e:
-            print(f"start_analysis: engine_open fallito: {e}")
+            print(f"start_analysis: engine_open failed: {e}")
             return
         if not _engine_alive():
-            print("start_analysis: engine ancora non vivo dopo retry, annullo")
+            print("start_analysis: engine still not alive after retry, aborting")
             return
 
     try:
         sa = engine.analysis(board, multipv=3)
     except chess.engine.EngineError as e:
-        print(f"start_analysis: EngineError {e} -- riapertura")
+        print(f"start_analysis: EngineError {e} -- reopening")
         try:
             engine_open()
         except Exception as ee:
-            print(f"start_analysis: riapertura fallita: {ee}")
+            print(f"start_analysis: reopen failed: {ee}")
             return
         try:
             sa = engine.analysis(board, multipv=3)
         except Exception as e2:
-            print(f"start_analysis: secondo tentativo fallito: {e2}")
+            print(f"start_analysis: second attempt failed: {e2}")
             return
     except Exception as e:
-        print(f"start_analysis: errore inatteso: {e}")
+        print(f"start_analysis: unexpected error: {e}")
         return
 
     _active_analysis = sa
@@ -243,17 +243,17 @@ def poll() -> None:
 
     # Detect crash dell'engine: il transport e' morto sotto di noi.
     if not _engine_alive():
-        print("poll: engine non vivo, cleanup e riapertura")
+        print("poll: engine not alive, cleanup and reopen")
         _active_analysis = None
         stopper = None
         try:
-            _active_callback(["Engine crashato, prossimo toggle riavvia"])
+            _active_callback(["Engine crashed, next toggle restarts"])
         except Exception:
             pass
         try:
             engine_open()
         except Exception as e:
-            print(f"poll: riapertura fallita: {e}")
+            print(f"poll: reopen failed: {e}")
         return
 
     # Snapshot del multipv. La lista e' aggiornata dal thread SimpleEngine; la
@@ -261,7 +261,7 @@ def poll() -> None:
     try:
         multipv = list(sa.multipv)
     except Exception as e:
-        print(f"poll: read multipv fallito: {e}")
+        print(f"poll: read multipv failed: {e}")
         return
 
     # Status line: lo prendiamo da `sa.info` (ultimo info ricevuto, qualsiasi tipo).
@@ -286,7 +286,7 @@ def poll() -> None:
         analysis_results = format_engine_info_list(multipv)
         _active_callback(analysis_results + [latest_status_line])
     except Exception as e:
-        print(f"poll: callback fallita: {e}")
+        print(f"poll: callback failed: {e}")
 
 
 # Alias retro-compatibile: i vecchi mode chiamavano analyze_forever.

@@ -451,7 +451,7 @@ def unrollPgn_as_lesson(pgnFileName:str, learningBase:LearningBase, colorToAnaly
 
         # 🔎 Controllo: se lessonName è già presente → avviso e stop
         if lessonName in oldQuizNames.values():
-            print(f"[AVVISO] La lezione '{lessonName}' è già presente, nessuna azione eseguita.")
+            print(f"[WARNING] Lesson '{lessonName}' already present, no action taken.")
             return
     else:
         oldQuizNames = {}

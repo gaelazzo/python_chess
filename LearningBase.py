@@ -83,7 +83,7 @@ class LearnPosition:
                 board.push(move)
                 node = node.add_variation(move)
             except ValueError:
-                print(f"Errore nella conversione del movimento UCI: {uci_move}")
+                print(f"Error converting UCI move: {uci_move}")
                 # Opzionale: loggare o gestire errori
                 break
         # pgnGame.board = board
@@ -253,7 +253,7 @@ class LearningBase:
 
         filepath = os.path.join(DATA_FOLDER, self.filename) + ".csv"
         if not os.path.exists(filepath):
-            print(f"File {filepath} non trovato.")
+            print(f"File {filepath} not found.")
             return
 
         with open(filepath) as csv_file:

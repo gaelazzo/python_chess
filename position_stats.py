@@ -55,7 +55,7 @@ def _load_disk_cache(pgn_path: str) -> Optional[dict]:
         idx = data.get("index")
         return idx if isinstance(idx, dict) else None
     except Exception as e:
-        print(f"position_stats: cache load fallita ({cache_path}): {e}")
+        print(f"position_stats: cache load failed ({cache_path}): {e}")
         return None
 
 
@@ -75,7 +75,7 @@ def _save_disk_cache(pgn_path: str, index: dict) -> None:
                 protocol=pickle.HIGHEST_PROTOCOL,
             )
     except Exception as e:
-        print(f"position_stats: cache save fallita ({cache_path}): {e}")
+        print(f"position_stats: cache save failed ({cache_path}): {e}")
 
 
 def _result_value(result_str: str) -> Optional[int]:
@@ -118,7 +118,7 @@ def build_index(pgn_path: str, progress: Optional[Callable[[int], None]] = None)
                     board.push(nxt.move)
                     node = nxt
     except OSError as e:
-        print(f"position_stats: impossibile leggere {pgn_path}: {e}")
+        print(f"position_stats: cannot read {pgn_path}: {e}")
     if progress:
         progress(n_games)
     return dict(index)

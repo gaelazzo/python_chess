@@ -224,10 +224,10 @@ def save_menu(GS:GameState):
     # text-input libero ma "Result: lol" non si conforma al formato e
     # confonde i parser PGN downstream).
     _result_options = [
-        ("*  (in corso / sconosciuto)",  "*"),
-        ("1-0  (vince il Bianco)",       "1-0"),
-        ("0-1  (vince il Nero)",         "0-1"),
-        ("1/2-1/2  (patta)",             "1/2-1/2"),
+        ("*  (in progress / unknown)",   "*"),
+        ("1-0  (White wins)",            "1-0"),
+        ("0-1  (Black wins)",            "0-1"),
+        ("1/2-1/2  (draw)",              "1/2-1/2"),
     ]
     _result_current = playParameters.get("result") or "*"
     _result_idx = next(

@@ -168,8 +168,8 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
 
     existing_sigs, cutoff = _read_existing_state(output_dir)
     if existing_sigs:
-        print(f"File esistente: {len(existing_sigs)} partite trovate"
-              + (f", ultimo mese chess.com: {cutoff[0]}-{cutoff[1]:02d}" if cutoff else ""))
+        print(f"Existing file: {len(existing_sigs)} games found"
+              + (f", last chess.com month: {cutoff[0]}-{cutoff[1]:02d}" if cutoff else ""))
 
     url_games = f'https://api.chess.com/pub/player/{user_name}/games/archives'
 
@@ -184,7 +184,7 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
         if cutoff is not None:
             archives = [a for a in archives
                         if _archive_yyyymm(a) is None or _archive_yyyymm(a) >= cutoff]
-            print(f"Archivi da fetchare: {len(archives)} (filtrati dal cutoff)")
+            print(f"Archives to fetch: {len(archives)} (filtered by cutoff)")
 
         # Dal mese piu' recente all'indietro -- dedup per signature, filtro
         # colore, max_games sulle NUOVE.
@@ -207,7 +207,7 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
                 break
 
         if not kept:
-            print("Nessuna nuova partita da aggiungere.")
+            print("No new games to add.")
             return
 
         # Append (o creazione) -- assicura separazione dalle partite gia' presenti.
@@ -218,5 +218,5 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
             for pgn in kept:
                 f.write(pgn)
                 f.write('\n' * 2)
-        print(f"Aggiunte {len(kept)} nuove partite a {output_file}.")
+        print(f"Added {len(kept)} new games to {output_file}.")
 

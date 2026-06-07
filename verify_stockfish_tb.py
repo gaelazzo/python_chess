@@ -16,24 +16,24 @@ from config import config
 POSITIONS = [
     # (FEN, descrizione, generazione attesa)
     ("4k3/8/8/8/8/8/8/3QK3 w - - 0 1", "KQvK", "3-5"),
-    ("8/8/8/8/3k4/8/4P3/4K3 w - - 0 1", "KPvK (5-piece via mosse)", "3-5"),
-    ("4k3/8/3p4/8/8/8/3PP3/4K3 w - - 0 1", "KPPvKP (5 pezzi)", "3-5"),
-    ("8/8/8/8/3k4/8/4P3/R3K3 w - - 0 1", "KRPvK (4 pezzi)", "3-5"),
+    ("8/8/8/8/3k4/8/4P3/4K3 w - - 0 1", "KPvK (5-piece via moves)", "3-5"),
+    ("4k3/8/3p4/8/8/8/3PP3/4K3 w - - 0 1", "KPPvKP (5 pieces)", "3-5"),
+    ("8/8/8/8/3k4/8/4P3/R3K3 w - - 0 1", "KRPvK (4 pieces)", "3-5"),
     # Una 6-piece
-    ("4k3/8/8/3P4/8/8/3PP3/4K3 w - - 0 1", "KPPPvK (5 pezzi)", "3-5"),
-    ("4k3/8/8/3pP3/8/8/3PP3/R3K3 w - - 0 1", "KRPPvKP (6 pezzi)", "6"),
+    ("4k3/8/8/3P4/8/8/3PP3/4K3 w - - 0 1", "KPPPvK (5 pieces)", "3-5"),
+    ("4k3/8/8/3pP3/8/8/3PP3/R3K3 w - - 0 1", "KRPPvKP (6 pieces)", "6"),
 ]
 
 
 def main() -> int:
-    print(f"SyzygyPath in config: {config.engine_options.get('SyzygyPath','<vuoto>')!r}")
-    print(f"Engine configurato: {config.engine!r}")
+    print(f"SyzygyPath in config: {config.engine_options.get('SyzygyPath','<empty>')!r}")
+    print(f"Engine configured: {config.engine!r}")
     print()
 
     UCIEngines.engine_open()
     eng = UCIEngines.engine
     if eng is None:
-        print("ERROR: motore non aperto")
+        print("ERROR: engine not open")
         return 1
 
     try:

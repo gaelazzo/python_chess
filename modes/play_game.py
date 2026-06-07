@@ -200,7 +200,7 @@ def _show_db_stats(gs: "GameState") -> None:
     total = stats['total']
     if total == 0:
         BS.drawEndGameText(app.screen, gs,
-                           f"Posizione mai trovata in {os.path.basename(db_path)}",
+                           f"Position never found in {os.path.basename(db_path)}",
                            size=20)
         BS.update()
         app.delay(2.5)

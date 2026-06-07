@@ -1,18 +1,20 @@
-"""Modalita' 'Allena finali'.
+"""'Endgame Training' mode.
 
-Selezione: l'utente sceglie un file PGN dalla cartella `endgames/`. Il programma
-estrae una partita random e usa la sua posizione iniziale (header FEN se
-presente) come finale da risolvere -- la mainline del PGN e' ignorata: il
-giudice e' la TB Syzygy (per posizioni con <=7 pezzi) o Stockfish in fallback.
+Selection: the user chooses a PGN file from the `endgames/` folder. The program
+extracts a random game and uses its starting position (the FEN header, if
+present) as the endgame to solve -- the PGN mainline is ignored; the judge is
+the Syzygy tablebase (for positions with <=7 pieces) or Stockfish as a fallback.
 
-Loop di gioco:
-- l'utente gioca dal lato al tratto nella posizione iniziale;
-- per ogni sua mossa, si confronta WDL(prima)/WDL(dopo) via Syzygy:
-  - WDL invariato (o migliorato) -> OK, l'avversario risponde;
-  - WDL peggiorato -> take-back, lampeggia "mossa sbagliata, riprova";
-- se la posizione e' fuori range TB, si usa Stockfish: confronto eval prima/dopo,
-  drop > BLUNDER_CP -> errore;
-- l'avversario sceglie la mossa TB-ottima quando possibile, altrimenti Stockfish.
+Gameplay loop:
+- the user plays the side to move in the starting position;
+- after each move, WDL(before)/WDL(after) is compared using Syzygy:
+  - unchanged (or improved) WDL -> OK, the opponent replies;
+  - worsened WDL -> takeback, flashes "wrong move, try again";
+- if the position is outside the tablebase range, Stockfish is used instead:
+  compare the evaluation before/after the move; a drop > BLUNDER_CP is
+  considered an error;
+- the opponent chooses the tablebase-optimal move whenever possible,
+  otherwise Stockfish.
 """
 from __future__ import annotations
 
@@ -52,24 +54,27 @@ if not os.path.exists(ENDGAMES_FOLDER):
     os.makedirs(ENDGAMES_FOLDER)
 
 
-# Soglia di blunder per il giudizio engine-based (centipawns).
+# Blunder threshold for engine-based evaluation (centipawns).
 BLUNDER_CP = 100
-# Tempo di pondering per le risposte engine (secondi).
+
+# Pondering time for engine replies (seconds).
 ENGINE_REPLY_TIME = 0.5
-# Tempo di analisi per il giudizio engine-based (secondi).
+
+# Analysis time for engine-based evaluation (seconds).
 ENGINE_JUDGE_TIME = 2
-# Severity uniforme per errori TB-based (gli errori engine-based usano il drop in cp).
+
+# Uniform severity for tablebase-based errors (engine-based errors use cp drop).
 TB_ERROR_SEVERITY = 100
 
 
 def _get_or_create_endgame_base(filename: str) -> Optional[LearningBase]:
-    """Recupera o crea la learning base associata al file PGN di finali.
-
-    Naming convention: `endgames_<filename>`. Cosi' la base appare in
-    `Solve positions` come una qualsiasi altra learning base, e l'utente
-    puo' ripassare gli errori commessi nei finali con lo stesso flusso
-    della tattica/aperture.
     """
+    Retrieve or create the learning base associated with the endgame PGN file.
+    Naming convention: `endgames_<filename>`. This way the base appears in
+    `Solve positions` like any other learning base, and the user can review
+    mistakes from endgames using the same workflow as tactics/openings.
+    """
+
     base_name = f"endgames_{filename}"
     if base_name in learningBases:
         return learningBases[base_name]
@@ -99,14 +104,16 @@ def _best_move_for_position(board: chess.Board) -> Optional[chess.Move]:
 
 def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
                            board: chess.Board, played_uci: str, ok: bool) -> None:
-    """Aggiorna la learning base degli errori per i finali.
+    """Update the endgame learning base.
 
-    - Errore: aggiunge (o aggiorna) la posizione con la mossa giusta calcolata
-      al volo (TB ottima o fallback engine), severity=TB_ERROR_SEVERITY.
-    - Successo su posizione gia' tracciata: aggiorna stats riusando `position.ok`
-      gia' memorizzata -- evita un probe TB/engine sulla via felice.
-    - Successo su posizione mai vista: no-op (non spammiamo la base).
+    - Error: adds (or updates) the position with the correct move computed on
+      the fly (tablebase-optimal or engine fallback), severity=TB_ERROR_SEVERITY.
+    - Success on a previously tracked position: updates stats reusing
+      `position.ok` already stored -- avoids an unnecessary TB/engine probe on
+      the happy path.
+    - Success on a previously unseen position: no-op (we avoid polluting the base).
     """
+
     if lb is None:
         return
     zobrist = chess.polyglot.zobrist_hash(board)
@@ -158,7 +165,7 @@ def _format_score_cp(score: chess.engine.PovScore, turn: chess.Color) -> Optiona
 
 
 def _engine_eval_cp(board: chess.Board, turn: chess.Color) -> Optional[int]:
-    """Eval in cp di `board` dal POV di `turn`; None se motore non disponibile."""
+    """Eval in cp di `board` dal POV di `turn`; None if engine fails or returns no score."""
     if UCIEngines.engine is None:
         return None
     try:
@@ -173,7 +180,7 @@ def _engine_eval_cp(board: chess.Board, turn: chess.Color) -> Optional[int]:
 
 
 def _engine_reply(board: chess.Board) -> Optional[chess.Move]:
-    """Mossa di risposta scelta dal motore."""
+    """Response move from the engine; None if engine fails or returns no move."""
     if UCIEngines.engine is None:
         return None
     try:
@@ -185,22 +192,23 @@ def _engine_reply(board: chess.Board) -> Optional[chess.Move]:
 
 
 def _effective_wdl(wdl: Optional[int], dtz: Optional[int], halfmove_clock: int) -> Optional[int]:
-    """WDL effettivo dato il clock reale del 50-move rule.
+    """Effective WDL given the real 50-move rule clock.
 
-    probe_wdl di Syzygy assume `halfmove_clock=0` (clean clock). Per sapere
-    quanto la vincita e' realmente convertibile bisogna combinare WDL+DTZ con
-    il clock attuale: se manca budget per arrivare alla prossima mossa zeroing
-    (cattura o spinta di pedone), la partita finisce in patta per 50-move
-    rule e l'WDL "vero" e' 0.
+        Syzygy probe_wdl assumes `halfmove_clock=0` (clean clock). To determine how
+        convertible a win actually is, WDL+DTZ must be combined with the current
+        clock: if there is not enough budget left to reach the next pawn move or
+        capture (resetting the clock), the game is drawn by the 50-move rule and the
+        "true" WDL becomes 0.
 
-    Mapping:
-      wdl == +2 e clock + |DTZ| <= 100 -> +2
-      wdl == +2 e clock + |DTZ| >  100 ->  0  (patta forzata dal 50-move)
-      wdl == +1 o -1 (cursed/blessed)  ->  0  (per definizione gia' irraggiungibile)
-      wdl == -2 e clock + |DTZ| <= 100 -> -2
-      wdl == -2 e clock + |DTZ| >  100 ->  0  (siamo "salvati" dal 50-move)
-      wdl ==  0                        ->  0
+        Mapping:
+        wdl == +2 and clock + |DTZ| <= 100 -> +2
+        wdl == +2 and clock + |DTZ| >  100 ->  0  (forced draw by 50-move rule)
+        wdl == +1 or -1 (cursed/blessed)   ->  0  (already effectively unreachable)
+        wdl == -2 and clock + |DTZ| <= 100 -> -2
+        wdl == -2 and clock + |DTZ| >  100 ->  0  (saved by 50-move rule)
+        wdl ==  0                          ->  0
     """
+
     if wdl is None:
         return None
     if wdl == 0 or wdl == 1 or wdl == -1:
@@ -213,15 +221,15 @@ def _effective_wdl(wdl: Optional[int], dtz: Optional[int], halfmove_clock: int) 
 
 
 def _best_child_dtz_among(board: chess.Board, min_our_wdl: int) -> Optional[int]:
-    """Minimo DTZ (dal nostro POV) ottenibile fra le mosse legali che
-    preservano un WDL >= `min_our_wdl`. None se nessuna mossa qualificata
-    o se la TB non e' disponibile.
+    """Minimum DTZ (from our POV) achievable among legal moves that preserve a
+    WDL >= `min_our_wdl`. None if no qualifying move exists or if the tablebase
+    is unavailable.
 
-    Serve per giudicare se la mossa dell'utente e' "ottima quanto la migliore"
-    in termini di DTZ: dtz_a == best -> OK; dtz_a > best -> suboptimal.
-    Nei casi di endgame "near zeroing" (es. KQ vs KP, mate forzato via
-    promozione), il DTZ del figlio puo' essere == DTZ del padre per l'ottimo;
-    confrontare con `best` aggira il falso negativo della rule `dtz_a < dtz_b`.
+    Used to determine whether the user's move is "as good as the best possible"
+    in terms of DTZ: dtz_a == best -> OK; dtz_a > best -> suboptimal.
+    In near-zeroing endgames (e.g. KQ vs KP, forced mate via promotion), the
+    child DTZ may equal the parent DTZ for optimal play; comparing against `best`
+    avoids false negatives from the naive rule `dtz_a < dtz_b`.
     """
     tb = sh.open_tablebase()
     if tb is None or not sh.is_in_tb_range(board):
@@ -246,21 +254,20 @@ def _best_child_dtz_among(board: chess.Board, min_our_wdl: int) -> Optional[int]
 
 
 def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool, str]:
-    """Giudica la mossa dell'utente. Ritorna (is_ok, debug_info).
+    """Judge the user's move. Returns (is_ok, debug_info).
 
-    Regole (in ordine):
-    1. **Patta forzata** (stallo / materiale insufficiente) data dall'utente:
-       se prima eri in WDL>0, e' un errore.
-    2. **Scacco matto** dato dall'utente: sempre OK.
-    3. **WDL clean peggiorato**: flag.
-    4. **Optimality DTZ** (solo con clean WDL=+2): se non e' una mossa zeroing,
-       il DTZ post-mossa (dal nostro POV) deve essere uguale al **minimo
-       ottenibile** fra le mosse legali +2-preserving. Cosi' una mossa con
-       `dtz_a == dtz_b` viene accettata se e' davvero l'ottima TB (caso
-       KQ vs KP nell'ultimo ply prima della promozione forzata), mentre
-       una mossa "lenta" che porta a DTZ piu' alto del best disponibile
-       viene flaggata.
-    5. Fuori TB: fallback Stockfish, confronto eval con soglia BLUNDER_CP.
+    Rules (in order):
+    1. **Forced draw** (stalemate / insufficient material) caused by the user:
+    if the position was WDL > 0, this is an error.
+    2. **Checkmate delivered by the user**: always OK.
+    3. **Clean WDL deterioration**: flagged as error.
+    4. **DTZ optimality** (only with clean WDL=+2): if the move is not a
+    zeroing move, the post-move DTZ (from our POV) must be equal to the
+    **minimum achievable DTZ** among all legal +2-preserving moves. This way,
+    a move with `dtz_a == dtz_b` is accepted if it is truly TB-optimal (e.g.
+    KQ vs KP in the last ply before forced promotion), while a "slow" move
+    that leads to a higher DTZ than the best available is flagged.
+    5. Outside TB: Stockfish fallback, evaluation comparison with BLUNDER_CP threshold.
     """
     turn = board_before.turn
     # --- TB ---
@@ -293,10 +300,10 @@ def _judge_user_move(board_before: chess.Board, move: chess.Move) -> tuple[bool,
         if wdl_a < wdl_b:
             return False, f"WDL drop {wdl_b:+d}->{wdl_a:+d} (DTZ {dtz_b}->{dtz_a})"
 
-        # Caso 4: con clean WDL=+2, la mossa deve essere DTZ-ottima fra le
-        # +2-preserving (non basta che il DTZ "non aumenti", e nemmeno che
-        # cali strettamente: in posizioni near-zeroing l'ottima puo' avere
-        # dtz_a == dtz_b).
+        # Case 4: with clean WDL=+2, the move must be DTZ-optimal among the
+        # +2-preserving moves (it is not enough that DTZ does not increase,
+        # nor that it strictly decreases: in near-zeroing positions the
+        # optimal line may have dtz_a == dtz_b).
         if wdl_b == 2:
             is_zeroing = nb.halfmove_clock == 0
             if not is_zeroing:
@@ -384,7 +391,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
         # Posizione gia' terminale: salta.
         return "next"
 
-    # Learning base degli errori per questo file: creata/aperta alla prima entrata.
+    # Learning base for errors in this file: created/opened on first entry.
     lb = _get_or_create_endgame_base(filename)
 
     human_color_chess = start_board.turn  # bool True=White
@@ -405,7 +412,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
     BS.drawGameState(app.screen, gs, [], [], ())
     BS.update()
 
-    # Info iniziale: pezzi e WDL.
+    # Initial info: pieces and WDL.
     n_pieces = sh.count_pieces(start_board)
     wdl0 = sh.probe_wdl(start_board)
     wdl_txt = f"WDL={wdl0:+d}" if wdl0 is not None else "outside TB"
@@ -460,8 +467,8 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
             BS.drawEndGameText(app.screen, gs, text)
             BS.update()
             app.delay(2)
-            # Auto-avanza al prossimo finale (come Study openings). Q durante il delay
-            # interrompe; il prossimo giro del while esterno pesca un'altra partita.
+            # Auto-advance to the next endgame (like Study openings). Q during the delay
+            # interrupts; the next iteration of the outer while loop selects another game.            
             break
 
         # --- Mossa avversario ---
@@ -579,7 +586,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 
         if moveMade:
             moveMade = False
-            # Se l'analisi e' attiva, aggancia la nuova posizione (no-op se off).
+            # If analysis is active, attach the new position (no-op if disabled).
             UCIEngines.update_board(gs.board(), glc.engine_callback)
             lastMove = gs.moveLog[-1] if gs.moveLog else None
             if animate and lastMove:

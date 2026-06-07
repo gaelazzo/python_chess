@@ -106,7 +106,7 @@ class Voce:
             sapi.Rate = sapi_rate
             print(f"TTS: rate={wpm}wpm -> SAPI5 Rate={sapi_rate}")
         except Exception as e:
-            print(f"TTS apply rate fallita: {e}")
+            print(f"TTS apply rate failed: {e}")
 
     def _apply_voice(self, voice_id, source):
         """Imposta la voce del motore TTS."""
@@ -114,17 +114,17 @@ class Voce:
             try:
                 self._engine.setProperty('voice', voice_id)
                 self._voice_id = voice_id
-                print(f"TTS: voce applicata (source={source}) -> {voice_id}")
+                print(f"TTS: voice applied (source={source}) -> {voice_id}")
                 return True
             except Exception as e:
-                print(f"TTS apply voice fallita: {e}")
+                print(f"TTS apply voice failed: {e}")
                 return False
 
         # Path canonico verso SAPI5 in pyttsx3 moderno
         driver = getattr(getattr(self._engine, 'proxy', None), '_driver', None)
         sapi = getattr(driver, '_tts', None)
         if sapi is None:
-            print("TTS: driver SAPI5 non trovato (versione pyttsx3 inattesa)")
+            print("TTS: SAPI5 driver not found (unexpected pyttsx3 version)")
             return False
         try:
             voices = sapi.GetVoices()
@@ -136,12 +136,12 @@ class Voce:
                     self._voice_id = voice_id
                     # Verifica diretta sul COM object
                     actual = sapi.Voice.Id if sapi.Voice else None
-                    print(f"TTS: voce applicata (source={source}) "
+                    print(f"TTS: voice applied (source={source}) "
                           f"actual={actual} -> "
                           f"{'OK' if actual == voice_id else 'MISMATCH'}")
                     return actual == voice_id
         except Exception as e:
-            print(f"TTS apply voice fallita: {e}")
+            print(f"TTS apply voice failed: {e}")
         return False
 
     def _select_voice(self):
@@ -149,18 +149,18 @@ class Voce:
         try:
             voices = list(self._engine.getProperty('voices'))
         except Exception as e:
-            print(f"TTS: impossibile elencare voci: {e}")
+            print(f"TTS: cannot list voices: {e}")
             return
-        print(f"TTS: {len(voices)} voci disponibili:")
+        print(f"TTS: {len(voices)} voices available:")
         for v in voices:
             print(f"  - id={v.id!r} name={v.name!r} langs={v.languages}")
         voice_id, source = self._find_target_voice_id(voices)
         if voice_id is None:
-            print(f"TTS: nessuna voce '{self._lang_prefix}' trovata, default OS")
+            print(f"TTS: no voice '{self._lang_prefix}' found, OS default")
             return
         ok = self._apply_voice(voice_id, source)
-        print(f"TTS: voce target id={voice_id} (source={source}) -> "
-              f"{'applicata' if ok else 'NON APPLICATA'}")
+        print(f"TTS: target voice id={voice_id} (source={source}) -> "
+              f"{'applied' if ok else 'NOT APPLIED'}")
 
     def _worker(self):
         try:
@@ -745,7 +745,7 @@ class Move:
         try:
             self.prettyPrint = game.board().san(self.move)
         except Exception as e:
-            print('Errore nella conversione:', str(e))
+            print('Conversion error:', str(e))
             self.prettyPrint = self.move.uci()
 
         self.enPassant = game.board().is_en_passant(self.move)

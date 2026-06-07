@@ -99,7 +99,7 @@ def main() -> int:
         tb.add_directory(TB_6)
 
         # --- Fase 1: WDL noti ---
-        print("\n[Fase 1] Probe posizioni con WDL noto")
+        print("\n[Phase 1] Probe positions with known WDL")
         for fen, expected, desc in KNOWN_POSITIONS:
             board = chess.Board(fen)
             try:
@@ -111,21 +111,21 @@ def main() -> int:
                     n_known_ok += 1
                 else:
                     n_known_bad += 1
-                    errors_detail.append((desc, f"WDL atteso={expected}, ottenuto={wdl}"))
+                    errors_detail.append((desc, f"WDL expected={expected}, got={wdl}"))
             except Exception as e:
                 print(f"  [ERR ] {desc:42s} {type(e).__name__}: {e}")
                 n_known_bad += 1
                 errors_detail.append((desc, f"{type(e).__name__}: {e}"))
 
         # --- Fase 2: stress test su tutti i file .rtbw ---
-        print("\n[Fase 2] Stress test: probe per ogni file .rtbw")
+        print("\n[Phase 2] Stress test: probe for each .rtbw file")
         all_files: list[str] = []
         for root in (TB_345, TB_6):
             for fn in os.listdir(root):
                 if fn.endswith('.rtbw'):
                     all_files.append(fn)
         all_files.sort()
-        print(f"  {len(all_files)} file da testare")
+        print(f"  {len(all_files)} files to test")
         for i, fname in enumerate(all_files, 1):
             board = board_from_filename(fname)
             if board is None:
@@ -144,14 +144,14 @@ def main() -> int:
                 n_stress_err += 1
                 errors_detail.append((fname, f"{type(e).__name__}: {e}"))
             if i % 100 == 0:
-                print(f"    ...{i}/{len(all_files)} testati ({n_stress_err} errori finora)")
+                print(f"    ...{i}/{len(all_files)} tested ({n_stress_err} errors so far)")
 
-    print("\n=== RIEPILOGO ===")
-    print(f"Fase 1 (posizioni note):     {n_known_ok} OK, {n_known_bad} fallite")
-    print(f"Fase 2 (stress su {len(all_files)} file): "
-          f"{n_stress_ok} OK, {n_stress_skip} skipped, {n_stress_err} ERRORI")
+    print("\n=== SUMMARY ===")
+    print(f"Phase 1 (known positions):    {n_known_ok} OK, {n_known_bad} failed")
+    print(f"Phase 2 (stress on {len(all_files)} files): "
+          f"{n_stress_ok} OK, {n_stress_skip} skipped, {n_stress_err} ERRORS")
     if errors_detail:
-        print("\nDettaglio errori:")
+        print("\nError details:")
         for who, what in errors_detail[:50]:
             print(f"  - {who}: {what}")
         if len(errors_detail) > 50:

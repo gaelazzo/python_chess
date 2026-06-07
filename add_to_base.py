@@ -39,7 +39,7 @@ def addPositionToBaseMenu(gs: GameState) -> bool:
     Ritorna True se l'utente ha salvato, False altrimenti.
     """
     if not can_add(gs):
-        show_message(gs, "Gioca prima la mossa corretta")
+        show_message(gs, "Play the correct move first")
         app.delay(2)
         return False
 
@@ -86,7 +86,7 @@ def addPositionToBaseMenu(gs: GameState) -> bool:
             lb.save()
             saved = True
         except Exception as e:
-            print(f"add_to_base: save fallito: {e}")
+            print(f"add_to_base: save failed: {e}")
             return
         menu_running = False
 
@@ -106,15 +106,15 @@ def addPositionToBaseMenu(gs: GameState) -> bool:
         san = board_before.san(chess.Move.from_uci(correct_uci))
     except Exception:
         san = correct_uci
-    menu.add.label(f"Posizione: {fen_short}", font_size=14)
-    menu.add.label(f"Mossa corretta: {san} ({correct_uci})", font_size=16)
+    menu.add.label(f"Position: {fen_short}", font_size=14)
+    menu.add.label(f"Correct move: {san} ({correct_uci})", font_size=16)
     menu.add.vertical_margin(10)
 
     # File selector per la base esistente (stile uniforme con Solve positions).
     labels = []
     choose_base = make_base_selector(None, labels, callback=do_pick_base)
     menu.add.button('Choose base file', choose_base, font_size=18)
-    label = menu.add.button("(nessuna scelta)", choose_base, font_size=18,
+    label = menu.add.button("(no choice)", choose_base, font_size=18,
                             background_color=None,
                             selection_effect=pygame_menu.widgets.NoneSelection())
     labels.append(label)

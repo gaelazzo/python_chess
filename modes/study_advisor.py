@@ -135,11 +135,11 @@ def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
     menu = pygame_menu.Menu(
         height=height, width=width,
         theme=pygame_menu.themes.THEME_BLUE,
-        title="Cosa studio adesso?",
+        title="Suggestion for study",
     )
-    user_w = menu.add.text_input("Utente: ", default=positionParameters.get("player") or "")
+    user_w = menu.add.text_input("User: ", default=positionParameters.get("player") or "")
     color_w = menu.add.selector(
-        "Colore: ",
+        "Color: ",
         [("Both", None), ("White", "w"), ("Black", "b")],
         default=0,
     )
@@ -192,7 +192,7 @@ def runAdvisor(user: str, color: Optional[str]) -> None:
     app.main_menu.disable()
     app.main_menu.full_reset()
     try:
-        _wait_screen(f"Analizzo {os.path.basename(pgn_path)} per {user}...")
+        _wait_screen(f"Analyzing {os.path.basename(pgn_path)} for {user}...")
         stats = analyze_pgn(pgn_path, user, color)
         if not stats:
             _message(f"No games by '{user}' found in {os.path.basename(pgn_path)}")
@@ -283,7 +283,7 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
         # column header
         cols = [
             (margin_x,         "ECO"),
-            (margin_x + 90,    "Partite"),
+            (margin_x + 90,    "Games"),
             (margin_x + 180,   "W"),
             (margin_x + 230,   "D"),
             (margin_x + 280,   "L"),

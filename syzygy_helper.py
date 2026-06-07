@@ -44,7 +44,7 @@ def open_tablebase() -> Optional[chess.syzygy.Tablebase]:
         for p in paths[1:]:
             tb.add_directory(p)
     except Exception as e:
-        print(f"syzygy_helper: open_tablebase fallito: {e}")
+        print(f"syzygy_helper: open_tablebase failed: {e}")
         return None
     _tablebase = tb
     _loaded_paths = list(paths)

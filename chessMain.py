@@ -177,13 +177,13 @@ def setPlayer(current_text, **kwargs):
 
 
 def update_base_display():
-    value = positionParameters.get("base", "Nessuna selezionata")
+    value = positionParameters.get("base", "None selected")
     state.current_base_label.set_title(value)
     state.current_base_label2.set_title(value)
     state.current_base_label3.set_title(value)
 
 def update_filename_display():
-    value = positionParameters.get("filename", "Nessuna selezionata")
+    value = positionParameters.get("filename", "None selected")
     state.current_filename_label.set_title(value)
     state.current_filename_label3.set_title(value)
     state.current_filename_label4.set_title(value)
@@ -375,7 +375,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     labels = []
     chooseNewPgn = make_file_selector("filename", None , labels, pgngamelist.PGN_FOLDER+"/newfile.pgn", ".pgn", "Select PGN file to create", create=True)
     chessComMenu.add.button('PGN file to create', chooseNewPgn)
-    default_value = str(positionParameters.get("filename", "Nessuna selezionata"))
+    default_value = str(positionParameters.get("filename", "None selected"))
     label = chessComMenu.add.button(default_value,chooseNewPgn,font_size=20, background_color=None,selection_effect=pygame_menu.widgets.NoneSelection())
     labels.append(label)
     chessComMenu.add.text_input('player:', default=positionParameters["player"] or "", onchange=make_updater("player",str,positionParameters))
@@ -393,7 +393,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     labels_l = []
     chooseNewPgn_l = make_file_selector("filename", None, labels_l, pgngamelist.PGN_FOLDER + "/newfile.pgn", ".pgn", "Select PGN file (existing or new)", create=True)
     lichessMenu.add.button('PGN file (existing or new)', chooseNewPgn_l)
-    default_value_l = str(positionParameters.get("filename", "Nessuna selezionata"))
+    default_value_l = str(positionParameters.get("filename", "None selected"))
     label_l = lichessMenu.add.button(default_value_l, chooseNewPgn_l, font_size=20, background_color=None, selection_effect=pygame_menu.widgets.NoneSelection())
     labels_l.append(label_l)
     lichessMenu.add.text_input('player:', default=positionParameters["player"] or "", onchange=make_updater("player", str, positionParameters))
@@ -589,15 +589,15 @@ def runMain():
             ref_name = os.path.basename(ref_db)
             cache_exists = os.path.exists(position_stats._index_cache_path(ref_db))
             if cache_exists:
-                _splash_progress(f"Carico indice di {ref_name} dal disco...")
+                _splash_progress(f"Loading index of {ref_name} from disk...")
             else:
                 _splash_progress(f"Indexing {ref_name} (first time, takes a while)...")
             def _idx_progress(n_games):
                 _splash_progress(f"Indexing {ref_name}: {n_games} games...")
             position_stats.get_index(ref_db, progress=_idx_progress)
-            _splash_progress(f"DB di riferimento pronto ({ref_name}).")
+            _splash_progress(f"Reference DB ready ({ref_name}).")
     except Exception:
-        print(f"position_stats preload fallito: {traceback.format_exc()}")
+        print(f"position_stats preload failed: {traceback.format_exc()}")
 
     try:
         app.W, app.H = BS.init()

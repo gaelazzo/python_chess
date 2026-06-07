@@ -35,7 +35,7 @@ def _make_progress_cb(label: str, total: int):
     con N/M e fa un event.pump() per evitare il "non risponde" di Windows."""
     def cb(n: int) -> None:
         app.main_background()
-        msg = f"{label}: analizzo {n}/{total}" if total else f"{label}: analizzo partita {n}"
+        msg = f"{label}: analyzing {n}/{total}" if total else f"{label}: analyzing game {n}"
         BS.drawEndGameText(app.screen, None, msg, size=24)
         p.event.pump()
     return cb
@@ -45,7 +45,7 @@ def createLearningBase():
     # Verifica che filename non sia vuoto
     filename = positionParameters.get("filename", "").strip()
     if not filename:
-        raise ValueError("Il campo 'filename' in positionParameters è vuoto.")
+        raise ValueError("The 'filename' field in positionParameters is empty.")
 
 
     learningBase = LearningBase(movesToAnalyze=positionParameters.get("movesToAnalyze",16),
@@ -98,7 +98,7 @@ def updateLearningBase():
     # Conteggio veloce per la barra di avanzamento (N/M durante analisi).
     pgn_path = os.path.join(pgngamelist.PGN_FOLDER, pgnFileName + ".pgn")
     total = _count_games_in_pgn(pgn_path)
-    progress = _make_progress_cb(f"Aggiorno '{learningBaseName}'", total)
+    progress = _make_progress_cb(f"Updating '{learningBaseName}'", total)
 
     analyzer.analyzePgn(pgnFileName, player, learningBase, progress=progress)
     text = f"Learning base {learningBaseName} updated with {pgnFileName}"

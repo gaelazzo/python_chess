@@ -79,7 +79,7 @@ def process_fen_file(input_file, output_file, depth=26, multipv=8):
 
                 if not lines:
                     print("  No solution found.\n")
-                    out.write(f"Problema {idx}) Nessuna soluzione\n")
+                    out.write(f"Problem {idx}) No solution\n")
                     continue
                 print(f"{lines[0]}\n")
                 # prendi SOLO la prima linea (come hai richiesto)
@@ -92,7 +92,7 @@ def process_fen_file(input_file, output_file, depth=26, multipv=8):
 
                 out.write(f"{latex_block}\n")                
             except Exception as e:
-                out.write(f"Problema {idx}) ERRORE: {e}\n")
+                out.write(f"Problem {idx}) ERROR: {e}\n")
             
         out.write("\\end{enumerate}\n\n\n")
 

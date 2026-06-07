@@ -471,7 +471,7 @@ def playBrainMaster(learningBaseName:str):
     app.main_background() 
     if suggestion is None:
         app.main_background() 
-        BS.drawEndGameText(app.screen, None,"Errore accedendo al servizio Brainmaster",size=20)
+        BS.drawEndGameText(app.screen, None,"Error accessing the BrainMaster service",size=20)
         BS.update()
         app.delay(2 )
         return

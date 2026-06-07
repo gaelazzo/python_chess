@@ -75,7 +75,7 @@ def load_config():
             json.dump(merged, f, indent=2, ensure_ascii=False)
 
     except Exception as e:
-        print(f"Errore nella lettura del file di configurazione: {e}")
+        print(f"Error reading the configuration file: {e}")
         config = SimpleNamespace(**DEFAULT_CONFIG)
 
 

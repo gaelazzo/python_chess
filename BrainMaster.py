@@ -45,12 +45,12 @@ def create_course(id_course:str):
     
         # Controllo del risultato
         if response.status_code == 200:
-            print('Corso creato con successo!')
+            print('Course created successfully!')
             #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
     
 def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
     '''
@@ -77,9 +77,9 @@ def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
             print(f'Lezione {id_lesson} creata con successo!')
             #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
 
 def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
                         lesson_name:str, lesson_descr:str,
@@ -105,9 +105,9 @@ def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
             print(f'Domanda {id_question} {id_lesson} creata con successo!')
             #print('Risposta:', response.json())  # Se restituisci un JSON dal backend
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
 
 def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
     '''
@@ -132,10 +132,10 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
             result = response.json()
             return result
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
             return False
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
         return False
 
 @dataclass
@@ -208,9 +208,9 @@ def ask_for_quiz(id_course:str, id_student:str):
             print(f'Quiz ricevuto: {res["action"]} {res["description"]}')
             return res
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
  
 
 def give_answers(id_course:str, action:int, answers:List[AnswerData]):
@@ -240,9 +240,9 @@ def give_answers(id_course:str, action:int, answers:List[AnswerData]):
             print('Dati inviati con successo.')
             return response.json()
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
 
 def add_all_lessons(learnBase:str):
     '''
@@ -298,10 +298,10 @@ def list_courses() -> List[str]:
             res = response.json()
             return res
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
             return []
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
         return []
 
 def unlock_new_lesson(id_course:str)->str:
@@ -325,10 +325,10 @@ def unlock_new_lesson(id_course:str)->str:
             if not res: return False
             print('New lesson to unlock')             
         else:
-            print('Errore:', response.status_code, response.text)
+            print('Error:', response.status_code, response.text)
             return None
     except Exception as e:
-        print('Errore nella richiesta:', str(e))
+        print('Error in request:', str(e))
         return None
 
     lesson_unlocks:Dict[str,datetime] = {}

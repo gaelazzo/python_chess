@@ -116,10 +116,10 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
 
     existing_sigs, since_ts = _read_existing_state(output_path)
     if existing_sigs:
-        msg = f"File esistente: {len(existing_sigs)} partite trovate"
+        msg = f"Existing file: {len(existing_sigs)} games found"
         if since_ts is not None:
             ts_iso = datetime.fromtimestamp(since_ts / 1000, tz=timezone.utc).isoformat()
-            msg += f", ultimo lichess: {ts_iso}"
+            msg += f", last lichess: {ts_iso}"
         print(msg)
 
     params = {"sort": "dateDesc"}
@@ -139,15 +139,15 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
     try:
         response = requests.get(url, params=params, headers=req_headers, timeout=60)
     except requests.RequestException as e:
-        print(f"Errore di rete: {e}")
+        print(f"Network error: {e}")
         return
     if not response.ok:
-        print(f"Errore lichess API: {response.status_code} {response.reason}")
+        print(f"lichess API error: {response.status_code} {response.reason}")
         return
 
     pgn_text = response.text
     if not pgn_text.strip():
-        print("Lichess non ha restituito alcuna partita.")
+        print("Lichess returned no games.")
         return
 
     # Split del response in singoli blocchi PGN (a ogni nuovo [Event ...]).
@@ -164,7 +164,7 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
         existing_sigs.add(sig)
 
     if not kept:
-        print("Nessuna nuova partita lichess da aggiungere.")
+        print("No new lichess games to add.")
         return
 
     already_has_content = os.path.exists(output_path) and os.path.getsize(output_path) > 0
@@ -174,4 +174,4 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
         for pgn in kept:
             f.write(pgn)
             f.write('\n\n')
-    print(f"Aggiunte {len(kept)} nuove partite lichess a {output_file}.")
+    print(f"Added {len(kept)} new lichess games to {output_file}.")
