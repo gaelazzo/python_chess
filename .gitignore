@@ -26,6 +26,9 @@ __pycache__/
 *.cpo
 /build/
 /dist/
+# Release build artifacts (prodotti da release.py / CI, non vanno versionati)
+HiresChess-*.zip
+HiresChess-*.dmg
 
 # Position-stats disk cache (auto-rebuilt da position_stats.py)
 *.idx
