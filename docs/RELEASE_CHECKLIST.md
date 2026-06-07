@@ -52,13 +52,19 @@ La radice del pacchetto è il **contenuto** di `dist/chessMain/`. Aggiungi:
       crea uno pulito al primo avvio. Se durante il test (passo 2) ne è stato
       generato uno con le tue impostazioni, **cancellalo** prima di zippare.
 
-Poi comprimi in: **`HiresChess-v1.0.0-windows.zip`**.
+Poi comprimi in: **`HiresChess-windows.zip`**.
 
 > **Perché Stockfish non è incluso:** scelta di questa release (zip più
 > leggero, nessuna questione di licenza GPL). L'utente lo scarica da
 > <https://stockfishchess.org/download/> e lo mette in `engines/`.
 
 ## 4. Pubblica su GitHub
+
+> **Ora è automatico.** Un push di un tag `v*` fa partire il workflow
+> [.github/workflows/release.yml](../.github/workflows/release.yml), che
+> builda Windows + macOS con `release.py` e allega gli asset
+> (`HiresChess-windows.zip`, `HiresChess-macos.dmg`) alla release del tag.
+> I passi manuali sotto restano come fallback.
 
 `gh` CLI non è installato su questa macchina → due strade.
 
@@ -67,14 +73,14 @@ Poi comprimi in: **`HiresChess-v1.0.0-windows.zip`**.
 2. **Choose a tag** → digita `v1.0.0` → *Create new tag on publish*.
 3. **Release title**: `Hires Chess Trainer v1.0.0`.
 4. **Description**: incolla le note pronte (sezione 5).
-5. Trascina **`HiresChess-v1.0.0-windows.zip`** negli allegati.
+5. Trascina **`HiresChess-windows.zip`** negli allegati.
 6. **Publish release**.
 
 ### 4b. Via gh CLI (se preferisci installarlo)
 ```powershell
 winget install GitHub.cli
 gh auth login
-gh release create v1.0.0 HiresChess-v1.0.0-windows.zip `
+gh release create v1.0.0 HiresChess-windows.zip `
   --title "Hires Chess Trainer v1.0.0" `
   --notes-file docs/RELEASE_NOTES_v1.0.0.md
 ```
@@ -88,7 +94,7 @@ Import your games from Chess.com/lichess, find where you go wrong (tactics,
 openings, endgames) and drill those mistakes with spaced repetition.
 
 ### Install (Windows)
-1. Download and unzip `HiresChess-v1.0.0-windows.zip`.
+1. Download and unzip `HiresChess-windows.zip`.
 2. Download Stockfish from https://stockfishchess.org/download/ (AVX2 build)
    and put the `.exe` into the `engines\` folder.
 3. Run `chessMain.exe` → Tools → Setup → Choose engine.
@@ -97,6 +103,8 @@ Optional: Polyglot opening book (`.bin` in `books\`) and Syzygy tablebases
 (set `SyzygyPath` in `config.json`). Full guide: see README / INSTALL.md.
 
 No Python install required. Windows 64-bit.
+
+> macOS: `HiresChess-macos.dmg` is **experimental and currently untested** — use the source / report issues.
 ```
 
 ## 6. Dopo la pubblicazione
