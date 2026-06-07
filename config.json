@@ -13,7 +13,7 @@
     "user_prefs": {
         "eco": null,
         "color": null,
-        "filename": "B01Scandinavian",
+        "filename": "C42Russian",
         "base": "openings",
         "player": "gaelazzo",
         "movesToAnalyze": 16,
@@ -21,7 +21,7 @@
         "ponderTime": 0.5,
         "useBook": false,
         "whiteCPU": false,
-        "blackCPU": false,
+        "blackCPU": true,
         "elo": null,
         "elomax": false,
         "white": "White",
@@ -29,7 +29,7 @@
         "event": "Play",
         "site": "Local",
         "num_moves_to_show": 4,
-        "play_position": 1,
+        "play_position": 0,
         "practice_order": "random"
     },
     "tts_voice": "",
