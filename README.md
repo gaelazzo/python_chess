@@ -70,7 +70,7 @@ On startup the **main menu** appears; navigate with the **mouse** or the arrow k
 
 > **Splash screen.** The first ~3-4 seconds of startup (TTS init, learning-base
 > load, Polyglot book and Stockfish open) are covered by a window with
-> `pic-chess.png` centred and *"Caricamento in corso..."* at the bottom — no
+> `pic-chess.png` centred and *"Loading..."* at the bottom — no
 > more silent console wait.
 
 ---
@@ -88,7 +88,7 @@ On startup the **main menu** appears; navigate with the **mouse** or the arrow k
 ### Main recipe — *Improve from your games* (wizard)
 *The fastest way to train on your own mistakes from Chess.com games:
 the wizard automates the steps that Recipes A/B do by hand.*
-1. Main menu → **Migliora dalle tue partite** ("Improve from your games").
+1. Main menu → **Improve from your games**.
 2. Fill in:
    - **Chess.com user**: your username;
    - **Games**: *White*, *Black* or *Both* (filters the download by colour);
@@ -161,13 +161,13 @@ the wizard automates the steps that Recipes A/B do by hand.*
 | Item | What it does |
 |------|--------------|
 | **Improve from your games** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
-| **Suggestion for study** ("Cosa studio adesso?") | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
-| **Gioca contro il computer** | Play a game against the engine. |
+| **Suggestion for study** | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
+| **Play against computer** | Play a game against the engine. |
 | **Analisi / Human Play** | Two human players on the same board. Also the **analysis mode** (variations + annotations) and the *HQ* for position setup, save-as-tactic, and position statistics vs your reference DB (see §3.3). |
 | **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
 | **BrainMaster lessons** | Lessons driven by the BrainMaster service *(shown only if `base_url` is configured)*. |
 | **Study openings** | Practise on "model" games: you must find the best move yourself. |
-| **Allena finali** ("Train endgames") | Solve endgame studies from a PGN (folder `endgames/`); judged by Syzygy TB (≤7 pieces) with Stockfish fallback. Mistakes logged into a dedicated learning base (see §3.8). |
+| **Endgame training** | Solve endgame studies from a PGN (folder `endgames/`); judged by Syzygy TB (≤7 pieces) with Stockfish fallback. Mistakes logged into a dedicated learning base (see §3.8). |
 | **Tools** | Create/update learning bases, import PGN/Chess.com games, Setup. |
 | **Quit** | Exit the program (also with **`Q`** or by closing the window). |
 
@@ -251,8 +251,8 @@ Flow:
    the move you played in UCI, `severity=100`). Immediately drillable from
    *Solve positions* by picking that base.
 
-If you press **K** without having played a move yet, you'll see *"Gioca prima
-la mossa corretta"* and nothing is saved.
+If you press **K** without having played a move yet, you'll see *"Play the
+correct move first"* and nothing is saved.
 
 #### Sub-mode: Position statistics vs reference DB (key **Y** or *DB* button)
 > **"How did I play this position the times I had it?"** — the most powerful
@@ -260,16 +260,16 @@ la mossa corretta"* and nothing is saved.
 > occurs in a reference PGN (your Chess.com/lichess games, or any PGN book),
 > with the final result and statistics for each continuation played.
 
-Setup: **Tools → Setup → "Choose reference DB (le mie partite)"** opens a file
+Setup: **Tools → Setup → "Choose reference DB (my games)"** opens a file
 selector for the PGN (can live in `pgn/`, `endgames/`, anywhere). The full
 path is stored in `config.reference_db`.
 
 Press **Y** on the current position → a side panel appears (to the right of
 the board; the board stays visible) showing:
-- **Trovata N volte** — how many times the same position (zobrist hash) occurs
+- **Found N times** — how many times the same position (zobrist hash) occurs
   in the DB.
 - **W X (Y%) D X (Y%) L X (Y%)** — from White's POV (classic DB convention).
-- **Continuazioni** — for each next move observed in the DB:
+- **Continuations** — for each next move observed in the DB:
   `SAN  count  (W/D/L)`, sorted by descending frequency.
 
 Real example on a 12k-game DB: from the starting position the program tells
@@ -284,7 +284,7 @@ the DB. The index is serialised to disk next to the PGN as `<pgn>.idx`
 (binary pickle, ~20 MB for 12k games) and automatically reloaded on startup
 during the splash screen:
 - **First start after picking the DB**: build from PGN, ~10-15s for 40k
-  games. Writes the `.idx`. Splash shows "Indicizzo N partite..." updated
+  games. Writes the `.idx`. Splash shows "Indexing N games..." updated
   every 50 games.
 - **Subsequent starts**: load the `.idx` from disk, ~1-3s.
 - **PGN changes** (incremental download, manual edit): `mtime`/`size` no
@@ -361,7 +361,7 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
 > break-probability per user turn, the distribution was geometric: ~33% on the
 > 1st move, ~0.2% on the 16th).
 
-**Mistake persistence.** Just like *Allena finali*, every mistake during a
+**Mistake persistence.** Just like *Endgame training*, every mistake during a
 Study openings session is logged into a dedicated learning base
 `openings_<filename>` in `data/`. Drillable from *Solve positions* (the base
 appears in the dropdown). Correct moves on already-tracked positions update
@@ -403,7 +403,7 @@ builds/updates a focused base `<user>_<ECO>` (preset openings/Balanced,
 The focused bases persist, so later sessions resume directly from *Solve
 positions*.
 
-### 3.8 Allena finali (Train endgames)
+### 3.8 Endgame training
 > **Solve endgames under tablebase judgment.** You load a PGN of endgame
 > studies (folder `endgames/`); the program picks a random game from it and
 > uses the game's starting position as the endgame to solve. The PGN's
@@ -434,9 +434,9 @@ Gameplay loop:
      any "+2-preserving move that progresses". Correctly tolerates *near-zeroing*
      cases where the optimal has `dtz_a == dtz_b` (e.g. KQ vs KP at the last
      ply, forced mate via the black pawn's compulsory promotion); error
-     message: *"non ottima: DTZ X→Y (ottima raggiungibile = Z)"*.
+     message: *"not optimal: DTZ X→Y (optimal reachable = Z)"*.
   5. Out of TB range: Stockfish eval comparison; drop > 100 cp → mistake.
-- **Mistake** → the move is NOT applied, "Mossa errata: \<reason\>" flashes for
+- **Mistake** → the move is NOT applied, "Wrong move: \<reason\>" flashes for
   2.5s, you retry from the same position.
 - The opponent plays **TB-optimal** when in range (maximizes DTZ when losing,
   minimizes when winning), otherwise Stockfish.
@@ -492,11 +492,11 @@ During a game (Play against computer / between humans) the following controls ap
 > hover overrides the keyboard selection only when the mouse actually moves,
 > so `↓↓↓ Enter` is always reliable.
 
-> In the study modes (Solve positions / BrainMaster / Study openings / Allena
-> finali) the controls are similar but solution-oriented: **Q** quit, **C/G**
+> In the study modes (Solve positions / BrainMaster / Study openings / Endgame
+> training) the controls are similar but solution-oriented: **Q** quit, **C/G**
 > copy, **E/B/D** panels, **+** show a few more moves (hint), **H** reveal the
 > solution / the correct move (in Study openings = next move from the mainline;
-> in Allena finali = TB-optimal move).
+> in Endgame training = TB-optimal move).
 
 > **Interrupting the TTS comment read-aloud.** When the program is reading a
 > move's comment aloud, **any key press or mouse click stops the speech** and
@@ -509,9 +509,9 @@ During a game (Play against computer / between humans) the following controls ap
 
 > **What am I training?** During a *Solve positions*, *Study openings* or
 > *BrainMaster lessons* session, a label in **cyan** at the top of the move log
-> shows the current context — `Allenando: <base_name>`, `Apertura: <file> (White/Black)`,
+> shows the current context — `Training: <base_name>`, `Opening: <file> (White/Black)`,
 > or `BrainMaster: <id_course>`. The same information appears in the **window
-> caption** (`Chess trainer — Allenando: ...`).
+> caption** (`Chess trainer — Training: ...`).
 
 ---
 
@@ -594,7 +594,7 @@ is not clickable for piece moves: you navigate from the panel.
 | **Unroll PGN file** | Turn a PGN into a set of **positions** inside a learning base. |
 | **Unroll PGN file as lesson** | Same, but as a **lesson** (for review / BrainMaster). |
 | **Create Course for BrainMaster** | Register a learning base as a BrainMaster **course** *(if `base_url` is configured)*. |
-| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Choose reference DB (le mie partite)** (PGN used for position statistics, see §3.3), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
+| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Choose reference DB (my games)** (PGN used for position statistics, see §3.3), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
 
 **TTS configuration via `config.json` (advanced)**: in addition to the slider in
 Setup, you can force a specific voice with `"tts_voice": "<substring>"` (e.g.
@@ -633,7 +633,7 @@ substring.
 |--------|----------|
 | `data/` | Learning bases (`base_<name>.json` + `<name>.csv`) |
 | `pgn/` | Saved games and imported PGN files |
-| `endgames/` | PGN endgame studies for *Allena finali* (one study per game, with `[FEN]` header) |
+| `endgames/` | PGN endgame studies for *Endgame training* (one study per game, with `[FEN]` header) |
 | `engines/` | UCI engines (e.g. Stockfish) |
 | `books/` | Polyglot opening books (`.bin`) |
 
