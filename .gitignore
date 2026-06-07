@@ -2,6 +2,7 @@
 
 # Temporary files including undo
 *~
+.DS_Store
 #
 __pycache__/
 *.pyc
