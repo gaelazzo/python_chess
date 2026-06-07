@@ -63,7 +63,11 @@ def load_game(gs:GameState):
         app.delay(2 )
         return
 
-    gameList = pgngamelist.PgnGameList(positionParameters["filename"])
+    # Honor the folder chosen in the file selector (e.g. openings/ or endgames/);
+    # without it the list would always be read from pgn/ and look empty for a
+    # file picked elsewhere (mirror of save_game).
+    folder = positionParameters.get("filename_folder") or None
+    gameList = pgngamelist.PgnGameList(positionParameters["filename"], folder=folder)
     total_games = len(gameList.games)
     games_per_page = 10
     current_page = 0
