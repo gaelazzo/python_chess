@@ -59,7 +59,7 @@ Avvia il programma con:
 python chessMain.py
 ```
 
-Oppure da **VS Code**: apri la cartella e premi **F5** (la config "Avvia Chess" è inclusa in `.vscode/launch.json` e parte già con la cwd corretta).
+Oppure da **VS Code**: apri la cartella e premi **F5** (la config "Run Chess" è inclusa in `.vscode/launch.json` e parte già con la cwd corretta).
 
 Per funzionare al meglio servono (configurabili da **Tools → Setup**, vedi §8):
 - un **motore UCI** (es. Stockfish) nella cartella `engines/` — usato per l'analisi e per il gioco contro il computer;

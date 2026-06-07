@@ -69,7 +69,7 @@ pip install -r requirements.txt
 Tre modi equivalenti:
 - doppio clic su **`run chess.bat`** (attiva `env` e lancia il programma);
 - da terminale con l'env attivo: **`python chessMain.py`**;
-- da **VS Code**: apri la cartella e premi **F5** (config *"Avvia Chess"* già
+- da **VS Code**: apri la cartella e premi **F5** (config *"Run Chess"* già
   inclusa in `.vscode/launch.json`).
 
 ---

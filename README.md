@@ -59,7 +59,7 @@ Launch the program with:
 python chessMain.py
 ```
 
-Or from **VS Code**: open the folder and press **F5** (the "Avvia Chess" launch config is included in `.vscode/launch.json` with the correct cwd).
+Or from **VS Code**: open the folder and press **F5** (the "Run Chess" launch config is included in `.vscode/launch.json` with the correct cwd).
 
 For full functionality you'll want (configurable via **Tools → Setup**, see §8):
 - a **UCI engine** (e.g. Stockfish) in the `engines/` folder — used for analysis and for playing against the computer;
