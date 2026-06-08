@@ -180,7 +180,13 @@ def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start
     """`eco` (e.g. "B01"): if not None, filters to only the games with that ECO header."""
     pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco)
     pg.analyzeDataBase(start_from,skip_player, progress=progress)
-    
+
+
+def _same_player(header_name: Optional[str], player: Optional[str]) -> bool:
+    """Case-insensitive player-name match: chess.com and lichess handles are
+    case-insensitive, so the [White]/[Black] headers must be compared ignoring
+    case (otherwise the Study Advisor ranking finds games the base build misses)."""
+    return (header_name or "").lower() == (player or "").lower()
 
 
 class PgnAnalyzer:
@@ -226,9 +232,9 @@ class PgnAnalyzer:
                     game, colorToAnalyze = self.loadNextGame()      
                     assert (game is not None)          
                     n_games+=1
-                    if game.headers["White"]== skip_player:
+                    if _same_player(game.headers.get("White"), skip_player):
                         break
-                    if game.headers["Black"]== skip_player:
+                    if _same_player(game.headers.get("Black"), skip_player):
                         break
 
         while True:
@@ -260,9 +266,9 @@ class PgnAnalyzer:
                     continue
             if self.player is None:
                 return game, True
-            if game.headers["White"] == self.player:
+            if _same_player(game.headers.get("White"), self.player):
                 return game, True
-            if game.headers["Black"] == self.player:
+            if _same_player(game.headers.get("Black"), self.player):
                 return game, False
 
     def getPositionEvaluation(self, board:chess.Board, colorSide:bool)->Tuple[int,Optional[str]]:

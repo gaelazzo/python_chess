@@ -74,6 +74,25 @@ def _user_outcome(result: str, user_color: str) -> Optional[str]:
     return None
 
 
+def _parse_nicks(s: Optional[str]) -> List[str]:
+    """User nicknames from a comma/semicolon-separated string (original case kept).
+    Lets a player whose games span sites (e.g. different lichess and chess.com
+    handles) match games played under any of their nicks."""
+    s = (s or "").replace(";", ",")
+    return [n for n in (part.strip() for part in s.split(",")) if n]
+
+
+def _user_color(white: Optional[str], black: Optional[str], nicks_lower) -> Optional[str]:
+    """'w' if White is one of the user's nicks, 'b' if Black, else None.
+    `nicks_lower` is a set/collection of lowercased nicks; the match is
+    case-insensitive."""
+    if (white or "").lower() in nicks_lower:
+        return "w"
+    if (black or "").lower() in nicks_lower:
+        return "b"
+    return None
+
+
 def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOStat]:
     """Scans only the PGN headers and aggregates by ECO.
 
@@ -83,7 +102,7 @@ def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOS
         color: 'w' / 'b' / None (both). Filters to games where the user
             played with the specified color.
     """
-    username_lower = (username or "").lower()
+    nicks_lower = {n.lower() for n in _parse_nicks(username)}
     by_eco = defaultdict(lambda: {"games": 0, "wins": 0, "draws": 0, "losses": 0})
 
     with open(pgn_path, encoding="utf-8", errors="replace") as fh:
@@ -95,14 +114,9 @@ def analyze_pgn(pgn_path: str, username: str, color: Optional[str]) -> List[ECOS
             if headers is None:
                 break
 
-            white = (headers.get("White") or "").lower()
-            black = (headers.get("Black") or "").lower()
-            if white == username_lower:
-                user_color = "w"
-            elif black == username_lower:
-                user_color = "b"
-            else:
-                continue   # the user was not in this game
+            user_color = _user_color(headers.get("White"), headers.get("Black"), nicks_lower)
+            if user_color is None:
+                continue   # none of the user's nicks were in this game
 
             if color is not None and user_color != color:
                 continue
@@ -137,7 +151,8 @@ def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
         theme=pygame_menu.themes.THEME_BLUE,
         title="Suggestion for study",
     )
-    user_w = menu.add.text_input("User: ", default=positionParameters.get("player") or "")
+    user_w = menu.add.text_input("User(s): ", default=positionParameters.get("player") or "")
+    menu.add.label("(several nicks: separate with , or ;)", font_size=14)
     color_w = menu.add.selector(
         "Color: ",
         [("Both", None), ("White", "w"), ("Black", "b")],
@@ -345,7 +360,7 @@ def _count_games_with_eco(pgn_path: str, username: str, eco: str,
     """Counts the games that satisfy the filter (for the N/M denominator)."""
     n = 0
     target = eco.upper()
-    username_lower = (username or "").lower()
+    nicks_lower = {nk.lower() for nk in _parse_nicks(username)}
     with open(pgn_path, encoding="utf-8", errors="replace") as fh:
         while True:
             try:
@@ -356,13 +371,8 @@ def _count_games_with_eco(pgn_path: str, username: str, eco: str,
                 break
             if (h.get("ECO") or "").strip().upper() != target:
                 continue
-            w = (h.get("White") or "").lower()
-            b = (h.get("Black") or "").lower()
-            if w == username_lower:
-                user_color = "w"
-            elif b == username_lower:
-                user_color = "b"
-            else:
+            user_color = _user_color(h.get("White"), h.get("Black"), nicks_lower)
+            if user_color is None:
                 continue
             if color is not None and user_color != color:
                 continue
@@ -375,7 +385,8 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
     """Analyzes only the games with the given ECO, builds/updates a dedicated
     base and immediately proposes practice via solvePositionsFromBase."""
     # preset openings/Balanced (same as the wizard)
-    base_name = f"{user}_{eco}"
+    nicks = _parse_nicks(user)
+    base_name = f"{'-'.join(nicks)}_{eco}" if len(nicks) > 1 else f"{user}_{eco}"
     moves_to_analyze = 16
     blunder_value = 80
     ponder_time = 0.5
@@ -393,19 +404,25 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
         lb.ponderTime = ponder_time
         lb.useBook = use_book
 
-    total = _count_games_with_eco(pgn_path, user, eco, color)
+    # analyzePgn matches one name (case-insensitively), so we run it once per nick
+    # into the same base -- a player's games may span sites under different handles.
+    # Per-nick counts keep the progress bar monotonic across nicks.
+    totals = [_count_games_with_eco(pgn_path, nk, eco, color) for nk in nicks]
+    total = sum(totals)
     if total == 0:
         _message(f"No {eco} games for '{user}' in the PGN.")
         return
 
-    def progress_cb(n):
-        app.main_background()
-        BS.drawEndGameText(app.screen, None, f"{eco}: analyzing {n}/{total}", size=24)
-        p.event.pump()
-
     # analyzePgn expects the name relative to PGN_FOLDER
     pgn_name = os.path.basename(pgn_path)
-    analyzer.analyzePgn(pgn_name, user, lb, progress=progress_cb, eco=eco)
+    done = 0
+    for nick, nick_total in zip(nicks, totals):
+        def progress_cb(n, base=done):
+            app.main_background()
+            BS.drawEndGameText(app.screen, None, f"{eco}: analyzing {base + n}/{total}", size=24)
+            p.event.pump()
+        analyzer.analyzePgn(pgn_name, nick, lb, progress=progress_cb, eco=eco)
+        done += nick_total
     lb.save()
 
     if not lb.positions:
