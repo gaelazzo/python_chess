@@ -15,6 +15,7 @@ import state
 from state import playParameters, positionParameters, CIRCLE_COLOR
 from config import config
 from GameState import Move, GameState
+from modes.board_session import BoardSession, ModePolicy
 import UCIEngines
 import BoardScreen as BS
 from toolbar import Toolbar, ToolbarAction
@@ -194,6 +195,12 @@ def solvePositionsFromBase(learningBase:LearningBase):
             gs.setPgn(_seed)
             moves = []  # already at the position, nothing to replay
         gs.setHeader(header)
+
+        # Free-play board core (same as play_game): the base ModePolicy is inert
+        # (no judging, no auto-flip) -- this mode owns the rules (stats/judging in
+        # the loop). The session SHARES this gs, so clicks mutate the same object.
+        session = BoardSession(ModePolicy(), gs=gs)
+
         #gs.setFen(pos["fen"])
         #BS.setWhiteUp(app.screen, not gs.whiteToMove())
         BS.setWhiteUp(app.screen, fen[1] == "b")
@@ -297,45 +304,19 @@ def solvePositionsFromBase(learningBase:LearningBase):
                     break
                 elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
                     row, col = BS.getRowColFromLocation(p.mouse.get_pos())
-
-                    if sqSelected == (row, col) or col >= 8 or row>=8: # user clicked same square or in move log
-                        sqSelected = ()
-                        playerClicks = []
-                    else:
-                        sqSelected = (row, col)
-                        playerClicks.append(sqSelected)
-
-                    if len(playerClicks) == 2:
-                        # do the move if two squares has been selected and the move is valid
-                        move = Move(playerClicks[0], playerClicks[1], gs)
-                        
-                        if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
-                            validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
-                                               m.startCol == playerClicks[0][1] and
-                                               m.stopRow == playerClicks[1][0] and
-                                               m.stopCol == playerClicks[1][1]
-                                               ]
-
-                            if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
-                                move = move.promoteToPiece(piece)
-
-                        validMove:Optional[Move] = move if move in validMoves else None
-                        if validMove is not None:
-                            # the move is valid so make it on the board
-                            gs.makeMove(validMove)
-                            moveMade = True
-                            animate = True
-                            validMoves = gs.stdValidMoves() #evaluate the new list of valid moves
-                            sqSelected = ()
-                            playerClicks = []
-                            updateStats = True
-                        else:
-                            sqSelected = (row, col)
-                            playerClicks = [sqSelected]
-                    if len(playerClicks) == 1 and gs.colorAt(row, col) != gs.colorToMove():
-                        sqSelected = ()
-                        playerClicks = []
+                    # Click -> move delegated to the BoardSession (free play, like
+                    # play_game): same selection + promotion handling from the tested
+                    # core. The selection is mirrored back for the renderer; this
+                    # mode's own judging (updateStats) then runs on the move made.
+                    moved = session.click(row, col,
+                                          ask_promotion=lambda color: BS.choosePromotion(app.screen, color))
+                    sqSelected = session.selected if session.selected is not None else ()
+                    playerClicks = [session.selected] if session.selected is not None else []
+                    validMoves = session.validMoves
+                    if moved is not None:
+                        moveMade = True
+                        animate = True
+                        updateStats = True
 
                 elif e.type == p.KEYDOWN:
 

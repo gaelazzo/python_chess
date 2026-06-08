@@ -7,7 +7,7 @@ analysis vs solve-the-position) share ONE core and differ only in a small policy
 import chess
 
 from GameState import Move
-from modes.board_session import BoardSession, AnalysisPolicy, SolvePolicy
+from modes.board_session import BoardSession, AnalysisPolicy, SolvePolicy, ModePolicy
 
 _R = Move.ranksToRows
 _C = Move.filesToCols
@@ -135,6 +135,18 @@ def test_unlocked_orientation_follows_side_to_move_despite_flips():
     assert s.view_model().white_up is True               # the flip is transient...
     s.click(*sq("e7")); s.click(*sq("e5"))               # White to move
     assert s.view_model().white_up is False              # ...orientation tracks side to move
+
+
+def test_base_policy_is_an_inert_free_play_core():
+    """The 'dumb' core that free modes (e.g. replay) drive: clicks build the game,
+    but the base policy adds no judging and no auto-orientation -- the mode owns
+    those in its own loop."""
+    s = BoardSession(ModePolicy())
+    s.click(*sq("e2")); moved = s.click(*sq("e4"))
+    assert moved is not None and "e4" in s.view_model().notation
+    assert s.view_model().white_up is False          # inert policy -> no reorient
+    s.click(*sq("d7")); s.click(*sq("d5"))            # any legal move is just applied
+    assert "d5" in s.view_model().notation
 
 
 def test_new_game_resets_to_the_initial_position():
