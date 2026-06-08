@@ -158,16 +158,19 @@ the wizard automates the steps that Recipes A/B do by hand.*
 
 ## 2. The main menu
 
+The items are grouped: the play/practice modes first, then the tools that
+analyse your own games, then utilities.
+
 | Item | What it does |
 |------|--------------|
-| **Improve from your games** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
-| **Suggestion for study** | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
+| **Analysis / Human Play** | Two human players on the same board. Also the **analysis mode** (variations + annotations) and the *HQ* for position setup, save-as-tactic, and position statistics vs your reference DB (see §3.3). |
 | **Play against computer** | Play a game against the engine. |
-| **Analisi / Human Play** | Two human players on the same board. Also the **analysis mode** (variations + annotations) and the *HQ* for position setup, save-as-tactic, and position statistics vs your reference DB (see §3.3). |
 | **Solve positions** | Review the positions (mistakes) stored in a *learning base*. |
-| **BrainMaster lessons** | Lessons driven by the BrainMaster service *(shown only if `base_url` is configured)*. |
 | **Study openings** | Practise on "model" games: you must find the best move yourself. |
 | **Endgame training** | Solve endgame studies from a PGN (folder `endgames/`); judged by Syzygy TB (≤7 pieces) with Stockfish fallback. Mistakes logged into a dedicated learning base (see §3.8). |
+| **BrainMaster lessons** | Lessons driven by the BrainMaster service *(shown only if `base_url` is configured)*. |
+| **Improve from your games** | Guided wizard: download your Chess.com games → find mistakes (tactics/openings) → jump straight into local practice. The fastest way to train on your own mistakes (see §3.1). |
+| **Suggestion for study** | Analyses one of your PGN files (Chess.com / lichess download) and proposes a "study urgency" ranking by ECO code. Click a row → focused engine analysis of that single opening + focused practice (see §3.7). |
 | **Tools** | Create/update learning bases, import PGN/Chess.com games, Setup. |
 | **Quit** | Exit the program (also with **`Q`** or by closing the window). |
 
@@ -378,7 +381,10 @@ you've closed them all.
 > thousands of games.
 
 Parameters:
-- **User** — your username (as it appears in `[White]`/`[Black]` of the PGN).
+- **User(s)** — your username (as it appears in `[White]`/`[Black]` of the PGN).
+  You can enter **several nicks separated by `,` or `;`** (e.g. your lichess and
+  Chess.com handles, with a single merged PGN); games under any of them are
+  aggregated. The match is **case-insensitive** — like the usernames on those sites.
 - **Colour** — *Both* / *White* / *Black*: filter games by the colour you played.
 - **Choose PGN file** — the file to reason on (typically the Chess.com or lichess
   download; the same file can hold games from both sources — see §8).
@@ -398,7 +404,8 @@ Row colour code:
 A **yellow bar** on row #1 marks the top-priority opening.
 
 **Click a row** → the advisor runs the engine on the games with that ECO only,
-builds/updates a focused base `<user>_<ECO>` (preset openings/Balanced,
+builds/updates a focused base `<user>_<ECO>` (or `<nick1-nick2>_<ECO>` for several
+nicks; preset openings/Balanced,
 `useBook=True`), and drops you straight into *Solve positions* on that base.
 The focused bases persist, so later sessions resume directly from *Solve
 positions*.
@@ -511,7 +518,7 @@ During a game (Play against computer / between humans) the following controls ap
 > *BrainMaster lessons* session, a label in **cyan** at the top of the move log
 > shows the current context — `Training: <base_name>`, `Opening: <file> (White/Black)`,
 > or `BrainMaster: <id_course>`. The same information appears in the **window
-> caption** (`Chess trainer — Training: ...`).
+> caption** (`Hires Chess Trainer -- Training: ...`).
 
 ---
 
@@ -761,10 +768,13 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by all modes |
 | `syzygy_helper.py` | Opens the Syzygy TB from `config.engine_options.SyzygyPath`; exposes `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Diagnostic scripts: TB file integrity + check that Stockfish actually sees them (`tbhits`) |
-| `position_setup.py` | Visual position editor (piece palette + Paste FEN), modal sub-mode invoked from Analisi / Human Play (see §3.3) |
+| `position_setup.py` | Visual position editor (piece palette + Paste FEN), modal sub-mode invoked from Analysis / Human Play (see §3.3) |
 | `add_to_base.py` | Base-picker menu + saves "current position + last move played" as a `LearnPosition` (manual tactic workflow, see §3.3) |
 | `position_stats.py` | Indexes a reference PGN for constant-time queries `zobrist → [(result, next_uci)]`; 3-level cache (RAM / disk `<pgn>.idx` / rebuild); used by key Y in Analisi (see §3.3) |
-| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
+| `modes/` | The game modes: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor`. The board-play modes drive the board through the shared `BoardSession` controller |
+| `modes/board_session.py` | Shared **headless controller** (`BoardSession` + a per-mode `ModePolicy`): every mode's board interaction goes through it (`click` / `pick` / `do` / `next_move`) and is queried via `view_model()`. No pygame — so the game logic is driven and asserted in tests without a display |
+| `modes/commands.py`, `modes/pygame_input.py` | **Input port**: a `Command` stream consumed by `BoardSession.apply()`, fed by a `ScriptedInput` (tests) or `PygameInput` (mouse/keyboard) — same path for both |
+| `panels/` | Side-panel **view layer** (book / engine / pgn): each renders from a plain data slice (a list of strings), decoupled from `GameState` |
 | `GameState.py` | Game state, PGN tree, moves, annotations. Also hosts the `Voce` class (persistent TTS worker thread; voice/rate set directly on the SAPI5 COM object) |
 | `BoardScreen.py` | Board and panel rendering |
 | `UCIEngines.py`, `book.py` | UCI engine (single-thread polling: `start_analysis` + `poll()` per frame, no dedicated analysis worker) and opening book |

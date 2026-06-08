@@ -159,16 +159,19 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 
 ## 2. Il menu principale
 
+Le voci sono raggruppate: prima le modalità di gioco/allenamento, poi gli
+strumenti che analizzano le tue partite, infine le utility.
+
 | Voce | Cosa fa |
 |------|---------|
+| **Analysis / Human Play** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (varianti + annotazioni) ed è il *quartier generale* per posizione setup, salva-tattica, statistiche posizione vs DB di riferimento (vedi §3.3). |
+| **Play against computer** | Gioca una partita contro il motore. |
+| **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
+| **Study openings** | Esercitati su partite "modello": devi trovare tu la mossa migliore. |
+| **Endgame training** | Risolvi finali da un PGN di studi (cartella `endgames/`); giudice TB Syzygy (≤7 pezzi) con fallback Stockfish, errori loggati in una learning base dedicata (vedi §3.8). |
+| **BrainMaster lessons** | Lezioni guidate dal servizio BrainMaster *(appare solo se hai configurato `base_url`)*. |
 | **Improve from your games** | Wizard guidato: scarica le tue partite Chess.com → trova errori (tattica/aperture) → propone subito la pratica locale. La via più rapida per allenare i propri errori (vedi §3.1). |
 | **Suggestion for study** | Analizza un tuo file PGN (download da Chess.com/lichess) e propone un ranking di "urgenza di studio" per codice ECO. Click su una riga → analisi mirata di quella sola apertura + pratica focused (vedi §3.7). |
-| **Gioca contro il computer** | Gioca una partita contro il motore. |
-| **Analisi / Human Play** | Due giocatori umani sulla stessa scacchiera. È anche la **modalità di analisi** (varianti + annotazioni) ed è il *quartier generale* per posizione setup, salva-tattica, statistiche posizione vs DB di riferimento (vedi §3.3). |
-| **Solve positions** | Ripassa le posizioni (errori) salvate in una *learning base*. |
-| **BrainMaster lessons** | Lezioni guidate dal servizio BrainMaster *(appare solo se hai configurato `base_url`)*. |
-| **Study openings** | Esercitati su partite "modello": devi trovare tu la mossa migliore. |
-| **Allena finali** | Risolvi finali da un PGN di studi (cartella `endgames/`); giudice TB Syzygy (≤7 pezzi) con fallback Stockfish, errori loggati in una learning base dedicata (vedi §3.8). |
 | **Tools** | Creazione/aggiornamento di learning base, import PGN/Chess.com, Setup. |
 | **Quit** | Esce dal programma (anche premendo **`Q`** o chiudendo la finestra). |
 
@@ -385,7 +388,10 @@ le hai chiuse.
 > anche su file da migliaia di partite.
 
 Parametri:
-- **Utente** — il tuo username (come compare in `[White]`/`[Black]` del PGN).
+- **Utente/i** — il tuo username (come compare in `[White]`/`[Black]` del PGN).
+  Puoi inserire **più nick separati da `,` o `;`** (es. i tuoi handle lichess e
+  Chess.com, con un unico PGN unito); le partite sotto uno qualsiasi vengono
+  aggregate. Il match è **case-insensitive** — come gli username su quei siti.
 - **Colore** — *Entrambi* / *Bianco* / *Nero*: filtra le partite per il colore che hai
   giocato.
 - **Choose PGN file** — il file su cui ragionare (tipicamente il download Chess.com o
@@ -406,7 +412,8 @@ Codice colore delle righe:
 Una **barretta gialla** sulla riga #1 segnala l'apertura con priorità massima.
 
 **Click su una riga** → l'advisor analizza con il motore le sole partite con quel
-codice ECO, costruisce/aggiorna una base mirata `<utente>_<ECO>` (preset
+codice ECO, costruisce/aggiorna una base mirata `<utente>_<ECO>` (o
+`<nick1-nick2>_<ECO>` per più nick; preset
 openings/Balanced, `useBook=True`) e ti porta direttamente in *Solve positions* su
 quella base. Le basi mirate restano persistenti: nelle sessioni successive ti alleni
 direttamente da *Solve positions*.
@@ -518,7 +525,7 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 > *BrainMaster lessons* un'etichetta in **ciano** in cima al move log mostra il contesto
 > corrente — `Allenando: <nome_base>`, `Apertura: <file> (Bianco/Nero)`, o
 > `BrainMaster: <id_course>`. La stessa informazione appare anche nel **caption della
-> finestra** (`Chess trainer — Allenando: ...`).
+> finestra** (`Hires Chess Trainer -- Allenando: ...`).
 
 ---
 
@@ -769,10 +776,13 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da tutti i mode |
 | `syzygy_helper.py` | Apre le TB Syzygy da `config.engine_options.SyzygyPath`, espone `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Script diagnostici: integrità delle TB + verifica che Stockfish le veda davvero (`tbhits`) |
-| `position_setup.py` | Editor visuale di posizione (palette pezzi + Paste FEN), sub-mode modale invocato da Analisi / Human Play (vedi §3.3) |
+| `position_setup.py` | Editor visuale di posizione (palette pezzi + Paste FEN), sub-mode modale invocato da Analysis / Human Play (vedi §3.3) |
 | `add_to_base.py` | Menu di scelta base + salvataggio "posizione corrente + ultima mossa giocata" come `LearnPosition` (workflow tattica manuale, vedi §3.3) |
 | `position_stats.py` | Indicizzazione di un PGN di riferimento per query istantanee `zobrist → [(result, next_uci)]`; 3 livelli di cache (RAM/disco `<pgn>.idx`/rebuild); usato dal tasto Y in Analisi (vedi §3.3) |
-| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor` |
+| `modes/` | Le modalità di gioco: `play_game`, `brainmaster`, `replay`, `openings` (+ `common`), `endgames`, `improve` (wizard), `study_advisor`. Le modalità di gioco pilotano la scacchiera tramite il controller condiviso `BoardSession` |
+| `modes/board_session.py` | **Controller headless** condiviso (`BoardSession` + una `ModePolicy` per-modalità): l'interazione sulla scacchiera di ogni modalità ci passa attraverso (`click` / `pick` / `do` / `next_move`) e si interroga via `view_model()`. Niente pygame — la logica di gioco si pilota e si verifica nei test senza display |
+| `modes/commands.py`, `modes/pygame_input.py` | **Porta di input**: uno stream di `Command` consumato da `BoardSession.apply()`, alimentato da `ScriptedInput` (test) o `PygameInput` (mouse/tastiera) — stessa via per entrambi |
+| `panels/` | **View layer** dei pannelli laterali (book / engine / pgn): ciascuno disegna da una slice di dati (lista di stringhe), disaccoppiato da `GameState` |
 | `GameState.py` | Stato della partita, albero PGN, mosse, annotazioni. Contiene anche la classe `Voce` (TTS worker persistente, voce/rate SAPI5 settati direttamente sul COM object) |
 | `BoardScreen.py` | Disegno della scacchiera e dei pannelli |
 | `UCIEngines.py`, `book.py` | Motore UCI (single-thread polling: `start_analysis` + `poll()` per frame, niente worker dedicato per l'analisi) e libro di aperture |
