@@ -27,6 +27,7 @@ from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 import notation
 from modes.board_session import BoardSession, AnalysisPolicy
+from modes.pygame_input import PygameInput
 from panels import BookPanel, EnginePanel, TextLinesPanel
 
 
@@ -437,6 +438,13 @@ def playAGame():
     )
     engine_panel = EnginePanel()
 
+    # Input port: pygame events -> Commands -> session.apply(), the SAME path a
+    # test drives with a ScriptedInput. The keymap holds only the plain game
+    # commands; richer keys (Right=variation picker, Del/Backspace=confirm, the
+    # modal/engine keys) stay in the bespoke handling below.
+    game_input = PygameInput({p.K_LEFT: "undo", p.K_b: "book", p.K_d: "pgn",
+                              p.K_f: "flip", p.K_a: "analyze"})
+
     def _draw_engine(lines):
         """Engine callback: draw the analysis lines through the EnginePanel.
 
@@ -534,54 +542,50 @@ def playAGame():
                     update = True
                     continue
                 update = True
-                if e.type == p.QUIT:
-                    running = False
-                elif  e.type == p.MOUSEBUTTONDOWN and e.button == 3:
+
+                # Input port: plain game commands, board clicks and window-close go
+                # through the single apply() path -- exactly what a ScriptedInput
+                # drives in a test. Promotion is a callback so the core stays headless;
+                # the selection is mirrored back for the renderer. Everything else
+                # falls through to the bespoke handling below.
+                cmd = game_input.translate(e)
+                if cmd is not None:
+                    if cmd.kind == "quit":
+                        running = False
+                    elif cmd.kind == "click":
+                        if not gameOver and not toolbar.pointer_in_toolbar(e.pos):
+                            moved = session.apply(cmd,
+                                ask_promotion=lambda color: BS.choosePromotion(app.screen, color))
+                            sqSelected = session.selected if session.selected is not None else ()
+                            playerClicks = [session.selected] if session.selected is not None else []
+                            validMoves = session.validMoves
+                            if moved is not None:
+                                moveMade = True
+                                animate = True
+                    else:  # "do": undo / book / pgn / flip / analyze
+                        session.apply(cmd)
+                        if cmd.name == "undo":
+                            validMoves = gs.stdValidMoves()
+                            moveMade = True
+                            animate = False
+                            gameOver = False
+                    continue                          # event consumed by the input port
+
+                if e.type == p.MOUSEBUTTONDOWN and e.button == 3:
                         # Show help when the right button is pressed
                         show_help = True
                 elif e.type == p.MOUSEBUTTONUP and e.button == 3:
                         # Hide help when the right button is released
                         show_help = False
 
-                elif e.type == p.MOUSEBUTTONDOWN  and e.button == 1 and not gameOver:
-                    if toolbar.pointer_in_toolbar(e.pos):
-                        continue                 # click on the toolbar, not on the board
-                    row, col = BS.getRowColFromLocation(p.mouse.get_pos())
-                    update = True
-                    # Click -> move delegated to the BoardSession. Promotion goes
-                    # through a callback (port) so the core stays headless; the
-                    # selection state is mirrored back for the renderer.
-                    moved = session.click(row, col,
-                                          ask_promotion=lambda color: BS.choosePromotion(app.screen, color))
-                    sqSelected = session.selected if session.selected is not None else ()
-                    playerClicks = [session.selected] if session.selected is not None else []
-                    validMoves = session.validMoves
-                    if moved is not None:
-                        moveMade = True
-                        animate = True
-
                 elif e.type == p.KEYDOWN:
                     update = True
-                    if e.key == p.K_LEFT:
-                        session.do("undo")           # delegated to BoardSession
-                        validMoves = gs.stdValidMoves()
-                        moveMade = True
-                        animate = False
-                        gameOver = False
-
                     if e.key == p.K_RIGHT:
                         moved = session.next_move(pick_variation=_variation_picker)
                         if moved is not None:
                             validMoves = session.validMoves
                             moveMade = True
                             animate = False
-
-                    if e.key == p.K_b:
-                        session.do("book")              # visibility owned by the session;
-                        # the book_panel repaints from the view-model in the render path
-
-                    if e.key == p.K_d:
-                        session.do("pgn")               # pgn_panel repaints in the render path
 
                     if e.key == p.K_q:
                         #quit
@@ -620,13 +624,6 @@ def playAGame():
                         app.main_background()
                         continue
 
-                    if e.key == p.K_a:
-                        # Toggle the analysis lock in the policy; the command also
-                        # re-orients immediately when analysis is turned off (else the
-                        # side would only change on the next move). No-op against a CPU.
-                        session.do("analyze")
-                    
-                  
                     if e.key == p.K_c:  # copy to clipboard
                         glc.copy_to_clipboard(gs.board().fen(), "Position copied to clipboard", gs)
                         
@@ -720,13 +717,6 @@ def playAGame():
                                 animate = False
                             app.main_background()
                         continue
-
-                    if e.key == p.K_f:
-                        # Flip the board: do NOT set moveMade=True, otherwise the
-                        # "if moveMade" block re-orients to the side to move and
-                        # cancels the flip. The flip is a manual override of
-                        # session.white_up (works even in locked analysis mode).
-                        session.do("flip")
 
                     if e.key == p.K_r:
                         gs = session.new_game()    # fresh game, controller stays in sync

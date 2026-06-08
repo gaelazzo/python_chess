@@ -160,6 +160,62 @@ class SolvePolicy(ModePolicy):
                 "attempts": self.attempts, "solved": self.solved, "done": self.done}
 
 
+class TacticsDrillPolicy(ModePolicy):
+    """Find-the-move drill over a SINGLE position with a known correct move.
+
+    Apply-then-judge (same shape as SolvePolicy): the user's move is played, then
+    judged. A wrong move is reverted and counted; the correct one is kept on the
+    board (so the mode can show the continuation) and marks the drill solved. The
+    board is fixed to the user's side. The multi-position scheduling and the
+    learning-base stats stay in the mode, which reads the verdict (`solved`,
+    `last_wrong`) from `view_model().extra` after each move.
+    """
+    name = "tactics"
+
+    def __init__(self, correct_uci: Optional[str] = None, judge=None,
+                 user_white: Optional[bool] = None):
+        # `judge(session) -> bool` decides whether the move just played is correct.
+        # Default: compare the played UCI to `correct_uci`. A mode injects its own
+        # to keep its authority (e.g. one that also records learning-base stats);
+        # it runs while the move is still on the board, before any revert.
+        self.correct_uci = correct_uci
+        self._judge = judge
+        self.attempts = 0
+        self.solved = False
+        self.last_wrong = False
+        self.user_white = user_white      # None -> fix to the side to move at start
+
+    def on_start(self, s):
+        if self.user_white is None:
+            self.user_white = (s.gs.board().turn == chess.WHITE)
+
+    def reorient(self, s):
+        s.white_up = not self.user_white  # board fixed to the user's side
+
+    def _is_correct(self, s) -> bool:
+        if self._judge is not None:
+            return self._judge(s)
+        return s.gs.moveLog[-1].uci == self.correct_uci
+
+    def after_user_move(self, s):
+        if not s.gs.moveLog:
+            return
+        if self._is_correct(s):
+            self.solved = True
+            self.last_wrong = False
+            s.message = "Right"
+        else:
+            self.attempts += 1
+            self.last_wrong = True
+            s.gs.undoMove()               # revert the wrong move, retry the position
+            s.refresh()
+            s.message = "Not the right move"
+
+    def extra_view(self, s):
+        return {"mode": self.name, "correct": self.correct_uci, "attempts": self.attempts,
+                "solved": self.solved, "wrong": self.last_wrong}
+
+
 # --------------------------------------------------------------------------- #
 # The shared core.
 # --------------------------------------------------------------------------- #
@@ -259,6 +315,22 @@ class BoardSession:
             self.show_pgn = not self.show_pgn
         else:
             self.policy.handle_command(self, cmd)
+
+    def apply(self, command, ask_promotion=None):
+        """Execute one Command, whatever its source (a test, the keyboard or the
+        mouse -- see modes/commands.py). Returns what the underlying action returns
+        (the move for a click, otherwise None). This is the single input entry
+        point; the renderer's single output is `view_model()`.
+        """
+        if command.kind == "click":
+            return self.click(command.row, command.col, ask_promotion)
+        if command.kind == "do":
+            self.do(command.name)
+            return None
+        if command.kind == "quit":
+            self.running = False
+            return None
+        return None
 
     def next_move(self, pick_variation=None):
         """Advance to the next move. With several continuations,

@@ -7,7 +7,9 @@ analysis vs solve-the-position) share ONE core and differ only in a small policy
 import chess
 
 from GameState import Move
-from modes.board_session import BoardSession, AnalysisPolicy, SolvePolicy, ModePolicy
+from modes.board_session import (BoardSession, AnalysisPolicy, SolvePolicy,
+                                  ModePolicy, TacticsDrillPolicy)
+from modes.commands import ScriptedInput, click as cmd_click
 
 _R = Move.ranksToRows
 _C = Move.filesToCols
@@ -253,3 +255,54 @@ def test_solve_board_is_fixed_to_user_side():
     black = BoardSession(SolvePolicy([{"setup": [], "correct": "e2e4"}], user_white=False))
     assert white.view_model().white_up is False
     assert black.view_model().white_up is True
+
+
+# -------- tactics drill policy (replay), driven by a command stream -------- #
+def test_tactics_wrong_move_reverts_and_is_counted():
+    s = BoardSession(TacticsDrillPolicy(correct_uci="e2e4"))
+    for c in ScriptedInput([cmd_click(*sq("d2")), cmd_click(*sq("d4"))]).poll():
+        s.apply(c)                                   # wrong move, via the command path
+    vm = s.view_model()
+    assert vm.extra["attempts"] == 1 and vm.extra["wrong"] is True
+    assert vm.extra["solved"] is False
+    assert s.gs.moveLog == []                        # reverted -> retry the position
+
+
+def test_tactics_correct_move_solves_and_stays_on_board():
+    s = BoardSession(TacticsDrillPolicy(correct_uci="e2e4"))
+    for c in ScriptedInput([cmd_click(*sq("e2")), cmd_click(*sq("e4"))]).poll():
+        s.apply(c)
+    vm = s.view_model()
+    assert vm.extra["solved"] is True
+    assert "e4" in vm.notation                       # correct move kept (show continuation)
+
+
+def test_tactics_wrong_then_correct():
+    s = BoardSession(TacticsDrillPolicy(correct_uci="e2e4"))
+    script = [cmd_click(*sq("d2")), cmd_click(*sq("d4")),   # wrong -> reverted
+              cmd_click(*sq("e2")), cmd_click(*sq("e4"))]     # correct -> solved
+    for c in ScriptedInput(script).poll():
+        s.apply(c)
+    vm = s.view_model()
+    assert vm.extra["attempts"] == 1 and vm.extra["solved"] is True
+
+
+def test_tactics_board_fixed_to_user_side():
+    s = BoardSession(TacticsDrillPolicy(correct_uci="e2e4"))   # startpos: White to move
+    assert s.view_model().white_up is False          # user is White -> White at the bottom
+
+
+def test_tactics_uses_an_injected_judge_while_move_is_on_board():
+    """A mode (e.g. replay) injects its own authority -- run with the move still on
+    the board (so it can record stats), before any revert."""
+    seen = {}
+
+    def judge(s):
+        seen["on_board"] = bool(s.gs.moveLog)        # called before the revert
+        return s.gs.moveLog[-1].uci == "d2d4"        # custom notion of "correct"
+
+    s = BoardSession(TacticsDrillPolicy(judge=judge))
+    for c in ScriptedInput([cmd_click(*sq("d2")), cmd_click(*sq("d4"))]).poll():
+        s.apply(c)
+    assert seen["on_board"] is True
+    assert s.view_model().extra["solved"] is True    # the injected judge accepted d2d4
