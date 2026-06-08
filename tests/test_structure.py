@@ -19,6 +19,12 @@ MODULES = [
     "save_load", "learningbase_admin", "notation", "chessMain",
     "modes.common", "modes.play_game", "modes.brainmaster",
     "modes.replay", "modes.openings",
+    # broader coverage
+    "modes.endgames", "modes.study_advisor", "modes.improve",
+    "UCIEngines", "BoardScreen", "GameState", "LearningBase",
+    "position_setup", "position_stats", "syzygy_helper", "pgngamelist",
+    "toolbar", "analyzer", "book", "Quiz", "move_speech", "json_helper",
+    "add_to_base", "chess_com_download", "lichess_download", "BrainMaster",
 ]
 
 
@@ -41,6 +47,8 @@ def _undefined_names(path: Path):
             defined.add(n.name)
         elif isinstance(n, ast.arg):
             defined.add(n.arg)
+        elif isinstance(n, ast.ExceptHandler) and n.name:
+            defined.add(n.name)            # `except X as e:` binds e
         elif isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store):
             defined.add(n.id)
         elif isinstance(n, (ast.Global, ast.Nonlocal)):

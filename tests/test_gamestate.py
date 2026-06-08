@@ -98,3 +98,28 @@ def test_make_next_move_weighted_by_leaf_count(monkeypatch):
     monkeypatch.setattr(random, "choices", fake_choices)
     gs.makeNextMove()
     assert captured["weights"] == [3, 2]            # leaves of e4, d4
+
+
+def test_truncate_after_current_removes_continuations():
+    gs = _game(["e2e4", "e7e5", "g1f3"])
+    gs.undoMove()                          # back to after e5; Nf3 is a child
+    assert gs.node.variations              # there is a continuation
+    assert gs.truncateAfterCurrent() is True
+    assert gs.node.variations == []        # continuations removed
+    assert gs.is_end()
+    assert gs.truncateAfterCurrent() is False   # nothing left to truncate
+
+
+def test_delete_current_variation_steps_back():
+    gs = _game(["e2e4", "e7e5"])
+    assert len(gs.moveLog) == 2
+    assert gs.deleteCurrentVariation() is True   # remove e5, back to after e4
+    assert len(gs.moveLog) == 1
+    assert gs.board().fen().split()[0] == \
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"
+    assert all(v.move.uci() != "e7e5" for v in gs.node.variations)  # e5 gone
+
+
+def test_delete_current_variation_noop_at_root():
+    gs = GameState()
+    assert gs.deleteCurrentVariation() is False
