@@ -163,12 +163,13 @@ class SolvePolicy(ModePolicy):
 class TacticsDrillPolicy(ModePolicy):
     """Find-the-move drill over a SINGLE position with a known correct move.
 
-    Apply-then-judge (same shape as SolvePolicy): the user's move is played, then
-    judged. A wrong move is reverted and counted; the correct one is kept on the
-    board (so the mode can show the continuation) and marks the drill solved. The
-    board is fixed to the user's side. The multi-position scheduling and the
-    learning-base stats stay in the mode, which reads the verdict (`solved`,
-    `last_wrong`) from `view_model().extra` after each move.
+    Judge-only (apply-then-judge): the user's move is played, then judged -- the
+    move is left on the board either way. The mode reads the verdict (`solved`,
+    `last_wrong`, `attempts`) from `view_model().extra` and decides what to do:
+    keep the correct move (show the continuation), or show the mistake then revert
+    it when it chooses (so the mode keeps full control of the timing/UX). The
+    board is fixed to the user's side; the multi-position scheduling and the
+    learning-base stats stay in the mode.
     """
     name = "tactics"
 
@@ -200,6 +201,9 @@ class TacticsDrillPolicy(ModePolicy):
     def after_user_move(self, s):
         if not s.gs.moveLog:
             return
+        # Judge only -- do NOT revert here. The injected judge (if any) runs while
+        # the move is still on the board, so it can record stats; the mode reverts
+        # a wrong move when it wants (e.g. after showing it for a moment).
         if self._is_correct(s):
             self.solved = True
             self.last_wrong = False
@@ -207,8 +211,6 @@ class TacticsDrillPolicy(ModePolicy):
         else:
             self.attempts += 1
             self.last_wrong = True
-            s.gs.undoMove()               # revert the wrong move, retry the position
-            s.refresh()
             s.message = "Not the right move"
 
     def extra_view(self, s):

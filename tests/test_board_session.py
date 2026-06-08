@@ -258,14 +258,14 @@ def test_solve_board_is_fixed_to_user_side():
 
 
 # -------- tactics drill policy (replay), driven by a command stream -------- #
-def test_tactics_wrong_move_reverts_and_is_counted():
+def test_tactics_wrong_move_is_judged_and_left_for_the_mode_to_revert():
     s = BoardSession(TacticsDrillPolicy(correct_uci="e2e4"))
     for c in ScriptedInput([cmd_click(*sq("d2")), cmd_click(*sq("d4"))]).poll():
         s.apply(c)                                   # wrong move, via the command path
     vm = s.view_model()
     assert vm.extra["attempts"] == 1 and vm.extra["wrong"] is True
     assert vm.extra["solved"] is False
-    assert s.gs.moveLog == []                        # reverted -> retry the position
+    assert "d4" in vm.notation                       # judge-only: NOT reverted here
 
 
 def test_tactics_correct_move_solves_and_stays_on_board():
@@ -277,12 +277,12 @@ def test_tactics_correct_move_solves_and_stays_on_board():
     assert "e4" in vm.notation                       # correct move kept (show continuation)
 
 
-def test_tactics_wrong_then_correct():
+def test_tactics_wrong_then_mode_reverts_then_correct():
     s = BoardSession(TacticsDrillPolicy(correct_uci="e2e4"))
-    script = [cmd_click(*sq("d2")), cmd_click(*sq("d4")),   # wrong -> reverted
-              cmd_click(*sq("e2")), cmd_click(*sq("e4"))]     # correct -> solved
-    for c in ScriptedInput(script).poll():
-        s.apply(c)
+    s.apply(cmd_click(*sq("d2"))); s.apply(cmd_click(*sq("d4")))   # wrong, left on board
+    assert s.view_model().extra["wrong"] is True
+    s.do("undo")                                                  # the mode reverts it
+    s.apply(cmd_click(*sq("e2"))); s.apply(cmd_click(*sq("e4")))   # correct
     vm = s.view_model()
     assert vm.extra["attempts"] == 1 and vm.extra["solved"] is True
 

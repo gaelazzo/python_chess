@@ -15,7 +15,7 @@ import state
 from state import playParameters, positionParameters, CIRCLE_COLOR
 from config import config
 from GameState import Move, GameState
-from modes.board_session import BoardSession, ModePolicy
+from modes.board_session import BoardSession, TacticsDrillPolicy
 import UCIEngines
 import BoardScreen as BS
 from toolbar import Toolbar, ToolbarAction
@@ -196,10 +196,15 @@ def solvePositionsFromBase(learningBase:LearningBase):
             moves = []  # already at the position, nothing to replay
         gs.setHeader(header)
 
-        # Free-play board core (same as play_game): the base ModePolicy is inert
-        # (no judging, no auto-flip) -- this mode owns the rules (stats/judging in
-        # the loop). The session SHARES this gs, so clicks mutate the same object.
-        session = BoardSession(ModePolicy(), gs=gs)
+        # Judging core: a TacticsDrillPolicy judges each user move via this mode's
+        # own authority -- updateInfoStats, which also records the learning-base
+        # stats, run while the move is still on the board. It is JUDGE-ONLY: the
+        # move is left on the board, so the loop below keeps full control of the
+        # "show the mistake for a beat, then revert" UX and the spaced repetition.
+        # The session SHARES this gs, so clicks mutate the same object.
+        session = BoardSession(
+            TacticsDrillPolicy(judge=lambda s: AN.updateInfoStats(s.gs.node.board(), learningBase)),
+            gs=gs)
 
         #gs.setFen(pos["fen"])
         #BS.setWhiteUp(app.screen, not gs.whiteToMove())
@@ -387,7 +392,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
                     animate = False
 
                 if updateStats:
-                    if AN.updateInfoStats(gs.node.board(), learningBase):
+                    if not session.policy.last_wrong:   # judged in session.click (stats recorded there)
                         msg = "Right"
 
                         if not isNewPosition:
