@@ -139,6 +139,30 @@ def test_unlocked_orientation_follows_side_to_move_despite_flips():
     assert s.view_model().white_up is False              # ...orientation tracks side to move
 
 
+def test_pick_returns_candidate_without_applying():
+    s = BoardSession(AnalysisPolicy())
+    assert s.pick(*sq("e2")) is None                   # first click selects
+    cand = s.pick(*sq("e4"))                            # completes a legal move
+    assert cand is not None and cand.uci == "e2e4"
+    assert s.gs.moveLog == []                           # NOT applied (validate before play)
+    assert s.selected is None                           # selection cleared after a candidate
+
+
+def test_pick_illegal_move_returns_none():
+    s = BoardSession(AnalysisPolicy())
+    s.pick(*sq("e2"))
+    assert s.pick(*sq("e5")) is None                    # e2-e5 illegal -> no candidate
+    assert s.gs.moveLog == []
+
+
+def test_pick_candidate_can_be_applied_by_the_mode():
+    s = BoardSession(AnalysisPolicy())
+    s.pick(*sq("e2"))
+    cand = s.pick(*sq("e4"))
+    s.gs.makeMove(cand)                                 # the mode accepts and plays it
+    assert "e4" in s.view_model().notation
+
+
 def test_base_policy_is_an_inert_free_play_core():
     """The 'dumb' core that free modes (e.g. replay) drive: clicks build the game,
     but the base policy adds no judging and no auto-orientation -- the mode owns

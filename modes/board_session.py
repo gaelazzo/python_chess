@@ -262,6 +262,22 @@ class BoardSession:
         self._clicks = []
 
     # ---- commands ----
+    def _completed_move(self, ask_promotion):
+        """Build the Move from the two recorded clicks, resolving a promotion via
+        `ask_promotion` (auto-queen when headless). Not checked for legality nor
+        applied -- shared by `click()` (which applies) and `pick()` (which doesn't).
+        """
+        move = Move(self._clicks[0], self._clicks[1], self.gs)
+        (sr, sc), (er, ec) = self._clicks[0], self._clicks[1]
+        if move.pieceMoved[1] == "P" and (er == 0 or er == 7):
+            promotions = [m for m in self.validMoves
+                          if m.startRow == sr and m.startCol == sc
+                          and m.stopRow == er and m.stopCol == ec]
+            if promotions:
+                piece = ask_promotion(move.pieceMoved[0]) if ask_promotion else chess.QUEEN
+                move = move.promoteToPiece(piece)
+        return move
+
     def click(self, row: int, col: int, ask_promotion=None):
         """Board click: select a piece, complete a move, or deselect.
 
@@ -279,14 +295,7 @@ class BoardSession:
         self._clicks.append((row, col))
         moved = None
         if len(self._clicks) == 2:
-            move = Move(self._clicks[0], self._clicks[1], self.gs)
-            if move.pieceMoved[1] == "P" and (row == 0 or row == 7):
-                promotions = [m for m in self.validMoves
-                              if m.startRow == self._clicks[0][0] and m.startCol == self._clicks[0][1]
-                              and m.stopRow == self._clicks[1][0] and m.stopCol == self._clicks[1][1]]
-                if promotions:
-                    piece = ask_promotion(move.pieceMoved[0]) if ask_promotion else chess.QUEEN
-                    move = move.promoteToPiece(piece)
+            move = self._completed_move(ask_promotion)
             if move in self.validMoves:
                 self.gs.makeMove(move)
                 self.refresh()
@@ -305,6 +314,34 @@ class BoardSession:
         if len(self._clicks) == 1 and self.gs.colorAt(row, col) != self.gs.colorToMove():
             self.reset_selection()                     # empty/opponent square -> reject selection
         return moved
+
+    def pick(self, row: int, col: int, ask_promotion=None):
+        """Two-click move selection WITHOUT applying. Returns the legal candidate
+        Move once a move is completed (selection then cleared), else None. Mirrors
+        `click()`'s selection/promotion handling but never calls makeMove -- for
+        modes that judge a move before deciding whether to play it (e.g. endgames:
+        a wrong move is shown and discarded, never pushed). The mode does the
+        makeMove itself once it accepts the candidate.
+        """
+        self.message = None
+        self.validMoves = self.gs.stdValidMoves()
+        if self.selected == (row, col) or col >= 8 or row >= 8:
+            self.reset_selection()
+            return None
+        self.selected = (row, col)
+        self._clicks.append((row, col))
+        candidate = None
+        if len(self._clicks) == 2:
+            move = self._completed_move(ask_promotion)
+            candidate = next((m for m in self.validMoves if m == move), None)
+            if candidate is not None:
+                self.reset_selection()                 # move chosen: the mode judges/applies it
+            else:
+                self.selected = (row, col)             # invalid move: keep the last square selected
+                self._clicks = [(row, col)]
+        if len(self._clicks) == 1 and self.gs.colorAt(row, col) != self.gs.colorToMove():
+            self.reset_selection()                     # empty/opponent square -> reject selection
+        return candidate
 
     def do(self, cmd: Optional[str]):
         if cmd == "undo":

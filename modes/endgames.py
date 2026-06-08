@@ -34,6 +34,7 @@ from app_context import app
 import game_loop_common as glc
 from state import CIRCLE_COLOR
 from GameState import Move, GameState
+from modes.board_session import BoardSession, ModePolicy
 import UCIEngines
 import BoardScreen as BS
 from toolbar import Toolbar, ToolbarAction
@@ -387,6 +388,11 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
     gs.setPgn(game)
     start_board = gs.node.board()
 
+    # Selection core: pick() builds the candidate move WITHOUT applying it, so this
+    # mode can validate (Syzygy/engine) before deciding to play it. ModePolicy is
+    # inert (pick() touches no policy hook); the session SHARES this gs.
+    session = BoardSession(ModePolicy(), gs=gs)
+
     if start_board.is_game_over():
         # Position already terminal: skip.
         return "next"
@@ -502,53 +508,35 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
             elif (e.type == p.MOUSEBUTTONDOWN and humanCanPlay
                   and not toolbar.pointer_in_toolbar(e.pos)):
                 row, col = BS.getRowColFromLocation(p.mouse.get_pos())
-                if sqSelected == (row, col) or col >= 8 or row >= 8:
-                    sqSelected = ()
-                    playerClicks = []
-                else:
-                    sqSelected = (row, col)
-                    playerClicks.append(sqSelected)
-
-                if len(playerClicks) == 2:
-                    move = Move(playerClicks[0], playerClicks[1], gs)
-                    # Promotion
-                    if move.pieceMoved[1] == "P" and (row == 0 or row == 7):
-                        promos = [m for m in validMoves
-                                  if m.startRow == playerClicks[0][0] and m.startCol == playerClicks[0][1]
-                                  and m.stopRow == playerClicks[1][0] and m.stopCol == playerClicks[1][1]]
-                        if promos:
-                            piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
-                            move = move.promoteToPiece(piece)
-                    validMove = next((m for m in validMoves if move == m), None)
-                    if validMove is not None:
-                        # --- Judgment ---
-                        ok, why = _judge_user_move(board, validMove.move)
-                        print(f"[endgames] move {validMove.move.uci()}: {'OK' if ok else 'ERR'} | {why}")
-                        # Logging in learning base: error -> add/update;
-                        # success -> update stats only if already tracked.
-                        _log_user_move_to_base(lb, game, board, validMove.move.uci(), ok)
-                        if ok:
-                            gs.makeMove(validMove)
-                            moveMade = True
-                            animate = True
-                            validMoves = gs.stdValidMoves()
-                        else:
-                            # Implicit take-back: we do NOT push the move, the user can retry.
-                            short = why.split(' (')[0] if why else "error"
-                            # show_message default = font 32: too large for messages >20 chars.
-                            # We use drawEndGameText with a smaller size and a longer delay.
-                            BS.drawEndGameText(app.screen, gs, f"Wrong move: {short}", size=20)
-                            app.delay(2.5)
-                            update = True
-                        sqSelected = ()
-                        playerClicks = []
+                # Selection + promotion via the BoardSession: pick() builds the
+                # candidate move WITHOUT applying it (validate-before-play). The
+                # selection is mirrored back for the renderer; a wrong move, judged
+                # below, is never pushed.
+                validMove = session.pick(row, col,
+                                         ask_promotion=lambda c: BS.choosePromotion(app.screen, c))
+                sqSelected = session.selected if session.selected is not None else ()
+                playerClicks = [session.selected] if session.selected is not None else []
+                validMoves = session.validMoves
+                if validMove is not None:
+                    # --- Judgment ---
+                    ok, why = _judge_user_move(board, validMove.move)
+                    print(f"[endgames] move {validMove.move.uci()}: {'OK' if ok else 'ERR'} | {why}")
+                    # Logging in learning base: error -> add/update;
+                    # success -> update stats only if already tracked.
+                    _log_user_move_to_base(lb, game, board, validMove.move.uci(), ok)
+                    if ok:
+                        gs.makeMove(validMove)
+                        moveMade = True
+                        animate = True
+                        validMoves = gs.stdValidMoves()
                     else:
-                        sqSelected = (row, col)
-                        playerClicks = [sqSelected]
-
-                if len(playerClicks) == 1 and gs.colorAt(row, col) != gs.colorToMove():
-                    sqSelected = ()
-                    playerClicks = []
+                        # Implicit take-back: we do NOT push the move, the user can retry.
+                        short = why.split(' (')[0] if why else "error"
+                        # show_message default = font 32: too large for messages >20 chars.
+                        # We use drawEndGameText with a smaller size and a longer delay.
+                        BS.drawEndGameText(app.screen, gs, f"Wrong move: {short}", size=20)
+                        app.delay(2.5)
+                        update = True
 
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_q:
