@@ -33,6 +33,7 @@ import game_loop_common as glc
 import state
 from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState
+from modes.board_session import BoardSession, ModePolicy
 import UCIEngines
 import BoardScreen as BS
 from toolbar import Toolbar, ToolbarAction
@@ -252,7 +253,12 @@ def playOpeningLine(filename, humanColor):
     while running:
         gs = GameState()
         game = gamelist.chooseRandomGame()
-        gs.setPgn(game)      
+        gs.setPgn(game)
+
+        # Selection core: pick() builds the candidate move WITHOUT applying it, so
+        # this "guess the move" mode judges it (checkNextMove) and only ever plays
+        # the stored canonical move. ModePolicy is inert; the session SHARES this gs.
+        session = BoardSession(ModePolicy(), gs=gs)
 
         if state.play_position:
             # Lead-in Skip: choose uniformly the starting depth among
@@ -353,71 +359,47 @@ def playOpeningLine(filename, humanColor):
                 elif e.type == p.MOUSEBUTTONDOWN and not gameOver and humanCanPlay and not toolbar.pointer_in_toolbar(e.pos):
 
                     row, col = BS.getRowColFromLocation(p.mouse.get_pos())
-
-                    if sqSelected == (row, col) or col >= 8 or row>=8: # user clicked same square or in move log
-                        sqSelected = ()
-                        playerClicks = []
-                    else:
-                        sqSelected = (row, col)
-                        playerClicks.append(sqSelected)
-
-                    if len(playerClicks) == 2:
-                        move = Move(playerClicks[0], playerClicks[1], gs)
-
-                        if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
-                            validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
-                                               m.startCol == playerClicks[0][1] and
-                                               m.stopRow == playerClicks[1][0] and
-                                               m.stopCol == playerClicks[1][1]
-                                               ]
-
-                            if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
-                                move = move.promoteToPiece(piece)
-
-                        # print(move.getChessNotation())
-                        validMove = next((m for m in validMoves if move == m), None)
-                        if validMove is not None:
-                            # Board state BEFORE the move: used for
-                            # learning-base logging (key = Zobrist hash of
-                            # the position where the user made the move).
-                            _board_pre = gs.node.board()
-                            _next_main = gs.getNextMainMove()
-                            _correct_uci = _next_main.uci() if _next_main else None
-                            if gs.checkNextMove(validMove.move):
-                                # Correct move: update stats if the position
-                                # is already in the base (no-op if not tracked).
-                                _log_user_move_to_base(lb, game, _board_pre,
-                                                       validMove.move.uci(),
-                                                       _correct_uci, ok=True)
-                                errors = 0
-                                gs.doNextMainMove()
-                                moveMade = True
-                                animate = True
-                                validMoves = gs.stdValidMoves()
-                                if state.play_position:
-                                    stopCondition=True
-                            else:
-                                # Wrong move: added or updated in the base.
-                                _log_user_move_to_base(lb, game, _board_pre,
-                                                       validMove.move.uci(),
-                                                       _correct_uci, ok=False)
-                                errors += 1
-                                msg = "Not the right move"
-                                if errors >= 3:
-                                    rightMove = Move.fromChessMove(_next_main, gs)
-                                    msg = f"hint:{rightMove.uci[:2]}"
-                                show_message(gs,msg)
-                                app.delay(1)
-                            sqSelected = ()
-                            playerClicks = []
+                    # Selection + promotion via the BoardSession: pick() builds the
+                    # candidate move WITHOUT applying it. This is a "guess" mode --
+                    # the move is judged below and only the stored canonical move is
+                    # ever played -- so the candidate must not be pushed.
+                    validMove = session.pick(row, col,
+                                             ask_promotion=lambda c: BS.choosePromotion(app.screen, c))
+                    sqSelected = session.selected if session.selected is not None else ()
+                    playerClicks = [session.selected] if session.selected is not None else []
+                    validMoves = session.validMoves
+                    if validMove is not None:
+                        # Board state BEFORE the move: used for
+                        # learning-base logging (key = Zobrist hash of
+                        # the position where the user made the move).
+                        _board_pre = gs.node.board()
+                        _next_main = gs.getNextMainMove()
+                        _correct_uci = _next_main.uci() if _next_main else None
+                        if gs.checkNextMove(validMove.move):
+                            # Correct move: update stats if the position
+                            # is already in the base (no-op if not tracked).
+                            _log_user_move_to_base(lb, game, _board_pre,
+                                                   validMove.move.uci(),
+                                                   _correct_uci, ok=True)
+                            errors = 0
+                            gs.doNextMainMove()
+                            moveMade = True
+                            animate = True
+                            validMoves = gs.stdValidMoves()
+                            if state.play_position:
+                                stopCondition=True
                         else:
-                            sqSelected = (row, col)
-                            playerClicks = [sqSelected]
-
-                    if len(playerClicks) == 1 and gs.colorAt(row, col) != gs.colorToMove():
-                        sqSelected = ()
-                        playerClicks = []
+                            # Wrong move: added or updated in the base.
+                            _log_user_move_to_base(lb, game, _board_pre,
+                                                   validMove.move.uci(),
+                                                   _correct_uci, ok=False)
+                            errors += 1
+                            msg = "Not the right move"
+                            if errors >= 3:
+                                rightMove = Move.fromChessMove(_next_main, gs)
+                                msg = f"hint:{rightMove.uci[:2]}"
+                            show_message(gs,msg)
+                            app.delay(1)
 
                 elif e.type == p.KEYDOWN:
                     if e.key == p.K_z or e.key == p.K_LEFT:
