@@ -137,6 +137,19 @@ def test_unlocked_orientation_follows_side_to_move_despite_flips():
     assert s.view_model().white_up is False              # ...orientation tracks side to move
 
 
+def test_new_game_resets_to_the_initial_position():
+    s = BoardSession(AnalysisPolicy())
+    s.click(*sq("e2")); s.click(*sq("e4"))
+    s.click(*sq("e7"))                          # also leave a half-made selection
+    assert s.gs.moveLog and s.selected is not None
+    gs2 = s.new_game()
+    assert gs2 is s.gs                          # returns the fresh GameState to rebind
+    assert s.gs.moveLog == []                   # back to the initial position
+    assert s.selected is None                   # selection cleared
+    assert len(s.validMoves) == 20              # 20 legal moves at the start
+    assert s.view_model().turn == "w"
+
+
 def test_next_move_follows_mainline_by_default():
     s = BoardSession(AnalysisPolicy())
     for u in ("e2e4", "e7e5", "g1f3"):

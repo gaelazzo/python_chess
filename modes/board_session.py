@@ -190,6 +190,15 @@ class BoardSession:
         the board fixed). The renderer reads `white_up` from the session."""
         self.policy.reorient(self)
 
+    def new_game(self) -> GameState:
+        """Reset to a fresh game from the initial position, keeping the same
+        policy and orientation. Returns the new GameState so a caller that shares
+        `gs` can rebind its own reference."""
+        self.gs = GameState()
+        self.refresh()
+        self.reset_selection()
+        return self.gs
+
     def reset_selection(self):
         self.selected = None
         self._clicks = []

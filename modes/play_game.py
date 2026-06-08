@@ -729,13 +729,10 @@ def playAGame():
                         session.do("flip")
 
                     if e.key == p.K_r:
-                        gs = GameState()
-                        session.gs = gs            # keep the controller on the new game
-                        session.refresh()
-                        session.reset_selection()
+                        gs = session.new_game()    # fresh game, controller stays in sync
+                        validMoves = session.validMoves
                         sqSelected = ()
                         playerClicks = []
-                        validMoves = gs.stdValidMoves() #evaluate the new list of valid moves
                         moveMade = False
                         animate = False
                             
