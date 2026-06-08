@@ -26,6 +26,7 @@ from LearningBase import LearningBase, LearnPosition, learningBases
 from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 import notation
+from modes.board_session import BoardSession, AnalysisPolicy
 
 
 def _confirm(prompt: str) -> bool:
@@ -421,6 +422,12 @@ def playAGame():
     whiteCPU = playParameters["whiteCPU"]
     blackCPU = playParameters["blackCPU"]
 
+    # Incremental migration to the decoupled controller (modes/board_session):
+    # the Session SHARES this loop's GameState (gs), so commands routed through it
+    # mutate the same object the loop already uses -- no double state. Migrated so
+    # far: undo (Left) / truncate (Del) / delete-variation (Backspace).
+    session = BoardSession(AnalysisPolicy(), gs=gs, white_cpu=whiteCPU, black_cpu=blackCPU)
+
     if whiteCPU and not blackCPU:
         BS.setWhiteUp(app.screen, True)
 
@@ -567,7 +574,7 @@ def playAGame():
                 elif e.type == p.KEYDOWN:
                     update = True
                     if e.key == p.K_LEFT:
-                        gs.undoMove()
+                        session.do("undo")           # delegated to BoardSession
                         validMoves = gs.stdValidMoves()
                         moveMade = True
                         animate = False
@@ -708,7 +715,7 @@ def playAGame():
                         # Truncate: delete the moves/variations after the current position.
                         if gs.node is not None and gs.node.variations:
                             if _confirm("Delete the moves after the current position?"):
-                                gs.truncateAfterCurrent()
+                                session.do("truncate")   # delegated to BoardSession
                                 validMoves = gs.stdValidMoves()
                         app.main_background()
                         continue
@@ -717,7 +724,7 @@ def playAGame():
                         # Delete the current move and its whole variation, stepping back to the parent.
                         if gs.node is not None and gs.node.parent is not None:
                             if _confirm("Delete the current move and everything after it?"):
-                                gs.deleteCurrentVariation()
+                                session.do("delete")     # delegated to BoardSession
                                 validMoves = gs.stdValidMoves()
                                 moveMade = True
                                 animate = False
@@ -732,6 +739,8 @@ def playAGame():
 
                     if e.key == p.K_r:
                         gs = GameState()
+                        session.gs = gs            # keep the controller on the new game
+                        session.refresh()
                         sqSelected = ()
                         playerClicks = []
                         validMoves = gs.stdValidMoves() #evaluate the new list of valid moves
