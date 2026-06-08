@@ -32,7 +32,7 @@ from modes.board_session import BoardSession, AnalysisPolicy
 def _confirm(prompt: str) -> bool:
     """Blocking Yes/No prompt drawn over the board. Returns True only on 'Y'."""
     app.main_background()
-    BS.drawEndGameText(app.screen, None, prompt + "   [Y = yes / N = no]", size=22)
+    BS.drawEndGameText(app.screen, None, prompt + "  (Y/N)", size=22)
     BS.update()
     while True:
         for e in p.event.get():
@@ -716,7 +716,7 @@ def playAGame():
                         # No continuation here -> nothing to do (and DON'T clear the
                         # screen, otherwise it just flashes: the old "glitch").
                         if gs.node is not None and gs.node.variations:
-                            if _confirm("Delete the moves after the current position?"):
+                            if _confirm("Delete moves after here?"):
                                 session.do("truncate")   # delegated to BoardSession
                                 validMoves = gs.stdValidMoves()
                             app.main_background()
@@ -727,7 +727,7 @@ def playAGame():
                         # to where it branched off the parent line. No-op (no flash)
                         # when on the main line -- there is no variation to delete.
                         if gs.node is not None and gs.isInVariation():
-                            if _confirm("Delete the whole variation you are in?"):
+                            if _confirm("Delete this variation?"):
                                 session.do("delete_line")    # delegated to BoardSession
                                 validMoves = gs.stdValidMoves()
                                 moveMade = True
