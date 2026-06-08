@@ -4,6 +4,30 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.2.0] - 2026-06-08
+
+### Aggiunte
+- **Suggestion for study**: il campo nick accetta **più nickname** (separati da
+  `,` o `;`) e il matching è **case-insensitive** ovunque — comodo se giochi con
+  più account o con maiuscole/minuscole diverse.
+- **Analisi / Human Play**: la scacchiera ora è **fissa di default** (niente giro
+  automatico a ogni mossa); il tasto **A** riattiva il flip automatico.
+- **Nome unico "Hires Chess Trainer"** in tutta l'app, **menu riordinato** e
+  **firma dell'autore** sullo splash all'avvio.
+
+### Correzioni
+- **Backspace** in analisi cancella l'**intera variante** in cui ti trovi (non
+  più la singola mossa); **Canc** tronca senza più il flash sul no-op.
+- Prompt di conferma di **Canc/Backspace** accorciati: non sforano più lo schermo.
+
+### Interno
+- Refactor importante: **tutti i modi di gioco** ora poggiano su un unico **core
+  headless `BoardSession`** (logica/stato separati dal rendering) con una policy
+  per modalità e validazione *validate-before-apply*; undo/troncamento/cancella-
+  variante condivisi. Comportamento di gioco invariato. Suite a **179 test** verdi.
+
+[1.2.0]: https://github.com/gaelazzo/python_chess/releases/tag/v1.2.0
+
 ## [1.1.0] - 2026-06-07
 
 ### Aggiunte
