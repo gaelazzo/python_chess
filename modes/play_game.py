@@ -409,7 +409,10 @@ def playAGame():
     moveMade = False
     animate = False
     gameOver = False
-    analyze = False
+    # Default: start in analysis mode -> the board stays fixed (it does not flip
+    # to the side to move on every move). This app isn't really a two-player
+    # tool (no clock); press A to toggle the side-to-move flipping back on.
+    analyze = True
 
     BS.show_pgn = False
     BS.show_book=False
