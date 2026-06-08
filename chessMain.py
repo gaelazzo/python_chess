@@ -27,10 +27,14 @@ def _show_splash():
         win_w = max(lw + 80, 600)
         win_h = max(lh + 120, 400)
         screen = _splash_p.display.set_mode((win_w, win_h))
-        _splash_p.display.set_caption("Chess trainer -- loading...")
+        _splash_p.display.set_caption("Hires Chess Trainer -- loading...")
         screen.fill(_splash_p.Color(38, 38, 56))
         screen.blit(logo, ((win_w - lw) // 2, (win_h - lh) // 2 - 20))
         try:
+            credit_font = _splash_p.font.SysFont("Arial", 16)
+            credit = credit_font.render("Hires Chess Trainer  -  by Gaetano Lazzo",
+                                        True, _splash_p.Color(180, 180, 200))
+            screen.blit(credit, ((win_w - credit.get_width()) // 2, (win_h + lh) // 2 + 6))
             font = _splash_p.font.SysFont("Arial", 22, bold=True)
             txt = font.render("Loading...", True, _splash_p.Color("white"))
             screen.blit(txt, ((win_w - txt.get_width()) // 2, win_h - 50))
@@ -512,17 +516,22 @@ def mainMenu(width,height, test: bool = False) -> None:
     toolsMenu.add.button('Setup', configureGame)
 
 
-    app.main_menu = pygame_menu.Menu('Chess Python', width, height,
+    app.main_menu = pygame_menu.Menu('Hires Chess Trainer', width, height,
                                  theme=pygame_menu.themes.THEME_BLUE)
-    app.main_menu.add.button('Improve from your games', buildImproveMenu(width, height))
-    app.main_menu.add.button('Suggestion for study', buildAdvisorMenu(width, height))
-    app.main_menu.add.button('Play against computer', playComputerMenu)
+    # Play / practice
     app.main_menu.add.button('Analysis / Human Play', humanPlay)
+    app.main_menu.add.button('Play against computer', playComputerMenu)
     app.main_menu.add.button('Solve positions', solvePositionsMenu)
-    if BrainMasterMenu:
-        app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
     app.main_menu.add.button('Study openings', openingsMenu)
     app.main_menu.add.button('Endgame training', endgamesMenu)
+    if BrainMasterMenu:
+        app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
+    # Insights from your own games
+    app.main_menu.add.vertical_margin(10)
+    app.main_menu.add.button('Improve from your games', buildImproveMenu(width, height))
+    app.main_menu.add.button('Suggestion for study', buildAdvisorMenu(width, height))
+    # Utility
+    app.main_menu.add.vertical_margin(10)
     app.main_menu.add.button('Tools', toolsMenu)
     app.main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
 
@@ -605,7 +614,7 @@ def runMain():
         app.screen = p.display.set_mode((app.W, app.H))
         app.screen.fill(p.Color("white"))
 
-        p.display.set_caption('Chess trainer')
+        p.display.set_caption('A Gaetano Lazzo project')
         Icon = p.image.load(resource_path('pic-chess.png'))
         p.display.set_icon(Icon)
 

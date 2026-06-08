@@ -67,7 +67,7 @@ show_cpu = True
 # "Opening: openings.pgn") and replicated in the window caption. Set by
 # the various modes on entry and cleared on exit. None = no label.
 context_label: Optional[str] = None
-_DEFAULT_CAPTION = 'Chess trainer'
+_DEFAULT_CAPTION = 'Hires Chess Trainer'
 
 
 def set_context_label(label: Optional[str]) -> None:
