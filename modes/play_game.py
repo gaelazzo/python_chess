@@ -410,7 +410,8 @@ def playAGame():
     # Default: start in analysis mode -> the board stays fixed (it does not flip
     # to the side to move on every move). This app isn't really a two-player
     # tool (no clock); press A to toggle the side-to-move flipping back on.
-    analyze = True
+    # The lock now lives in the session's policy (AnalysisPolicy.locked, default
+    # True); orientation (session.white_up) is the single source of truth.
 
     BS.show_pgn = False
     BS.show_book=False
@@ -446,7 +447,8 @@ def playAGame():
         p.display.update(engine_panel.rect)
 
     if whiteCPU and not blackCPU:
-        BS.setWhiteUp(app.screen, True)
+        session.white_up = True                      # human plays Black -> White at the top
+        BS.setWhiteUp(app.screen, session.white_up)  # initial orientation (draws once)
 
     BS.clearCPU(app.screen)
 
@@ -460,7 +462,7 @@ def playAGame():
         ToolbarAction("Undo",  "Undo (Left arrow)",                       _post_key(p.K_LEFT)),
         ToolbarAction("Next",  "Next move (Right arrow)",                 _post_key(p.K_RIGHT)),
         ToolbarAction("Save",  "Save game (S)",                           _post_key(p.K_s)),
-        ToolbarAction("Anal",  "Analyze mode toggle (A)",                 _post_key(p.K_a), active=lambda: analyze),
+        ToolbarAction("Anal",  "Analyze mode toggle (A)",                 _post_key(p.K_a), active=lambda: session.policy.locked),
         ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
         ToolbarAction("Reset", "Reset game (R)",                          _post_key(p.K_r)),
         ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e), active=UCIEngines.is_analysing),
@@ -601,9 +603,8 @@ def playAGame():
                             moveMade = True
                             animate = False
                             # The toolbar was "uncovered" by the modal -- redraw.
-                            # Analysis mode locks the orientation: don't re-flip.
-                            if not analyze:
-                                BS.setWhiteUp(app.screen, gs.node.board().turn == chess.BLACK)
+                            # Re-apply the session's orientation rule (no-op when locked).
+                            session.reorient()
 
                     if e.key == p.K_k and not whiteCPU and not blackCPU:
                         # Save current position + last move as a tactic
@@ -620,11 +621,10 @@ def playAGame():
                         continue
 
                     if e.key == p.K_a:
-                        analyze = not analyze
-                        # exit analysis -> immediately re-orient the board
-                        # (otherwise the side would only change on the next move)
-                        if not whiteCPU and not blackCPU and not analyze:
-                            BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+                        # Toggle the analysis lock in the policy; the command also
+                        # re-orients immediately when analysis is turned off (else the
+                        # side would only change on the next move). No-op against a CPU.
+                        session.do("analyze")
                     
                   
                     if e.key == p.K_c:  # copy to clipboard
@@ -652,8 +652,7 @@ def playAGame():
                         moveMade = False # a move was made
                         animate = False  # move must be showed
                         validMoves = gs.stdValidMoves() # recalculate valid moves
-                        if not analyze:  # analysis mode locks the board orientation
-                            BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+                        session.reorient()   # analysis mode keeps the board fixed
                         continue
 
                     if e.key == p.K_n and not whiteCPU and not blackCPU:
@@ -692,8 +691,7 @@ def playAGame():
                         moveMade = False
                         animate = False
                         validMoves = gs.stdValidMoves()
-                        if not analyze:  # analysis mode locks the board orientation
-                            BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+                        session.reorient()   # analysis mode keeps the board fixed
                         continue
 
                     if e.key == p.K_g:  # copy to clipboard
@@ -724,10 +722,11 @@ def playAGame():
                         continue
 
                     if e.key == p.K_f:
-                        # Flip the board: do NOT set moveMade=True, otherwise
-                        # the "if moveMade" block calls setWhiteUp which resets
-                        # the orientation based on the turn and cancels the flip.
-                        BS.flipBoard(app.screen)
+                        # Flip the board: do NOT set moveMade=True, otherwise the
+                        # "if moveMade" block re-orients to the side to move and
+                        # cancels the flip. The flip is a manual override of
+                        # session.white_up (works even in locked analysis mode).
+                        session.do("flip")
 
                     if e.key == p.K_r:
                         gs = GameState()
@@ -762,10 +761,12 @@ def playAGame():
             if animate:
                 BS.animateMove(gs.moveLog[-1], app.screen, gs)
                 animate = False
-            if not whiteCPU and not blackCPU and not analyze:
-                BS.setWhiteUp(app.screen, gs.node.board().turn== chess.BLACK)
+            session.reorient()   # re-apply orientation after the move (no-op when locked/CPU)
 
         gameOver = gs.checkMate() or gs.staleMate()
+
+        # The renderer reads orientation from the session (single source of truth).
+        BS.whiteUp = session.white_up
 
         if gameOver:
             BS.drawGameState(app.screen, gs, [], [], ())

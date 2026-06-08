@@ -63,7 +63,9 @@ class AnalysisPolicy(ModePolicy):
         self.locked = True            # board orientation locked by default
 
     def reorient(self, s):
-        if not self.locked:
+        # Auto-flip to the side to move only in free human play: locked analysis
+        # and games against a CPU keep the board fixed.
+        if not self.locked and not s.white_cpu and not s.black_cpu:
             s.white_up = (s.gs.board().turn == chess.BLACK)
 
     def handle_command(self, s, cmd):
@@ -182,6 +184,11 @@ class BoardSession:
 
     def refresh(self):
         self.validMoves = self.gs.stdValidMoves()
+
+    def reorient(self):
+        """Re-apply the policy's orientation rule (a no-op when the policy keeps
+        the board fixed). The renderer reads `white_up` from the session."""
+        self.policy.reorient(self)
 
     def reset_selection(self):
         self.selected = None

@@ -57,6 +57,86 @@ def test_analysis_orientation_locked_then_unlocked():
     assert s.view_model().white_up is True          # Black to move
 
 
+def test_flip_command_is_manual_and_unconditional():
+    s = BoardSession(AnalysisPolicy())              # locked by default
+    assert s.view_model().white_up is False
+    s.do("flip")
+    assert s.view_model().white_up is True          # manual flip works even when locked
+    s.do("flip")
+    assert s.view_model().white_up is False
+
+
+def test_orientation_stays_fixed_against_a_cpu_even_when_unlocked():
+    s = BoardSession(AnalysisPolicy(), black_cpu=True)
+    s.do("analyze")                                 # unlock the lock...
+    s.click(*sq("e2")); s.click(*sq("e4"))          # ...but a CPU keeps the board fixed
+    assert s.view_model().white_up is False
+
+
+def test_reorient_method_applies_policy_rule():
+    s = BoardSession(AnalysisPolicy())
+    s.gs.makeChessMove(chess.Move.from_uci("e2e4"))  # Black to move
+    s.policy.locked = False
+    s.reorient()
+    assert s.view_model().white_up is True           # unlocked -> follows side to move
+    s.policy.locked = True
+    s.gs.makeChessMove(chess.Move.from_uci("e7e5"))  # White to move
+    s.reorient()
+    assert s.view_model().white_up is True           # locked -> unchanged
+
+
+# ----- play-loop behaviours now covered headlessly (panels, flip, undo) ----- #
+def test_panel_visibility_toggles_via_the_session():
+    s = BoardSession(AnalysisPolicy())
+    assert s.view_model().panels == {"book": False, "pgn": False, "cpu": False}
+    s.do("book")
+    assert s.view_model().panels["book"] is True
+    s.do("pgn")
+    assert s.view_model().panels["pgn"] is True
+    s.do("book")
+    assert s.view_model().panels["book"] is False        # toggles back off
+
+
+def test_panel_visibility_persists_across_a_move():
+    s = BoardSession(AnalysisPolicy())
+    s.do("book")
+    s.click(*sq("e2")); s.click(*sq("e4"))               # a move must not reset the toggle
+    assert s.view_model().panels["book"] is True
+
+
+def test_view_model_exposes_the_analysis_lock():
+    s = BoardSession(AnalysisPolicy())
+    assert s.view_model().extra["locked"] is True        # analysis (board fixed) by default
+    s.do("analyze")
+    assert s.view_model().extra["locked"] is False
+
+
+def test_undo_reorients_when_unlocked():
+    s = BoardSession(AnalysisPolicy())
+    s.do("analyze")                                      # unlocked -> follow side to move
+    s.click(*sq("e2")); s.click(*sq("e4"))               # Black to move
+    assert s.view_model().white_up is True
+    s.do("undo")                                         # back to White to move
+    assert s.view_model().white_up is False              # undo re-orients too
+
+
+def test_manual_flip_persists_across_a_move_when_locked():
+    s = BoardSession(AnalysisPolicy())                   # locked
+    s.do("flip")
+    s.click(*sq("e2")); s.click(*sq("e4"))
+    assert s.view_model().white_up is True               # locked -> the manual flip survives
+
+
+def test_unlocked_orientation_follows_side_to_move_despite_flips():
+    s = BoardSession(AnalysisPolicy())
+    s.do("analyze")                                      # unlocked
+    s.do("flip"); s.do("flip"); s.do("flip")             # arbitrary manual flip state
+    s.click(*sq("e2")); s.click(*sq("e4"))               # Black to move
+    assert s.view_model().white_up is True               # the flip is transient...
+    s.click(*sq("e7")); s.click(*sq("e5"))               # White to move
+    assert s.view_model().white_up is False              # ...orientation tracks side to move
+
+
 def test_next_move_follows_mainline_by_default():
     s = BoardSession(AnalysisPolicy())
     for u in ("e2e4", "e7e5", "g1f3"):
