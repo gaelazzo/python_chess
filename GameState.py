@@ -582,6 +582,49 @@ class GameState:
         self.evaluation = None
         return True
 
+    def isInVariation(self) -> bool:
+        '''
+        True if the current node lies inside a variation (i.e. somewhere on the
+        path from the root a node is NOT the main/first child of its parent).
+        '''
+        n = self.node
+        while n is not None and n.parent is not None:
+            if n.parent.variations and n.parent.variations[0] is not n:
+                return True
+            n = n.parent
+        return False
+
+    def deleteCurrentVariationLine(self) -> bool:
+        '''
+        Delete the ENTIRE variation the current node belongs to -- back to the
+        point where it branched off the parent line -- and return to that branch
+        point. Returns False if the current node is on the main line.
+        '''
+        if self.node is None or self.node.parent is None:
+            return False
+        # Head = nearest ancestor-or-self that is a non-main child of its parent.
+        head = None
+        n = self.node
+        while n.parent is not None:
+            if n.parent.variations and n.parent.variations[0] is not n:
+                head = n
+                break
+            n = n.parent
+        if head is None:
+            return False                       # on the main line, no variation
+        # How many moves from head.parent down to the current node (to fix moveLog).
+        steps = 0
+        n = self.node
+        while n is not head.parent:
+            n = n.parent
+            steps += 1
+        head.parent.remove_variation(head.move)
+        self.node = head.parent
+        if steps:
+            del self.moveLog[max(0, len(self.moveLog) - steps):]
+        self.evaluation = None
+        return True
+
     def setMoveNag(self, nag: int) -> bool:
         '''
         Set the (single) annotation glyph on the current move, REPLACING any

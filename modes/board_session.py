@@ -80,6 +80,11 @@ class AnalysisPolicy(ModePolicy):
                 s.refresh()
             else:
                 s.message = "No move to delete"
+        elif cmd == "delete_line":
+            if s.gs.deleteCurrentVariationLine():
+                s.refresh()
+            else:
+                s.message = "Not in a variation"
         else:
             return False
         return True

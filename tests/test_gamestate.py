@@ -123,3 +123,23 @@ def test_delete_current_variation_steps_back():
 def test_delete_current_variation_noop_at_root():
     gs = GameState()
     assert gs.deleteCurrentVariation() is False
+
+
+def test_delete_whole_variation_line():
+    gs = _game(["e2e4", "e7e5", "g1f3"])
+    gs.undoMove()                                   # back to after e5 (main line)
+    assert gs.isInVariation() is False
+    gs.makeChessMove(chess.Move.from_uci("f1c4"))   # 2. Bc4  -> a variation
+    gs.makeChessMove(chess.Move.from_uci("f8c5"))   # 2... Bc5 (deep in the variation)
+    assert gs.isInVariation() is True
+    assert gs.deleteCurrentVariationLine() is True  # delete the whole Bc4 line
+    assert gs.isInVariation() is False              # back on the main line (after e5)
+    pgn = gs.to_PgnString()
+    assert "Bc4" not in pgn and "Bc5" not in pgn    # the variation is gone
+    assert "Nf3" in pgn                             # the main line is intact
+
+
+def test_delete_variation_line_noop_on_mainline():
+    gs = _game(["e2e4", "e7e5"])
+    assert gs.isInVariation() is False
+    assert gs.deleteCurrentVariationLine() is False

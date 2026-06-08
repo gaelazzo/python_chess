@@ -486,7 +486,7 @@ def playAGame():
         help_text.insert(9, "- T Comment move (text)")
         help_text.insert(10, "- V Notation panel (variations)")
         help_text.append("- Del: truncate moves after current")
-        help_text.append("- Backspace: delete current variation")
+        help_text.append("- Backspace: delete the whole variation you are in")
     show_help = False
     def do_show_help():
         glc.draw_help_overlay(help_text, height=400)
@@ -712,23 +712,27 @@ def playAGame():
                         glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_DELETE and not whiteCPU and not blackCPU:
-                        # Truncate: delete the moves/variations after the current position.
+                        # Truncate: delete the moves after the current position.
+                        # No continuation here -> nothing to do (and DON'T clear the
+                        # screen, otherwise it just flashes: the old "glitch").
                         if gs.node is not None and gs.node.variations:
                             if _confirm("Delete the moves after the current position?"):
                                 session.do("truncate")   # delegated to BoardSession
                                 validMoves = gs.stdValidMoves()
-                        app.main_background()
+                            app.main_background()
                         continue
 
                     if e.key == p.K_BACKSPACE and not whiteCPU and not blackCPU:
-                        # Delete the current move and its whole variation, stepping back to the parent.
-                        if gs.node is not None and gs.node.parent is not None:
-                            if _confirm("Delete the current move and everything after it?"):
-                                session.do("delete")     # delegated to BoardSession
+                        # Delete the WHOLE variation the current move belongs to, back
+                        # to where it branched off the parent line. No-op (no flash)
+                        # when on the main line -- there is no variation to delete.
+                        if gs.node is not None and gs.isInVariation():
+                            if _confirm("Delete the whole variation you are in?"):
+                                session.do("delete_line")    # delegated to BoardSession
                                 validMoves = gs.stdValidMoves()
                                 moveMade = True
                                 animate = False
-                        app.main_background()
+                            app.main_background()
                         continue
 
                     if e.key == p.K_f:

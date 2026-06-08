@@ -81,6 +81,18 @@ def test_solve_hint_reveals_correct_move():
     assert s.view_model().message.startswith("Hint:")
 
 
+def test_analysis_delete_whole_variation_line():
+    s = BoardSession(AnalysisPolicy())
+    for u in ("e2e4", "e7e5", "g1f3"):
+        s.gs.makeChessMove(chess.Move.from_uci(u))
+    s.gs.undoMove()
+    s.gs.makeChessMove(chess.Move.from_uci("f1c4"))   # enter a variation
+    assert s.gs.isInVariation() is True
+    s.do("delete_line")
+    assert s.gs.isInVariation() is False              # whole variation removed
+    assert "Bc4" not in s.view_model().notation
+
+
 def test_solve_board_is_fixed_to_user_side():
     white = BoardSession(SolvePolicy([{"setup": [], "correct": "e2e4"}], user_white=True))
     black = BoardSession(SolvePolicy([{"setup": [], "correct": "e2e4"}], user_white=False))
