@@ -27,6 +27,7 @@ from save_load import save_menu, load_menu
 from modes.common import show_message, setAlfa
 import notation
 from modes.board_session import BoardSession, AnalysisPolicy
+from panels import BookPanel, EnginePanel, TextLinesPanel
 
 
 def _confirm(prompt: str) -> bool:
@@ -424,6 +425,26 @@ def playAGame():
     # far: undo (Left) / truncate (Del) / delete-variation (Backspace).
     session = BoardSession(AnalysisPolicy(), gs=gs, white_cpu=whiteCPU, black_cpu=blackCPU)
 
+    # View layer: the side panels render from the session's view-model (book/pgn)
+    # or from the engine info (cpu), never from GameState. BoardScreen no longer
+    # owns book/pgn here -- show_book/show_pgn stay off so drawGameState only
+    # clears their rectangles, and these panels paint over the cleared boxes.
+    book_panel = BookPanel()
+    pgn_panel = TextLinesPanel(
+        lambda: p.Rect(BS.PGN_X, BS.PGN_Y, BS.PGN_WIDTH, BS.PGN_HEIGHT),
+        title="PGN moves",
+    )
+    engine_panel = EnginePanel()
+
+    def _draw_engine(lines):
+        """Engine callback: draw the analysis lines through the EnginePanel.
+
+        Invoked from UCIEngines.poll() OUTSIDE the main render path, so it flips
+        its own rectangle (the main loop's flip would otherwise lag a frame)."""
+        engine_panel.visible = BS.show_cpu
+        engine_panel.render(app.screen, lines)
+        p.display.update(engine_panel.rect)
+
     if whiteCPU and not blackCPU:
         BS.setWhiteUp(app.screen, True)
 
@@ -443,8 +464,8 @@ def playAGame():
         ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
         ToolbarAction("Reset", "Reset game (R)",                          _post_key(p.K_r)),
         ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e), active=UCIEngines.is_analysing),
-        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b), active=lambda: BS.show_book),
-        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d), active=lambda: BS.show_pgn),
+        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b), active=lambda: session.show_book),
+        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d), active=lambda: session.show_pgn),
         ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
         ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
         ToolbarAction("Load",  "Load game (L) -- analysis only",          _post_key(p.K_l), enabled=_is_analysis),
@@ -554,10 +575,11 @@ def playAGame():
                             animate = False
 
                     if e.key == p.K_b:
-                        glc.toggle_book(gs)
+                        session.do("book")              # visibility owned by the session;
+                        # the book_panel repaints from the view-model in the render path
 
                     if e.key == p.K_d:
-                        glc.toggle_pgn(gs)
+                        session.do("pgn")               # pgn_panel repaints in the render path
 
                     if e.key == p.K_q:
                         #quit
@@ -614,7 +636,8 @@ def playAGame():
                         app.main_background()  # see the note on K_l
 
                     if e.key == p.K_e:  # Engine on /off
-                        glc.toggle_engine(gs)
+                        BS.show_cpu = True
+                        UCIEngines.engine_on_off(gs.board(), _draw_engine)
 
                     if e.key == p.K_l and not whiteCPU and not blackCPU:
                         # Loading enabled only WITHOUT a computer (analysis mode):
@@ -735,7 +758,7 @@ def playAGame():
         if moveMade:
             moveMade = False
             UCIEngines.update_board(
-                gs.board(), glc.engine_callback)
+                gs.board(), _draw_engine)
             if animate:
                 BS.animateMove(gs.moveLog[-1], app.screen, gs)
                 animate = False
@@ -775,6 +798,16 @@ def playAGame():
             BS.drawGameState(app.screen, gs, toHighlightCirclesColor= toHighlightCircle,
                              toHighlightSquareColor=toHighlightSquares,
                              sqSelected=sqSelected)
+
+        # Side panels (book / pgn): the view layer paints them from the session's
+        # view-model, over the rectangles drawGameState just cleared. Visibility
+        # is owned by the session; a hidden panel renders as a cleared box.
+        vm = session.view_model()
+        book_panel.visible = vm.panels["book"]
+        book_panel.render(app.screen, vm.book)          # SAN list (session.book_view)
+        pgn_panel.visible = vm.panels["pgn"]
+        pgn_panel.render(app.screen,
+                         [m.uci() for m in gs.getNextMoves()] if vm.panels["pgn"] else [])
 
         toolbar.draw(app.screen)
         BS.update()

@@ -18,6 +18,7 @@ MODULES = [
     "app_context", "game_loop_common", "state", "menu_helpers",
     "save_load", "learningbase_admin", "notation", "chessMain",
     "modes.board_session",
+    "panels.base", "panels.book_panel", "panels.engine_panel",
     "modes.common", "modes.play_game", "modes.brainmaster",
     "modes.replay", "modes.openings",
     # broader coverage
