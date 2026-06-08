@@ -236,15 +236,34 @@ class BoardSession:
         if cmd == "undo":
             self.gs.undoMove(); self.refresh(); self.policy.reorient(self)
         elif cmd == "next":
-            mv = self.gs.getNextMainMove()
-            if mv is not None:
-                self.gs.makeChessMove(mv); self.refresh(); self.policy.reorient(self)
+            self.next_move()                     # main line (no picker)
         elif cmd == "book":
             self.show_book = not self.show_book
         elif cmd == "pgn":
             self.show_pgn = not self.show_pgn
         else:
             self.policy.handle_command(self, cmd)
+
+    def next_move(self, pick_variation=None):
+        """Advance to the next move. With several continuations,
+        `pick_variation(moves, board) -> chosen move | None` is called to choose
+        (defaults to the main line). Returns the move played, or None.
+        """
+        moves = self.gs.getNextMoves()
+        if not moves:
+            return None
+        if len(moves) == 1:
+            move = moves[0]
+        elif pick_variation is None:
+            move = moves[0]                      # headless default: main line
+        else:
+            move = pick_variation(moves, self.gs.node.board())
+            if move is None:
+                return None                      # cancelled
+        self.gs.makeChessMove(move)
+        self.refresh()
+        self.policy.reorient(self)
+        return move
 
     # ---- queries ----
     def book_view(self) -> List[str]:

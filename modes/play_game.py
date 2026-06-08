@@ -55,7 +55,7 @@ def playGame():
 def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
                   font_path: Optional[str] = None):
     """Side selector panel next to the board. Reused by
-    `chooseNextMove` (variations) and `chooseAnnotation` (NAG).
+    `_variation_picker` (variations) and `chooseAnnotation` (NAG).
 
     `items` is a list of `(label, value)` tuples. Returns the selected
     `value`, or `None` if the user cancels (Cancel button / Esc).
@@ -312,20 +312,16 @@ def _show_info_panel(lines, title: str, row_h: int = 24, font_size: int = 14):
                 running = False
 
 
-def chooseNextMove(gs:GameState)->chess.Move:
-    """Side panel with the variations available from the current position.
-    Shows the moves in SAN. Single-variant -> direct return without UI.
+def _variation_picker(moves, board):
+    """UI port for BoardSession.next_move: choose among several continuations
+    (shown in SAN). Returns the chosen move, or None if cancelled. The single-
+    and no-continuation cases are handled by the core, so this is only ever
+    called when there really is a choice to make.
     """
-    next_moves = gs.getNextMoves()
-    if not next_moves:
-        return None
-    if len(next_moves) == 1:
-        return next_moves[0]
-    cur_board = gs.node.board()
     items = []
-    for m in next_moves:
+    for m in moves:
         try:
-            label = cur_board.san(m)
+            label = board.san(m)
         except Exception:
             label = m.uci()
         items.append((label, m))
@@ -551,10 +547,9 @@ def playAGame():
                         gameOver = False
 
                     if e.key == p.K_RIGHT:
-                        move = chooseNextMove(gs)
-                        if move is not None:
-                            gs.makeChessMove(move)
-                            validMoves = gs.stdValidMoves()
+                        moved = session.next_move(pick_variation=_variation_picker)
+                        if moved is not None:
+                            validMoves = session.validMoves
                             moveMade = True
                             animate = False
 
@@ -624,7 +619,7 @@ def playAGame():
                     if e.key == p.K_l and not whiteCPU and not blackCPU:
                         # Loading enabled only WITHOUT a computer (analysis mode):
                         # the game starts from the first move and you scroll forward with
-                        # the right arrow (chooseNextMove), exploring the variations.
+                        # the right arrow (Next / variation picker), exploring the variations.
                         # Against the computer, loading is disabled.
                         load_menu(gs)
                         # Clear the screen: pygame_menu draws full-screen, and

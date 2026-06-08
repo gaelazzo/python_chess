@@ -57,6 +57,39 @@ def test_analysis_orientation_locked_then_unlocked():
     assert s.view_model().white_up is True          # Black to move
 
 
+def test_next_move_follows_mainline_by_default():
+    s = BoardSession(AnalysisPolicy())
+    for u in ("e2e4", "e7e5", "g1f3"):
+        s.gs.makeChessMove(chess.Move.from_uci(u))
+    for _ in range(3):
+        s.do("undo")                              # back to the start
+    assert s.gs.moveLog == []
+    m = s.next_move()                             # no port -> main line
+    assert m.uci() == "e2e4"
+
+
+def test_next_move_uses_variation_picker_port():
+    s = BoardSession(AnalysisPolicy())
+    s.gs.makeChessMove(chess.Move.from_uci("e2e4")); s.do("undo")
+    s.gs.makeChessMove(chess.Move.from_uci("d2d4")); s.do("undo")
+    seen = {}
+
+    def port(moves, board):
+        seen["count"] = len(moves)
+        return moves[1]                           # choose the variation, not the main line
+
+    m = s.next_move(pick_variation=port)
+    assert seen["count"] == 2 and m.uci() == "d2d4"
+
+
+def test_next_move_cancel_does_nothing():
+    s = BoardSession(AnalysisPolicy())
+    s.gs.makeChessMove(chess.Move.from_uci("e2e4")); s.do("undo")
+    s.gs.makeChessMove(chess.Move.from_uci("d2d4")); s.do("undo")
+    assert s.next_move(pick_variation=lambda moves, board: None) is None  # cancelled
+    assert s.gs.moveLog == []                      # nothing was played
+
+
 def test_analysis_truncate_and_delete():
     s = BoardSession(AnalysisPolicy())
     for u in ("e2e4", "e7e5", "g1f3"):
