@@ -183,18 +183,38 @@ class BoardSession:
     def refresh(self):
         self.validMoves = self.gs.stdValidMoves()
 
+    def reset_selection(self):
+        self.selected = None
+        self._clicks = []
+
     # ---- commands ----
-    def click(self, row: int, col: int):
+    def click(self, row: int, col: int, ask_promotion=None):
+        """Board click: select a piece, complete a move, or deselect.
+
+        Returns the Move that was just made, or None. `ask_promotion(color)` is
+        called when a pawn reaches the last rank and must return the promotion
+        piece; it defaults to auto-queen so the controller works headless.
+        """
         self.message = None
-        if self.selected == (row, col):
-            self.selected = None; self._clicks = []
-            return
+        self.validMoves = self.gs.stdValidMoves()      # validate against the live position
+        # same square, or a click outside the board (move-log panel) -> deselect
+        if self.selected == (row, col) or col >= 8 or row >= 8:
+            self.reset_selection()
+            return None
         self.selected = (row, col)
         self._clicks.append((row, col))
+        moved = None
         if len(self._clicks) == 2:
-            mv = Move(self._clicks[0], self._clicks[1], self.gs)
-            if mv in self.validMoves:
-                self.gs.makeMove(mv)
+            move = Move(self._clicks[0], self._clicks[1], self.gs)
+            if move.pieceMoved[1] == "P" and (row == 0 or row == 7):
+                promotions = [m for m in self.validMoves
+                              if m.startRow == self._clicks[0][0] and m.startCol == self._clicks[0][1]
+                              and m.stopRow == self._clicks[1][0] and m.stopCol == self._clicks[1][1]]
+                if promotions:
+                    piece = ask_promotion(move.pieceMoved[0]) if ask_promotion else chess.QUEEN
+                    move = move.promoteToPiece(piece)
+            if move in self.validMoves:
+                self.gs.makeMove(move)
                 self.refresh()
                 self.policy.after_user_move(self)
                 self.policy.reorient(self)
@@ -203,7 +223,14 @@ class BoardSession:
                     self.gs.makeChessMove(reply)
                     self.refresh()
                     self.policy.reorient(self)
-            self.selected = None; self._clicks = []
+                moved = move
+                self.reset_selection()
+            else:
+                self.selected = (row, col)             # invalid move: keep the last square selected
+                self._clicks = [(row, col)]
+        if len(self._clicks) == 1 and self.gs.colorAt(row, col) != self.gs.colorToMove():
+            self.reset_selection()                     # empty/opponent square -> reject selection
+        return moved
 
     def do(self, cmd: Optional[str]):
         if cmd == "undo":

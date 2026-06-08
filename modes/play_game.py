@@ -527,49 +527,19 @@ def playAGame():
                 elif e.type == p.MOUSEBUTTONDOWN  and e.button == 1 and not gameOver:
                     if toolbar.pointer_in_toolbar(e.pos):
                         continue                 # click on the toolbar, not on the board
-                    #tak
-                    row,col = BS.getRowColFromLocation(p.mouse.get_pos())
+                    row, col = BS.getRowColFromLocation(p.mouse.get_pos())
                     update = True
-                    if sqSelected == (row, col) or col >= 8 or row>=8:  # user clicked same square or in move log
-                        sqSelected = ()
-                        playerClicks = [] # reset the sequence of selections
-                    else:
-                        sqSelected = (row, col) # new current selected square
-                        playerClicks.append(sqSelected)
-
-                    if len(playerClicks) == 2:
-                        # do the move if two squares have been selected and the move is valid
-                        move = Move(playerClicks[0], playerClicks[1], gs)
-
-                        if (move.pieceMoved[1] == "P") and (row == 0 or row == 7):
-                            validPromotions = [m for m in validMoves if m.startRow == playerClicks[0][0] and
-                                               m.startCol == playerClicks[0][1] and
-                                               m.stopRow == playerClicks[1][0] and
-                                               m.stopCol == playerClicks[1][1]
-                                               ]
-
-                            if len(validPromotions) > 0:
-                                piece = BS.choosePromotion(app.screen, move.pieceMoved[0])
-                                move = move.promoteToPiece(piece)
-
-                        validMove:Optional[Move] = move if move in validMoves else None
-                        if validMove is not None:
-                            # the move is valid so make it on the board
-                            gs.makeMove(validMove)
-                            moveMade = True
-                            animate = True      
-                            validMoves = gs.stdValidMoves() #evaluate the new list of valid moves
-                            sqSelected = ()
-                            playerClicks = []
-                        else:
-                            # the move can't be made so resets the square select list to the last square
-                            sqSelected = (row, col)
-                            playerClicks = [sqSelected]
-
-                    if len(playerClicks) == 1 and gs.colorAt(row, col) != gs.colorToMove():
-                        # if the player want to move a piece that is of the opposite color, the square selection is rejected
-                        sqSelected = ()
-                        playerClicks = []
+                    # Click -> move delegated to the BoardSession. Promotion goes
+                    # through a callback (port) so the core stays headless; the
+                    # selection state is mirrored back for the renderer.
+                    moved = session.click(row, col,
+                                          ask_promotion=lambda color: BS.choosePromotion(app.screen, color))
+                    sqSelected = session.selected if session.selected is not None else ()
+                    playerClicks = [session.selected] if session.selected is not None else []
+                    validMoves = session.validMoves
+                    if moved is not None:
+                        moveMade = True
+                        animate = True
 
                 elif e.type == p.KEYDOWN:
                     update = True
@@ -745,6 +715,7 @@ def playAGame():
                         gs = GameState()
                         session.gs = gs            # keep the controller on the new game
                         session.refresh()
+                        session.reset_selection()
                         sqSelected = ()
                         playerClicks = []
                         validMoves = gs.stdValidMoves() #evaluate the new list of valid moves

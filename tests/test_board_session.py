@@ -32,6 +32,23 @@ def test_analysis_click_move_updates_view():
     assert vm.extra["mode"] == "analysis"
 
 
+def test_click_promotion_defaults_to_queen():
+    s = BoardSession(AnalysisPolicy())
+    s.gs.setFen("8/4P3/8/8/8/8/8/4k2K w - - 0 1")    # White pawn e7 ready to promote
+    s.click(*sq("e7"))                                # select the pawn
+    moved = s.click(*sq("e8"))                        # complete -> auto-queen
+    assert moved is not None and moved.uci == "e7e8q"
+    assert "e8=Q" in s.view_model().notation
+
+
+def test_click_promotion_uses_the_port():
+    s = BoardSession(AnalysisPolicy())
+    s.gs.setFen("8/4P3/8/8/8/8/8/4k2K w - - 0 1")
+    s.click(*sq("e7"))
+    moved = s.click(*sq("e8"), ask_promotion=lambda color: "n")   # underpromote
+    assert moved is not None and moved.uci == "e7e8n"
+
+
 def test_analysis_orientation_locked_then_unlocked():
     s = BoardSession(AnalysisPolicy())
     s.click(*sq("e2")); s.click(*sq("e4"))
