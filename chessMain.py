@@ -11,6 +11,13 @@ Main driver file
 import os as _os, sys as _sys
 import pygame as _splash_p
 
+# Harden pygame's font loading BEFORE the first SysFont call (the splash below
+# already uses SysFont). On some Windows machines a corrupted font-registry
+# entry makes pygame's initsysfonts_win32 crash on the very first SysFont; this
+# makes it fall back gracefully instead. See safe_font.py.
+import safe_font
+safe_font.install()
+
 
 def _show_splash():
     try:
