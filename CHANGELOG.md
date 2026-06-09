@@ -4,6 +4,17 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.2.1] - 2026-06-09
+
+### Correzioni
+- **Avvio su Windows con registro font corrotto**: alcune macchine hanno una
+  voce non valida nel registro dei font di sistema; pygame vi enumerava sopra e
+  l'app **crashava alla prima `SysFont`** (`TypeError: ... not int`). Ora
+  l'avvio è blindato: le voci non valide vengono ignorate e, in extremis, si
+  ripiega sul font di default — l'app parte comunque.
+
+[1.2.1]: https://github.com/gaelazzo/python_chess/releases/tag/v1.2.1
+
 ## [1.2.0] - 2026-06-08
 
 ### Aggiunte
