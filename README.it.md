@@ -262,7 +262,7 @@ Flusso:
 Se premi **K** senza aver giocato una mossa, vedi *"Gioca prima la mossa
 corretta"* e nulla viene salvato.
 
-#### Sub-mode: Statistiche posizione vs DB di riferimento (tasto **Y** o bottone *DB*)
+#### Sub-mode: Personal Stats — statistiche posizione vs il tuo DB di riferimento (tasto **Y** o bottone *Stats*)
 > **"Come ho giocato questa posizione le volte che l'ho avuta?"** — la feature
 > più potente della modalità analisi. Conta in un PGN di riferimento (le tue
 > partite di Chess.com/lichess, o un libro PGN qualsiasi) quante volte la
@@ -273,14 +273,15 @@ Setup: **Tools → Setup → "Choose reference DB (le mie partite)"** apre un fi
 selector con cui scegli il PGN (può stare in `pgn/`, in `endgames/`, ovunque).
 Il path completo è memorizzato in `config.reference_db`.
 
-Premi **Y** sulla posizione corrente → si apre un pannello laterale (a destra
-della scacchiera, la scacchiera resta visibile) con:
+Attiva/disattiva il pannello **Personal Stats** con **Y** (o il bottone *Stats*):
+come i pannelli libro / engine / PGN resta acceso e si **aggiorna in tempo reale
+sulla posizione corrente** mentre navighi. La scacchiera resta visibile. Il
+pannello mostra, in colonne monospace allineate:
 - **Trovata N volte** — quante volte la stessa posizione (zobrist hash)
   compare nel DB.
-- **W X (Y%) D X (Y%) L X (Y%)** — dal POV del Bianco (convenzione DB
-  scacchistici).
-- **Continuazioni** — per ogni mossa successiva osservata nel DB:
-  `SAN  occorrenze  (W/D/L)`, ordinato per frequenza decrescente.
+- **W X% D X% L X%** — dal POV del Bianco (convenzione DB scacchistici).
+- una tabella **mossa / occorrenze / W-D-L** delle continuazioni giocate da qui,
+  ordinata per frequenza decrescente.
 
 Esempio reale su un DB di 12k partite: dalla posizione iniziale il programma
 ti dice subito che in 9714 partite hai giocato 1.e4 e ne hai vinte 4365 contro
@@ -481,7 +482,7 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **R** | Reset (nuova partita) |
 | **E** | Motore di analisi ON/OFF (mostra la valutazione) |
 | **B** | Mostra/nascondi il libro di aperture |
-| **D** | Mostra/nascondi la lista mosse |
+| **D** | Mostra/nascondi il pannello **PGN moves** (il proseguio della linea corrente, in SAN) |
 | **Q** | Torna al menu principale |
 
 **Solo in "Play between humans" (analisi):**
@@ -494,7 +495,13 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
 | **U** | **Setup posizione**: editor visuale modale (vedi §3.3) |
 | **K** | **Salva come tattica**: la posizione + l'ultima mossa giocata vanno in una learning base (vedi §3.3) |
-| **Y** | **Statistiche posizione vs DB di riferimento**: pannello laterale con W/D/L + continuazioni dal tuo storico (vedi §3.3) |
+| **Y** | Attiva/disattiva il pannello **Personal Stats**: W/D/L + continuazioni per la posizione corrente, dalle tue partite (vedi §3.3) |
+
+> **Pannelli di analisi & layout.** In analisi attivi tre pannelli informativi
+> in modo indipendente: **B** libro d'apertura, **D** *PGN moves* (il proseguio
+> della linea corrente in SAN, sotto la lista mosse), **Y** *Personal Stats* (il
+> tuo storico dal DB di riferimento per questa posizione). La lista mosse mostra
+> **una mossa per riga** e scorre per tenere visibile l'ultima mossa giocata.
 
 > **Pannelli laterali con navigazione tastiera.** Quando navighi tra le mosse
 > di una partita caricata e ci sono varianti, o quando annoti una mossa con un

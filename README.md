@@ -256,7 +256,7 @@ Flow:
 If you press **K** without having played a move yet, you'll see *"Play the
 correct move first"* and nothing is saved.
 
-#### Sub-mode: Position statistics vs reference DB (key **Y** or *DB* button)
+#### Sub-mode: Personal Stats — position statistics vs your reference DB (key **Y** or *Stats* button)
 > **"How did I play this position the times I had it?"** — the most powerful
 > feature of analysis mode. Counts how many times the current position
 > occurs in a reference PGN (your Chess.com/lichess games, or any PGN book),
@@ -266,13 +266,15 @@ Setup: **Tools → Setup → "Choose reference DB (my games)"** opens a file
 selector for the PGN (can live in `pgn/`, `endgames/`, anywhere). The full
 path is stored in `config.reference_db`.
 
-Press **Y** on the current position → a side panel appears (to the right of
-the board; the board stays visible) showing:
+Toggle the **Personal Stats** panel with **Y** (or the *Stats* button): like the
+book / engine / PGN panels it stays on and **updates live for the current
+position** as you navigate. The board stays visible. The panel shows, in aligned
+monospace columns:
 - **Found N times** — how many times the same position (zobrist hash) occurs
   in the DB.
-- **W X (Y%) D X (Y%) L X (Y%)** — from White's POV (classic DB convention).
-- **Continuations** — for each next move observed in the DB:
-  `SAN  count  (W/D/L)`, sorted by descending frequency.
+- **W X% D X% L X%** — from White's POV (classic DB convention).
+- a **move / count / W-D-L** table of the continuations played from here,
+  sorted by descending frequency.
 
 Real example on a 12k-game DB: from the starting position the program tells
 you you've played 1.e4 in 9714 games and won 4365 vs lost 4970 —
@@ -474,7 +476,7 @@ During a game (Play against computer / between humans) the following controls ap
 | **R** | Reset (new game) |
 | **E** | Analysis engine ON/OFF (shows the evaluation) |
 | **B** | Show/hide the opening book |
-| **D** | Show/hide the move list |
+| **D** | Show/hide the **PGN moves** panel (the continuation of the current line, in SAN) |
 | **Q** | Back to the main menu |
 
 **Only in "Play between humans" (analysis):**
@@ -487,7 +489,13 @@ During a game (Play against computer / between humans) the following controls ap
 | **V** | Open the **Notation** panel (whole game + variations) |
 | **U** | **Position setup**: modal visual editor (see §3.3) |
 | **K** | **Save as tactic**: current position + last move played → learning base (see §3.3) |
-| **Y** | **Position statistics vs reference DB**: side panel with W/D/L + continuations from your own history (see §3.3) |
+| **Y** | Toggle the **Personal Stats** panel: W/D/L + continuations for the current position, from your own games (see §3.3) |
+
+> **Analysis side panels & layout.** In analysis you toggle three info panels
+> independently: **B** opening book, **D** *PGN moves* (the continuation of the
+> current line in SAN, shown under the move list), **Y** *Personal Stats* (your
+> reference-DB record for this position). The move list itself shows **one move
+> per row** and auto-scrolls so the latest move stays visible.
 
 > **Side panels with keyboard navigation.** When you navigate through the
 > moves of a loaded game and there are variations, or when you annotate a
