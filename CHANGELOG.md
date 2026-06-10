@@ -4,6 +4,31 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.2.4] - 2026-06-10
+
+### Aggiunte
+- **Pannello "Personal Stats"** in Analisi (tasto **Y** o pulsante *Stats*):
+  per la posizione corrente mostra quante volte è comparsa nel tuo database di
+  riferimento, con percentuali Bianco/Patta/Nero e le continuazioni più giocate,
+  in colonne allineate e leggibili.
+- **"PGN moves" mostra il proseguio della linea**: le mosse successive in
+  notazione SAN, non più solo la mossa immediatamente seguente.
+
+### Modifiche
+- **Nuovo layout dei pannelli laterali**: l'elenco "PGN moves" è ora sotto il
+  registro delle mosse; lo spazio liberato ospita il pannello Personal Stats.
+- **Registro mosse più ordinato**: una mossa per riga (notazione canonica) e
+  scorrimento automatico, così le ultime mosse giocate restano sempre visibili.
+
+### Correzioni
+- **Apertura file PGN**: quando ricompare il nome dell'ultimo file scelto, ora è
+  sempre effettivamente caricabile (memoria del file separata per ciascuna
+  modalità: aperture, finali, carica/salva).
+- **Righe "fantasma"**: i pannelli laterali non lasciano più testo residuo in
+  fondo quando si naviga tra le mosse.
+
+[1.2.4]: https://github.com/gaelazzo/python_chess/releases/tag/v1.2.4
+
 ## [1.2.3] - 2026-06-10
 
 ### Correzioni
