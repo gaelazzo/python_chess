@@ -169,6 +169,11 @@ def is_analysing() -> bool:
     return _active_analysis is not None
 
 
+def is_engine_ready() -> bool:
+    """True if a UCI engine is open (configured and started)."""
+    return engine is not None
+
+
 def stop_analysis() -> None:
     """Stop the active analysis. Idempotent. Does not raise."""
     global _active_analysis, _active_callback, stopper
@@ -306,6 +311,12 @@ def update_board(board: chess.Board, callback, interval_sec=1.0) -> None:
 
 def engine_on_off(board, callback, interval_sec=1.0) -> None:
     """User toggle: if analyzing then stop, otherwise start."""
+    if engine is None:
+        try:
+            callback(["No engine configured -- Tools > Setup > Choose engine"])
+        except Exception:
+            pass
+        return
     if is_analysing():
         stop_analysis()
         try:
@@ -352,6 +363,9 @@ def bestMove(board:chess.Board, time=0.1, elo= None)->chess.Move:
         moves = book.getMovesFromBook(board)
         if moves:
             return moves[0].move
+
+    if engine is None:
+        return None   # no engine configured -> caller handles a null move gracefully
 
     if elo is None:
         res:chess.engine.PlayResult = engine.play(board,

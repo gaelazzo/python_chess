@@ -425,6 +425,19 @@ def playAGame():
     BS.set_context_label("Analysis / Human Play" if (not whiteCPU and not blackCPU)
                          else "Play vs computer")
 
+    # Play vs computer needs an engine: bail out with a clear message rather than
+    # crashing later when the engine has to move (none configured).
+    if (whiteCPU or blackCPU) and not UCIEngines.is_engine_ready():
+        app.main_background()
+        BS.drawEndGameText(app.screen, None,
+                           "Configure an engine first: Tools > Setup > Choose engine",
+                           size=20)
+        BS.update()
+        app.delay(3)
+        BS.set_context_label(None)
+        app.main_menu.enable()
+        return
+
     # Incremental migration to the decoupled controller (modes/board_session):
     # the Session SHARES this loop's GameState (gs), so commands routed through it
     # mutate the same object the loop already uses -- no double state. Migrated so
