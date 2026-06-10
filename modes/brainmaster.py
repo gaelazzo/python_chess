@@ -468,10 +468,14 @@ def playBrainMaster(learningBaseName:str):
         BS.update()
         app.delay(2 )
         return
-    action = suggestion["action"] if "action" in suggestion else None
+    action = suggestion.get("action")
     if action is None:
-        app.main_background() 
-        BS.drawEndGameText(app.screen, None,"No suggestion available",size=20)
+        # No quiz right now: the server replied {"error": ...} (HTTP 200), e.g.
+        # nothing left to review for this course. Show a clear message rather than
+        # the generic "service error" handled above.
+        app.main_background()
+        BS.drawEndGameText(app.screen, None,
+                           "No test to practice right now for this course", size=20)
         BS.update()
         app.delay(2 )
         return

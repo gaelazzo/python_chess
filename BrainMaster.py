@@ -261,6 +261,13 @@ def ask_for_quiz(id_course:str, id_student:str):
         # Check the result
         if response.status_code == 200:
             res = response.json()
+            # The server replies 200 + {"error": ...} when there is no suggestion
+            # available (e.g. nothing left to review for this course). It's a valid
+            # outcome, not a failure: return it so the caller can tell it apart
+            # from a real service error (which yields None below).
+            if isinstance(res, dict) and "error" in res:
+                print('No suggestion available:', res["error"])
+                return res
             print(f'Quiz received: {res["action"]} {res["description"]}')
             return res
         else:
