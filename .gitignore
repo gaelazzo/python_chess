@@ -1,4 +1,8 @@
-# This file specifies intentionally untracked files 
+# This file specifies intentionally untracked files
+
+# Per-user config: personal paths + BrainMaster api_key/admin_token. Never commit;
+# the app generates a clean one from DEFAULT_CONFIG on first run.
+config.json
 
 # Temporary files including undo
 *~
