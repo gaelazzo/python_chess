@@ -352,6 +352,18 @@ def playEndgames() -> None:
     app.main_menu.disable()
     app.main_menu.full_reset()
 
+    # Endgame training needs an engine (opponent replies / judging): stop here with
+    # a readable message instead of flashing "TB+engine failed" inside the loop.
+    if not UCIEngines.is_engine_ready():
+        app.main_background()
+        BS.drawEndGameText(app.screen, None,
+                           "Configure an engine first: Tools > Setup > Choose engine",
+                           size=20)
+        BS.update()
+        app.delay(3)
+        app.main_menu.enable()
+        return
+
     if not games:
         app.main_background()
         BS.drawEndGameText(app.screen, None,

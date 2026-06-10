@@ -24,6 +24,7 @@ import pygame_menu
 from app_context import app
 import BoardScreen as BS
 import analyzer
+import UCIEngines
 import chess_com_download
 import pgngamelist
 from LearningBase import LearningBase, learningBases
@@ -143,6 +144,11 @@ def runImproveWizard(user, color, focus, effort, limit=None):
     app.main_menu.disable()
     app.main_menu.full_reset()
     try:
+        # Analysis needs an engine: show a message and exit instead of crashing in
+        # analyzer (engine.analyse on a None engine) when none is configured.
+        if not UCIEngines.is_engine_ready():
+            _message("Configure an engine first: Tools > Setup > Choose engine", secs=3)
+            return
         pgn = f"{user}_games.pgn"             # canonical name, used everywhere
         path = os.path.join(pgngamelist.PGN_FOLDER, pgn)
 
