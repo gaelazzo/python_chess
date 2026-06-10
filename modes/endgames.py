@@ -338,7 +338,7 @@ def _opponent_move(board: chess.Board) -> Optional[chess.Move]:
 def playEndgames() -> None:
     """Entry-point from the menu: load the games and loop until the user exits."""
     from state import positionParameters
-    filename = positionParameters.get("filename")
+    filename = positionParameters.get("endgames_filename")
     if not filename:
         return
     pgn_path = os.path.join(ENDGAMES_FOLDER, filename + ".pgn")

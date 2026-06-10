@@ -392,6 +392,84 @@ def addChooseBaseFile(menu):
     labels.append(label)
 
 
+def make_pgn_folder_selector(key, folder, labels, window_title="Choose PGN file", callback=None):
+    '''
+    Returns a callable that opens a small pygame_menu listing ONLY the *.pgn files
+    of `folder` as buttons. Unlike the OS file dialog it cannot navigate elsewhere,
+    so the chosen name always belongs to `folder` and stays reloadable next time.
+    The pick is stored under the per-mode `key` (e.g. "openings_filename").
+    '''
+    def choose():
+        try:
+            entries = sorted(
+                os.path.splitext(f)[0]
+                for f in os.listdir(folder)
+                if f.lower().endswith(".pgn")
+            )
+        except OSError:
+            entries = []
+
+        menu = pygame_menu.Menu(window_title, app.W, app.H, theme=small_font_theme)
+        if not entries:
+            menu.add.label(f"No PGN file in {os.path.basename(folder.rstrip(os.sep))}/.")
+
+        def pick(name):
+            positionParameters[key] = name
+            state.save_user_prefs()
+            for lbl in labels:
+                if lbl:
+                    lbl.set_title(name)
+            if callback:
+                callback(name)
+            menu.disable()
+
+        for name in entries:
+            menu.add.button(name, pick, name)
+        menu.add.button("Cancel", menu.disable)
+
+        surface = app.screen
+        clock = p.time.Clock()
+        menu.enable()
+        while menu.is_enabled():
+            events = p.event.get()
+            for ev in events:
+                if ev.type == p.QUIT:
+                    p.quit()
+                    sys.exit()
+                if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
+                    menu.disable()
+            menu.update(events)
+            if not menu.is_enabled():
+                break
+            surface.fill((0, 0, 0))
+            menu.draw(surface)
+            p.display.flip()
+            clock.tick(app.FPS or 60)
+
+    return choose
+
+
+def addChoosePGNFromFolder(menu, folder, key, title="Choose PGN file"):
+    '''
+    Like addChoosePGNFile but for a mode with a FIXED folder: lists only the *.pgn
+    files actually in `folder` (no OS dialog, no navigating away) and remembers the
+    choice under a per-mode `key`. The shown default is validated, so it never
+    displays a name that wouldn't load.
+    '''
+    labels = []
+    chooser = make_pgn_folder_selector(key, folder, labels, window_title=title)
+    menu.add.button(title, chooser)
+    saved = positionParameters.get(key)
+    if saved and os.path.exists(os.path.join(folder, saved + ".pgn")):
+        default_value = saved
+    else:
+        default_value = "No selection"
+    label = menu.add.button(default_value, chooser, font_size=20,
+                            background_color=None,
+                            selection_effect=pygame_menu.widgets.NoneSelection())
+    labels.append(label)
+
+
 def addChoosePGNFile(menu, folder=None, title="Choose PGN file", create=False):
     '''
     Adds a button to the menu that allows the user to choose a PGN file.
@@ -406,7 +484,20 @@ def addChoosePGNFile(menu, folder=None, title="Choose PGN file", create=False):
     labels = []
     chooseModelFile = make_file_selector("filename", None , labels, folder, ".pgn", title, None, create=create)
     menu.add.button(title, chooseModelFile)
-    default_value = str(positionParameters.get("filename", "No selection"))
+    # Only show a remembered file name if it can actually be loaded -- the file
+    # exists either in this menu's folder or in the folder it was picked from.
+    # Never display a name that wouldn't load (the "filename" key is shared across
+    # modes, so a leftover from another folder must not look selectable here).
+    _saved = positionParameters.get("filename")
+    if create:
+        default_value = str(_saved or "No selection")
+    else:
+        _folders = [folder]
+        if positionParameters.get("filename_folder"):
+            _folders.append(positionParameters["filename_folder"])
+        _loadable = bool(_saved) and any(
+            os.path.exists(os.path.join(_f, _saved + ".pgn")) for _f in _folders)
+        default_value = _saved if _loadable else "No selection"
     label = menu.add.button(default_value, chooseModelFile, font_size=20,
                            background_color=None,
                            selection_effect=pygame_menu.widgets.NoneSelection())

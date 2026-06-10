@@ -128,7 +128,7 @@ from learningbase_admin import (
 from menu_helpers import (
     make_updater, make_selector_updater, make_bool_selector_updater,
     make_file_selector, setPlayColor, addChooseCourse, addChooseBaseFile,
-    addChoosePGNFile,
+    addChoosePGNFile, addChoosePGNFromFolder,
 )
 from save_load import save_menu, load_menu
 from modes.play_game import playGame
@@ -284,7 +284,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     openingsMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment=1,value_format=lambda x: str(round(x, 0)),
                                        onchange=make_updater("num_moves_to_show",int),
                 default=state.num_moves_to_show)  # Add this line
-    addChoosePGNFile(openingsMenu, folder=OPENINGS_FOLDER, title='Choose opening PGN')
+    addChoosePGNFromFolder(openingsMenu, folder=OPENINGS_FOLDER, key="openings_filename", title='Choose opening PGN')
     openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     openingsMenu.add.button('Play', playOpening)
 
@@ -294,7 +294,7 @@ def mainMenu(width,height, test: bool = False) -> None:
         title='Endgame training',
         width=width
     )
-    addChoosePGNFile(endgamesMenu, folder=ENDGAMES_FOLDER, title='Choose endgame PGN')
+    addChoosePGNFromFolder(endgamesMenu, folder=ENDGAMES_FOLDER, key="endgames_filename", title='Choose endgame PGN')
     endgamesMenu.add.button('Play', playEndgames)
 
     CreateCourseMenu = None

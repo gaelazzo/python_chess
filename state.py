@@ -94,6 +94,9 @@ _PERSIST_SPEC = [
     ("pp", "eco"),
     ("pp", "color"),
     ("pp", "filename"),
+    ("pp", "filename_folder"),    # general Load/Save: remember WHERE the file was picked
+    ("pp", "openings_filename"),  # Study openings: per-mode last file (always in openings/)
+    ("pp", "endgames_filename"),  # Endgame training: per-mode last file (always in endgames/)
     ("pp", "base"),
     ("pp", "player"),
     ("pp", "movesToAnalyze"),

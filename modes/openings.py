@@ -147,7 +147,7 @@ def _log_user_move_to_base(lb: Optional[LearningBase], game: chess.pgn.Game,
 # "Study openings": you must always play the best move while the computer replies
 # with one of the lines stored in the PGN (typically an opening repertoire).
 def playOpening():
-    filename = positionParameters.get("filename")
+    filename = positionParameters.get("openings_filename")
     if filename is None:
         return
     # Automatically detects the user's color from the PGN content. Defaults to White
