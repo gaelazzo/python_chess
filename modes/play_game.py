@@ -421,6 +421,10 @@ def playAGame():
     whiteCPU = playParameters["whiteCPU"]
     blackCPU = playParameters["blackCPU"]
 
+    # Window caption / context label: tell analysis apart from play-vs-computer.
+    BS.set_context_label("Analysis / Human Play" if (not whiteCPU and not blackCPU)
+                         else "Play vs computer")
+
     # Incremental migration to the decoupled controller (modes/board_session):
     # the Session SHARES this loop's GameState (gs), so commands routed through it
     # mutate the same object the loop already uses -- no double state. Migrated so
@@ -801,6 +805,7 @@ def playAGame():
         BS.update()
 
     toolbar.kill()
+    BS.set_context_label(None)
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()
