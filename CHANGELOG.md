@@ -4,6 +4,19 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.2.2] - 2026-06-10
+
+### Correzioni
+- **Crash in "Play vs computer"** su un'installazione nuova: un'opzione di
+  configurazione mancante (`engine_usebook`) faceva terminare il programma quando
+  il motore muoveva. Risolto.
+- **Avvio più robusto**: un'opzione assente in `config.json` non manda più in
+  crash l'app — i campi non impostati vengono letti come vuoti, non danno errore.
+- **Nessun libro d'apertura impostato**: l'avvio non mostra più un warning
+  fuorviante quando non è configurato alcun libro.
+
+[1.2.2]: https://github.com/gaelazzo/python_chess/releases/tag/v1.2.2
+
 ## [1.2.1] - 2026-06-09
 
 ### Correzioni
