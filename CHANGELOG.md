@@ -4,6 +4,18 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.2.3] - 2026-06-10
+
+### Correzioni
+- **Modi che richiedono il motore, senza motore configurato**: "Play vs
+  computer", "Endgame training" e "Improve from your games" non vanno più in
+  crash — mostrano un messaggio chiaro ("Configure an engine first…") e tornano
+  al menu. Anche il tasto **E** (motore on/off) avvisa se manca il motore.
+- **Messaggi sulla scacchiera tagliati**: i testi più larghi della scacchiera non
+  vengono più troncati a sinistra (il font si adatta per stare nello spazio).
+
+[1.2.3]: https://github.com/gaelazzo/python_chess/releases/tag/v1.2.3
+
 ## [1.2.2] - 2026-06-10
 
 ### Correzioni
