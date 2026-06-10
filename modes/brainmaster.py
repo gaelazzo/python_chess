@@ -431,6 +431,19 @@ def playBrainMaster(learningBaseName:str):
     # instead of starting it.
     UCIEngines.stop_analysis()
 
+    # Lazy registration with the BrainMaster service: only now that the user is
+    # actually entering BrainMaster (never at startup). The open list_courses
+    # works without it, but the student endpoints below need credentials.
+    if not BrainMaster.ensure_registered():
+        app.main_background()
+        msg = ("Set the BrainMaster service URL (base_url) in Tools -> Setup"
+               if not config.base_url
+               else "Could not register with the BrainMaster service")
+        BS.drawEndGameText(app.screen, None, msg, size=20)
+        BS.update()
+        app.delay(2)
+        return
+
     #eventually unlocks new lessons
     app.main_background()
     BS.drawEndGameText(app.screen,None, "Checking lessons to unlock",size=20)

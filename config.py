@@ -24,6 +24,8 @@ CONFIG_FILE = os.path.join(BASE_PATH, "config.json")
 DEFAULT_CONFIG = {
     "base_url": "",
     "id_student": "",
+    "api_key": "",        # BrainMaster device key, auto-filled on first use (ensure_registered)
+    "admin_token": "",    # BrainMaster authoring token, maintainer-only (empty for normal users)
     "engine": "",
     "book": "",
     "engine_options": {

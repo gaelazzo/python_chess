@@ -6,7 +6,7 @@ from datetime import datetime
 from dataclasses import dataclass,fields
 from typing import Optional, Union,List,Dict, Tuple, Iterator, Any
 import json
-from config import config
+from config import config, save_config
 import sys
 
 def get_base_path():
@@ -27,6 +27,62 @@ DATA_FOLDER = os.path.join(BASE_PATH, "data")
 #id_student = 'gaetano.lazzo'
 
 
+# --- Authentication -------------------------------------------------------
+# When the server runs with require_auth on, the student endpoints need the
+# X-Student-Id / X-Api-Key headers (credentials obtained once from /register),
+# and the authoring endpoints need X-Admin-Token (only the maintainer has it).
+# When the server runs open (private/LAN) these headers are simply ignored.
+
+def _student_headers() -> Dict[str, str]:
+    """Auth headers for the student endpoints (empty until registered)."""
+    headers: Dict[str, str] = {}
+    sid = getattr(config, "id_student", "")
+    key = getattr(config, "api_key", "")
+    if sid:
+        headers["X-Student-Id"] = sid
+    if key:
+        headers["X-Api-Key"] = key
+    return headers
+
+
+def _admin_headers() -> Dict[str, str]:
+    """Auth header for the authoring endpoints. Only the maintainer has an
+    admin_token configured; ordinary users send nothing (and cannot author)."""
+    token = getattr(config, "admin_token", "")
+    return {"X-Admin-Token": token} if token else {}
+
+
+def ensure_registered() -> bool:
+    """Register this installation with the BrainMaster service the first time it
+    is actually needed.
+
+    LAZY: call it only when the user enters a BrainMaster feature -- never at
+    startup (most users never touch BrainMaster, and registering everyone would
+    flood the server). No-op when there is no `base_url` configured or when we
+    already hold credentials (id_student + api_key). On success it stores the
+    generated `id_student` + `api_key` in config.json. Returns True iff usable
+    credentials exist.
+    """
+    base_url = getattr(config, "base_url", "")
+    if not base_url:
+        return False
+    if getattr(config, "id_student", "") and getattr(config, "api_key", ""):
+        return True
+    try:
+        response = requests.post(f"{base_url}register", json={}, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            config.id_student = data["id_student"]
+            config.api_key = data["api_key"]
+            save_config()
+            print(f"Registered with BrainMaster as {config.id_student}")
+            return True
+        print('Registration error:', response.status_code, response.text)
+    except Exception as e:
+        print('Registration request failed:', str(e))
+    return False
+
+
 def create_course(id_course:str):
     '''
     Create a course in the Brain Master service.
@@ -38,11 +94,11 @@ def create_course(id_course:str):
             'id_course': id_course,
             'description': 'Chess course'
         }
-        
 
-    try:        
-        response = requests.post(url, json=payload)
-    
+
+    try:
+        response = requests.post(url, json=payload, headers=_admin_headers())
+
         # Check the result
         if response.status_code == 200:
             print('Course created successfully!')
@@ -51,7 +107,7 @@ def create_course(id_course:str):
             print('Error:', response.status_code, response.text)
     except Exception as e:
         print('Error in request:', str(e))
-    
+
 def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
     '''
     Create a lesson in the Brain Master service.
@@ -70,8 +126,8 @@ def create_lesson(id_lesson:str, id_course:str, title:str, description:str):
     }
 
     try:
-        response = requests.post(url, json=payload)
-    
+        response = requests.post(url, json=payload, headers=_admin_headers())
+
         # Check the result
         if response.status_code == 200:
             print(f'Lesson {id_lesson} created successfully!')
@@ -98,8 +154,8 @@ def add_question(id_course:str, id_test:str, id_lesson:str, id_question:str,
     }
 
     try:
-        response = requests.post(url, json=payload)
-    
+        response = requests.post(url, json=payload, headers=_admin_headers())
+
         # Check the result
         if response.status_code == 200:
             print(f'Question {id_question} {id_lesson} created successfully!')
@@ -116,7 +172,7 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
             id_course(str)  key of the mdl_course table
             id_student(str) key of the mdl_user table
             id_lesson(str)  key of the mdl_course_modules table
-    '''  
+    '''
     url = f'{config.base_url}unlock_lesson'
     payload = {
         'id_lesson': id_lesson,
@@ -125,8 +181,8 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
     }
 
     try:
-        response = requests.post(url, json=payload)
-    
+        response = requests.post(url, json=payload, headers=_student_headers())
+
         # Check the result
         if response.status_code == 200:
             result = response.json()
@@ -142,9 +198,9 @@ def unlock_lesson(id_course:str, id_student:str, id_lesson:str)->bool:
 class AnswerData:
     adate:datetime    # when the question was asked
     id_question:str
-    result:int 
+    result:int
     timeElapsed:int
-    notesTime:int 
+    notesTime:int
 
     def to_dict(self):
          return {
@@ -152,7 +208,7 @@ class AnswerData:
             "id_question": self.id_question ,
             "result": self.result ,
             "timeElapsed": self.timeElapsed ,
-            "notesTime": self.notesTime 
+            "notesTime": self.notesTime
         }
 
 @dataclass
@@ -163,7 +219,7 @@ class QuestionData:
     explanation: str
     question:str
     rightAnswer:str
-    
+
 
     @classmethod
     def from_dict(cls, data: dict[str,Any]) -> "QuestionData":
@@ -186,11 +242,11 @@ def ask_for_quiz(id_course:str, id_student:str):
         id_student(str): unique identifier for the student, e.g. 'gaetano.lazzo'
     Returns:
         A dictionary with the suggested quiz, containing:
-               {"action":action.value, 
+               {"action":action.value,
                 "description":Submitter.get_action_description(action),
                 "questions": Submitter.get_test(id_course, id_student, action)
                 }
-    
+
     '''
     url = f'{config.base_url}suggest_action'
     # The data you want to send to the service
@@ -200,8 +256,8 @@ def ask_for_quiz(id_course:str, id_student:str):
     }
 
     try:
-        response = requests.post(url, json=payload)
-    
+        response = requests.post(url, json=payload, headers=_student_headers())
+
         # Check the result
         if response.status_code == 200:
             res = response.json()
@@ -211,7 +267,7 @@ def ask_for_quiz(id_course:str, id_student:str):
             print('Error:', response.status_code, response.text)
     except Exception as e:
         print('Error in request:', str(e))
- 
+
 
 def give_answers(id_course:str, action:int, answers:List[AnswerData]):
     '''
@@ -223,7 +279,7 @@ def give_answers(id_course:str, action:int, answers:List[AnswerData]):
         answers(List[AnswerData]): list of answers given by the student
     '''
     url = f'{config.base_url}give_answers'
-       
+
     # The data you want to send to the service
     payload = {
         'id_course': id_course,
@@ -233,8 +289,8 @@ def give_answers(id_course:str, action:int, answers:List[AnswerData]):
     }
 
     try:
-        response = requests.post(url, json=payload)
-    
+        response = requests.post(url, json=payload, headers=_student_headers())
+
         # Check the result
         if response.status_code == 200:
             print('Data sent successfully.')
@@ -259,7 +315,8 @@ def add_all_lessons(learnBase:str):
         id_brainMasterLesson = f'{learnBase}{idlesson}'
         create_lesson(id_brainMasterLesson, learnBase, idlesson, idlesson)
 
-        
+
+
 
 
 
@@ -282,17 +339,17 @@ def add_all_questions(learnBase:str):
                         position.moves, 'no', position.ok)
 
 
-def list_courses() -> List[str]: 
+def list_courses() -> List[str]:
     '''
     List all courses in the Brain Master service.
     Returns:
         A list of course identifiers.
     '''
     url = f'{config.base_url}list_courses'
-    
+
     try:
         response = requests.get(url)
-    
+
         # Check the result
         if response.status_code == 200:
             res = response.json()
@@ -317,13 +374,13 @@ def unlock_new_lesson(id_course:str)->str:
     }
 
     try:
-        response = requests.post(url, json=payload)
-    
+        response = requests.post(url, json=payload, headers=_student_headers())
+
         # Check the result
-        if response.status_code == 200:                        
+        if response.status_code == 200:
             res = response.json()["result"]
             if not res: return False
-            print('New lesson to unlock')             
+            print('New lesson to unlock')
         else:
             print('Error:', response.status_code, response.text)
             return None
@@ -340,7 +397,7 @@ def unlock_new_lesson(id_course:str)->str:
     quizNames = json_helper.read_struct(os.path.join(DATA_FOLDER,f"lessons_{id_course}.json"))
 
     for idtest, idlesson in quizNames.items():
-        if idlesson in lesson_unlocks: 
+        if idlesson in lesson_unlocks:
             continue
         id_brainMasterLesson:str = f'{id_course}{idlesson}'
         print(f"Course: {id_course} Unlocking lesson {id_brainMasterLesson}")
@@ -349,7 +406,7 @@ def unlock_new_lesson(id_course:str)->str:
             lesson_unlocks[idlesson]= datetime.now()
             json_helper.write_struct(fname, lesson_unlocks)
             return idlesson
-        else: 
+        else:
             print(f"Course: {id_course} lesson {idlesson} was not unlocked")
             return None
 
@@ -370,8 +427,6 @@ if __name__ == "__main__":
         Main function to add all courses, lessons, and questions to the Brain Master.
     '''
     for id_course in LearningBase.learningBases:
-        create_course(id_course)        
+        create_course(id_course)
         add_all_lessons(id_course)
         add_all_questions(id_course)
-
-   
