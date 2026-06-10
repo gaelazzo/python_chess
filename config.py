@@ -1,6 +1,7 @@
 """Persistent program configuration (loaded from / saved to config.json).
 
-Exposes a SimpleNamespace `config` populated at import time by merging `config.json`
+Exposes a `config` object (reading a missing key returns None, never raises)
+populated at import time by merging `config.json`
 with `DEFAULT_CONFIG` (missing keys are added to the file). The path of
 `config.json` is anchored to the script/executable folder, so it works
 regardless of the launch directory (and supports PyInstaller bundles).
@@ -8,7 +9,25 @@ regardless of the launch directory (and supports PyInstaller bundles).
 import os
 import json
 import sys
-from types import SimpleNamespace
+
+
+class _Config:
+    """Configuration object. Reading a key that isn't set returns None instead
+    of raising AttributeError, so a missing/old option never crashes the app.
+    Values live in __dict__, so save_config() can still serialize config.__dict__."""
+
+    def __init__(self, data):
+        self.__dict__.update(data)
+
+    def __getattr__(self, name):
+        # Called only when the attribute is absent. Let dunders raise (keeps
+        # introspection / copy / pickle working); ordinary config keys -> None.
+        if name.startswith('__') and name.endswith('__'):
+            raise AttributeError(name)
+        return None
+
+    def get(self, key, default=None):
+        return self.__dict__.get(key, default)
 
 
 def get_base_path():
@@ -71,7 +90,7 @@ def load_config():
         engine_options.update(data.get("engine_options", {}))
         merged["engine_options"] = engine_options
 
-        config = SimpleNamespace(**merged)
+        config = _Config(merged)
 
         # Rewrite the file to propagate missing default keys.
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -79,7 +98,7 @@ def load_config():
 
     except Exception as e:
         print(f"Error reading the configuration file: {e}")
-        config = SimpleNamespace(**DEFAULT_CONFIG)
+        config = _Config(dict(DEFAULT_CONFIG))
 
 
 def save_config():
