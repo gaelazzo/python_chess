@@ -28,6 +28,7 @@ DEFAULT_CONFIG = {
     "admin_token": "",    # BrainMaster authoring token, maintainer-only (empty for normal users)
     "engine": "",
     "book": "",
+    "engine_usebook": False,   # if True, "Play vs computer" consults the opening book before the engine
     "engine_options": {
         "Hash": "1024",
         "Threads": "4",
