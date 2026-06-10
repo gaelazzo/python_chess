@@ -218,6 +218,11 @@ def drawEndGameText(screen, board, text,size=32):
     '''
     redraw(screen, board)
     font = p.font.SysFont("Helvetica", size, True, False)
+    # The text is centered below; a line wider than the board would start at a
+    # negative x and get clipped on the left. Shrink the font until it fits.
+    while size > 8 and font.size(text)[0] > BOARD_WIDTH - 10:
+        size -= 1
+        font = p.font.SysFont("Helvetica", size, True, False)
     textObject = font.render(text, False, p.Color("Gray"))
     textLocation = p.Rect(0, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT).move((BOARD_WIDTH - textObject.get_width()) / 2,
                                                                 (BOARD_HEIGHT - textObject.get_height()) / 2)
