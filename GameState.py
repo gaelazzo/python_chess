@@ -437,6 +437,42 @@ class GameState:
         nextNodes:List[ChildNode] = self.node.variations
         return [n.move for n in nextNodes]
 
+    def getContinuationLines(self, max_plies: int = 20) -> List[str]:
+        '''
+            The continuation of the current line as readable text: the upcoming
+            mainline moves from the current position, in SAN with move numbers
+            (e.g. ["12. Nf3 Nc6", "13. Bb5 a6", ...]). Capped at `max_plies`
+            half-moves so it fits the side panel. Used by the "PGN moves" panel.
+        '''
+        if self.node is None:
+            return []
+        board = self.node.board()
+        lines: List[str] = []
+        pending = ""          # a White move waiting for Black's reply
+        n = self.node
+        for _ in range(max_plies):
+            nxt = n.next()
+            if nxt is None:
+                break
+            try:
+                san = board.san(nxt.move)
+            except Exception:
+                break
+            num = board.fullmove_number
+            if board.turn:                       # White to move
+                pending = f"{num}. {san}"
+            else:                                # Black to move
+                if pending:
+                    lines.append(f"{pending} {san}")
+                    pending = ""
+                else:
+                    lines.append(f"{num}... {san}")
+            board.push(nxt.move)
+            n = nxt
+        if pending:
+            lines.append(pending)
+        return lines
+
 
     
 

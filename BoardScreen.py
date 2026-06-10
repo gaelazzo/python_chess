@@ -27,24 +27,36 @@ IMAGES:Dict[str,p.Surface] = {}
 TOOLBAR_HEIGHT = 40
 BOARD_Y = TOOLBAR_HEIGHT
 
-MOVE_LOG_HEIGHT = BOARD_HEIGHT
 MOVE_LOG_WIDTH = 250
 MOVE_LOG_X = BOARD_WIDTH
 MOVE_LOG_Y = TOOLBAR_HEIGHT
+# Move-log column (2nd column) is split: move log on top (2/3), the PGN-moves
+# panel below it (1/3). The DB-stats panel takes the freed slot in the analysis
+# column (where PGN used to be).
+MOVE_LOG_HEIGHT = 2 * (BOARD_HEIGHT // 3)
 whiteUp = False
 
 ANALYSYS_PANEL_HEIGHT = BOARD_HEIGHT
 ANALYSYS_PANEL_WIDTH = MOVE_LOG_WIDTH
 
-BOOK_HEIGHT = 2* (BOARD_HEIGHT // 3)
+# The book gives up ~4 rows at the bottom so the Personal-Stats panel below it
+# (sharing the boundary) starts higher and has room for its columns.
+BOOK_HEIGHT = 2 * (BOARD_HEIGHT // 3) - 90
 BOOK_WIDTH = ANALYSYS_PANEL_WIDTH
 BOOK_X = BOARD_WIDTH + MOVE_LOG_WIDTH
 BOOK_Y = TOOLBAR_HEIGHT
 
-PGN_HEIGHT = BOARD_HEIGHT - BOOK_HEIGHT
-PGN_WIDTH = ANALYSYS_PANEL_WIDTH
-PGN_X = BOARD_WIDTH + MOVE_LOG_WIDTH
-PGN_Y = BOOK_HEIGHT + TOOLBAR_HEIGHT
+# PGN moves: lower part of the move-log column (under the move log).
+PGN_WIDTH = MOVE_LOG_WIDTH
+PGN_X = MOVE_LOG_X
+PGN_Y = MOVE_LOG_Y + MOVE_LOG_HEIGHT
+PGN_HEIGHT = BOARD_HEIGHT - MOVE_LOG_HEIGHT
+
+# DB stats: lower part of the analysis column (the old PGN slot).
+DBSTATS_WIDTH = ANALYSYS_PANEL_WIDTH
+DBSTATS_X = BOARD_WIDTH + MOVE_LOG_WIDTH
+DBSTATS_Y = BOOK_HEIGHT + TOOLBAR_HEIGHT
+DBSTATS_HEIGHT = BOARD_HEIGHT - BOOK_HEIGHT
 
 CPU_WIDTH = ANALYSYS_PANEL_WIDTH+BOARD_WIDTH+ANALYSYS_PANEL_WIDTH
 CPU_HEIGHT = BOARD_HEIGHT // 3
@@ -362,8 +374,13 @@ def clearPgn(screen):
     p.draw.rect(screen, p.Color("black"), pgnRect)
     return pgnRect
 
+def clearDbStats(screen):
+    rect = p.Rect(DBSTATS_X, DBSTATS_Y, DBSTATS_WIDTH, DBSTATS_HEIGHT)
+    p.draw.rect(screen, p.Color("black"), rect)
+    return rect
+
 def drawPgn(screen, gs: GameState):    
-    moves = gs.getNextMoves()
+    lines = gs.getContinuationLines()   # continuation of the line (SAN + move numbers), not just the next move
     pgnRect = clearPgn(screen)
     myfont = BOOKFONT
     textsurface = myfont.render('PGN moves', False, p.Color("white"))
@@ -373,8 +390,13 @@ def drawPgn(screen, gs: GameState):
     lineSpacing = 2
     textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
    
-    for move in moves:
-        textY+= add_txt_line(move.uci(), textY, myfont, screen, pgnRect, padding, lineSpacing)
+    prev_clip = screen.get_clip()
+    screen.set_clip(pgnRect)
+    try:
+        for line in lines:
+            textY += add_txt_line(line, textY, myfont, screen, pgnRect, padding, lineSpacing)
+    finally:
+        screen.set_clip(prev_clip)
 
     update()
 
@@ -400,9 +422,13 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
     else:
         clearPgn(screen)
 
+    # DB-stats slot (analysis column, lower third): painted by the analysis mode's
+    # panel; here we just blank it so other modes don't show stale content.
+    clearDbStats(screen)
+
 
 def drawMoveLog(screen, gs):
-    movesPerRow = 3
+    movesPerRow = 1   # one full move ("1. e4 e5") per row -- canonical, like the PGN panel
     assert(MOVELOGFONT is not None)
     font:p.font.Font = MOVELOGFONT
     moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
@@ -437,13 +463,24 @@ def drawMoveLog(screen, gs):
             value = header[i + 1] if i + 1 < len(header) else ""
             textY+= add_txt_line(f"{key}: {value}", textY, font, screen, moveLogRect, padding, lineSpacing)
 
-        for i in range(0, len(moveTexts), movesPerRow):
+        # Scroll to the tail: when the list is taller than the space left, drop the
+        # earliest rows so the latest played moves (= the current move while
+        # navigating) stay visible, with a "..." marker for the hidden ones.
+        lineHeight = font.get_height() + lineSpacing
+        n_rows = (len(moveTexts) + movesPerRow - 1) // movesPerRow
+        max_rows = max(1, (MOVE_LOG_HEIGHT - textY) // lineHeight)
+        start_row = max(0, n_rows - max_rows)
+        if start_row > 0:
+            add_txt_line("...", textY, font, screen, moveLogRect, padding, lineSpacing, color="gray")
+            textY += lineHeight
+            start_row = min(n_rows, start_row + 1)
+        for r in range(start_row, n_rows):
+            i = r * movesPerRow
             text = ""
             for j in range(movesPerRow):
-                if i+j < len(moveTexts):
-                    text += moveTexts[i+j]+" "
-            #str(moveTexts[i])
-            textY+= add_txt_line(text, textY, font, screen, moveLogRect, padding, lineSpacing)
+                if i + j < len(moveTexts):
+                    text += moveTexts[i + j] + " "
+            textY += add_txt_line(text, textY, font, screen, moveLogRect, padding, lineSpacing)
 
         evaluation = gs.getEvaluation()
         if evaluation is not None:

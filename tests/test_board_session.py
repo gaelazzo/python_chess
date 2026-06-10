@@ -90,11 +90,13 @@ def test_reorient_method_applies_policy_rule():
 # ----- play-loop behaviours now covered headlessly (panels, flip, undo) ----- #
 def test_panel_visibility_toggles_via_the_session():
     s = BoardSession(AnalysisPolicy())
-    assert s.view_model().panels == {"book": False, "pgn": False, "cpu": False}
+    assert s.view_model().panels == {"book": False, "pgn": False, "cpu": False, "dbstats": False}
     s.do("book")
     assert s.view_model().panels["book"] is True
     s.do("pgn")
     assert s.view_model().panels["pgn"] is True
+    s.do("dbstats")
+    assert s.view_model().panels["dbstats"] is True
     s.do("book")
     assert s.view_model().panels["book"] is False        # toggles back off
 

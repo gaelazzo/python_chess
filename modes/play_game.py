@@ -179,70 +179,33 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
     return result
 
 
-def _show_db_stats(gs: "GameState") -> None:
-    """Look up the current position in the reference DB (config.reference_db)
-    and show a side panel with the statistics (see position_stats.py).
-
-    Results POV: always from **White** (chess DB convention).
-    """
+def _db_stats_lines(gs) -> list:
+    """Lines for the DB-stats side panel: stats of the current position in the
+    reference DB. The index is already built once at startup (preloaded in
+    runMain), so the per-position lookup is O(1) -- no extra caching needed."""
     import os
     import position_stats
     from config import config as _cfg
-    from modes.common import show_message
-
+    board = gs.node.board()
     db_path = (getattr(_cfg, 'reference_db', '') or '').strip()
     if not db_path or not os.path.exists(db_path):
-        # font 20 instead of show_message default 32: the message is long and
-        # would exceed BOARD_WIDTH, spilling off to the left.
-        BS.drawEndGameText(app.screen, gs, "Set the reference DB in Tools -> Setup", size=20)
-        BS.update()
-        app.delay(2.5)
-        return
-
-    board = gs.node.board()
-
-    # Index not in cache? Show an "Indexing..." screen while scanning.
-    cached = db_path in position_stats._cache
-    if not cached:
-        def _progress(n_games):
-            app.main_background()
-            BS.drawEndGameText(app.screen, None,
-                               f"Indexing {os.path.basename(db_path)}: {n_games} games", size=22)
-            BS.update()
-            p.event.pump()
-        _progress(0)
-        position_stats.get_index(db_path, progress=_progress)
-        # Redraw game state because we overwrote it
-        app.main_background()
-        BS.drawGameState(app.screen, gs, [], [], ())
-        BS.update()
-
+        return ["No reference DB", "set it in Tools > Setup"]
+    if db_path not in position_stats._cache:
+        return ["DB not indexed", "(restart to index it)"]
     stats = position_stats.lookup_position(db_path, board)
     total = stats['total']
     if total == 0:
-        BS.drawEndGameText(app.screen, gs,
-                           f"Position never found in {os.path.basename(db_path)}",
-                           size=20)
-        BS.update()
-        app.delay(2.5)
-        return
-
-    # Build the panel rows
+        return ["Position not in DB"]
     res = stats['results']
     w, d, lo = res.get(1, 0), res.get(0, 0), res.get(-1, 0)
-    def _pct(n):
-        return (n * 100 / total) if total else 0
-    summary = f"W {w} ({_pct(w):.0f}%)  D {d} ({_pct(d):.0f}%)  L {lo} ({_pct(lo):.0f}%)"
-
-    # Sort the following moves by descending frequency
+    pct = (lambda n: (n * 100 / total) if total else 0)
+    # Monospace font in the panel -> space-padded columns line up into a table.
+    lines = [f"Found {total}  (W POV)",
+             f"W {pct(w):.0f}%  D {pct(d):.0f}%  L {pct(lo):.0f}%",
+             "",
+             f"{'move':<5}{'n':>5}  W/D/L"]
     moves_sorted = sorted(stats['moves'].items(), key=lambda kv: kv[1]['count'], reverse=True)
-
-    lines = []
-    lines.append((f"Found {total} times", None))
-    lines.append((summary, None))
-    if moves_sorted:
-        lines.append(("--- Continuations (W/D/L) ---", None))
-    for uci, info in moves_sorted:
+    for uci, info in moves_sorted[:8]:
         try:
             san = board.san(chess.Move.from_uci(uci))
         except Exception:
@@ -251,67 +214,8 @@ def _show_db_stats(gs: "GameState") -> None:
         mw = info['results'].get(1, 0)
         md = info['results'].get(0, 0)
         ml = info['results'].get(-1, 0)
-        lines.append((f"{san:>8}  {c:>3}  ({mw}/{md}/{ml})", uci))
-
-    _show_info_panel(lines, title=f"DB: {os.path.basename(db_path)}",
-                     row_h=24, font_size=14)
-
-
-def _show_info_panel(lines, title: str, row_h: int = 24, font_size: int = 14):
-    """Display-only side panel. `lines` is a list of (text, _payload).
-    Close: Esc, click on Close, or click on any row."""
-    PANEL_X = BS.BOARD_WIDTH
-    PANEL_Y = BS.BOARD_Y
-    PANEL_W = BS.SCREEN_WIDTH - BS.BOARD_WIDTH
-    title_h = row_h
-    close_h = row_h
-    n = len(lines)
-    PANEL_H = min(title_h + n * row_h + close_h, BS.BOARD_HEIGHT)
-
-    title_rect = p.Rect(PANEL_X, PANEL_Y, PANEL_W, title_h)
-    line_rects = [p.Rect(PANEL_X, PANEL_Y + title_h + i * row_h, PANEL_W, row_h)
-                  for i in range(n)]
-    close_rect = p.Rect(PANEL_X, PANEL_Y + title_h + n * row_h, PANEL_W, close_h)
-    full_panel = p.Rect(PANEL_X, PANEL_Y, PANEL_W, PANEL_H)
-
-    font_title = p.font.SysFont('Arial', max(12, font_size), bold=True)
-    font_line = p.font.SysFont('Consolas,Courier New,Lucida Console', font_size)
-    font_close = p.font.SysFont('Arial', font_size, bold=True)
-
-    running = True
-    while running:
-        app.clock.tick(60)
-        p.draw.rect(app.screen, p.Color('black'), full_panel)
-        # Title
-        p.draw.rect(app.screen, p.Color('steelblue'), title_rect)
-        txt = font_title.render(title, True, p.Color('white'))
-        app.screen.blit(txt, txt.get_rect(center=title_rect.center))
-        # Rows
-        for i, (text, _) in enumerate(lines):
-            rect = line_rects[i]
-            p.draw.rect(app.screen, p.Color(30, 30, 45), rect)
-            p.draw.rect(app.screen, p.Color(20, 20, 20), rect, 1)
-            try:
-                txt = font_line.render(text, True, p.Color('white'))
-            except Exception:
-                txt = font_line.render(text.encode('ascii', 'replace').decode(),
-                                       True, p.Color('white'))
-            app.screen.blit(txt, (rect.x + 8, rect.centery - txt.get_height() // 2))
-        # Close
-        close_hover = close_rect.collidepoint(p.mouse.get_pos())
-        p.draw.rect(app.screen, p.Color(80, 80, 80) if close_hover else p.Color(50, 50, 50), close_rect)
-        p.draw.rect(app.screen, p.Color(20, 20, 20), close_rect, 1)
-        txt = font_close.render('Close (Esc)', True, p.Color('white'))
-        app.screen.blit(txt, txt.get_rect(center=close_rect.center))
-        p.display.update(full_panel)
-
-        for ev in p.event.get():
-            if ev.type == p.QUIT:
-                p.quit(); sys.exit()
-            elif ev.type == p.KEYDOWN and ev.key in (p.K_ESCAPE, p.K_RETURN, p.K_KP_ENTER):
-                running = False
-            elif ev.type == p.MOUSEBUTTONDOWN and ev.button == 1:
-                running = False
+        lines.append(f"{san:<5}{c:>5}  {mw}/{md}/{ml}")
+    return lines
 
 
 def _variation_picker(moves, board):
@@ -453,6 +357,12 @@ def playAGame():
         lambda: p.Rect(BS.PGN_X, BS.PGN_Y, BS.PGN_WIDTH, BS.PGN_HEIGHT),
         title="PGN moves",
     )
+    dbstats_panel = TextLinesPanel(
+        lambda: p.Rect(BS.DBSTATS_X, BS.DBSTATS_Y, BS.DBSTATS_WIDTH, BS.DBSTATS_HEIGHT),
+        title="Personal Stats",
+        # monospace + a touch bigger so the W/D/L columns line up and read clearly
+        font=p.font.SysFont('Consolas,Courier New,Lucida Console', 16),
+    )
     engine_panel = EnginePanel()
 
     # Input port: pygame events -> Commands -> session.apply(), the SAME path a
@@ -460,6 +370,7 @@ def playAGame():
     # commands; richer keys (Right=variation picker, Del/Backspace=confirm, the
     # modal/engine keys) stay in the bespoke handling below.
     game_input = PygameInput({p.K_LEFT: "undo", p.K_b: "book", p.K_d: "pgn",
+                              p.K_y: "dbstats",
                               p.K_f: "flip", p.K_a: "analyze"})
 
     def _draw_engine(lines):
@@ -493,6 +404,7 @@ def playAGame():
         ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e), active=UCIEngines.is_analysing),
         ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b), active=lambda: session.show_book),
         ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d), active=lambda: session.show_pgn),
+        ToolbarAction("Stats", "Toggle Personal Stats (Y)",              _post_key(p.K_y), active=lambda: session.show_dbstats),
         ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
         ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
         ToolbarAction("Load",  "Load game (L) -- analysis only",          _post_key(p.K_l), enabled=_is_analysis),
@@ -632,12 +544,6 @@ def playAGame():
                         # in a learning base chosen by the user.
                         import add_to_base
                         add_to_base.addPositionToBaseMenu(gs)
-                        app.main_background()
-                        continue
-
-                    if e.key == p.K_y and not whiteCPU and not blackCPU:
-                        # Position statistics against the reference DB.
-                        _show_db_stats(gs)
                         app.main_background()
                         continue
 
@@ -812,7 +718,10 @@ def playAGame():
         book_panel.render(app.screen, vm.book)          # SAN list (session.book_view)
         pgn_panel.visible = vm.panels["pgn"]
         pgn_panel.render(app.screen,
-                         [m.uci() for m in gs.getNextMoves()] if vm.panels["pgn"] else [])
+                         gs.getContinuationLines() if vm.panels["pgn"] else [])
+        dbstats_panel.visible = vm.panels["dbstats"]
+        dbstats_panel.render(app.screen,
+                             _db_stats_lines(gs) if vm.panels["dbstats"] else [])
 
         toolbar.draw(app.screen)
         BS.update()

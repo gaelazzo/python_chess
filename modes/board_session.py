@@ -232,6 +232,7 @@ class BoardSession:
         self.show_book = False
         self.show_pgn = False
         self.show_cpu = False
+        self.show_dbstats = False
         self.white_up = False
         self.selected: Optional[Tuple[int, int]] = None
         self._clicks: List[Tuple[int, int]] = []
@@ -352,6 +353,8 @@ class BoardSession:
             self.show_book = not self.show_book
         elif cmd == "pgn":
             self.show_pgn = not self.show_pgn
+        elif cmd == "dbstats":
+            self.show_dbstats = not self.show_dbstats
         else:
             self.policy.handle_command(self, cmd)
 
@@ -421,7 +424,7 @@ class BoardSession:
             move_targets=targets,
             book=self.book_view() if self.show_book else [],
             notation=self.gs.to_PgnString(),
-            panels={"book": self.show_book, "pgn": self.show_pgn, "cpu": self.show_cpu},
+            panels={"book": self.show_book, "pgn": self.show_pgn, "cpu": self.show_cpu, "dbstats": self.show_dbstats},
             message=self.message,
             is_end=self.gs.is_end(),
             game_over=self.gs.checkMate() or self.gs.staleMate(),

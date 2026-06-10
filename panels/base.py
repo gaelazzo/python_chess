@@ -50,15 +50,16 @@ class TextLinesPanel(Panel):
     showed at most 10); None means no cap. A hidden panel just clears its box.
     """
 
-    def __init__(self, rect_fn, title="", max_lines=None):
+    def __init__(self, rect_fn, title="", max_lines=None, font=None):
         super().__init__(rect_fn, title)
         self.max_lines = max_lines
+        self._font = font          # None -> BoardScreen.BOOKFONT (the default)
 
     def render(self, screen, lines) -> None:
         rect = self.clear(screen)
         if not self.visible:
             return
-        font = BS.BOOKFONT
+        font = self._font or BS.BOOKFONT
         assert font is not None, "BoardScreen.init() must run before rendering panels"
         # Title: antialias off, matching the old draw* helpers.
         title_surf = font.render(self.title, False, p.Color("white"))
@@ -67,7 +68,14 @@ class TextLinesPanel(Panel):
         line_spacing = 2
         text_y = padding + title_surf.get_height() + line_spacing
         shown = lines if self.max_lines is None else lines[:self.max_lines]
-        for line in shown:
-            surf = font.render(line, True, p.Color("white"))   # lines: antialias on
-            screen.blit(surf, (rect.x + padding, rect.y + text_y))
-            text_y += surf.get_height() + line_spacing
+        # Clip to the panel: a list longer than the box must not leave leftover
+        # rows below it (the "ghost" PGN lines seen when navigating the line).
+        prev_clip = screen.get_clip()
+        screen.set_clip(rect)
+        try:
+            for line in shown:
+                surf = font.render(line, True, p.Color("white"))   # lines: antialias on
+                screen.blit(surf, (rect.x + padding, rect.y + text_y))
+                text_y += surf.get_height() + line_spacing
+        finally:
+            screen.set_clip(prev_clip)
