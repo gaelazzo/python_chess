@@ -33,6 +33,11 @@ def open_book():
             a MemoryMappedReader object
     """
     global book
+    if not config.book:
+        # No opening book configured -> skip cleanly. Otherwise join(folder, "")
+        # points at the books folder itself and we'd try to open a directory,
+        # producing a misleading "permission denied / is a directory" warning.
+        return
     try:
         book = chess.polyglot.MemoryMappedReader(os.path.abspath(os.path.join(BOOKS_FOLDER,config.book)))
         num_positions  = sum(1 for _ in book)
