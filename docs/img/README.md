@@ -13,10 +13,9 @@ e [README.it.md](../../README.it.md).
 | `screenshot-openings.gif` | galleria — studio aperture in azione | ✅ presente |
 | `screenshot-notation.gif` | galleria — pannello notazione/varianti | ✅ presente |
 
-> In attesa di `demo.gif`, l'immagine hero in cima ai README è
-> `screenshot-menu.gif`. Quando la GIF di gameplay è pronta, cambia **una
-> riga** in ciascun README: sostituisci `src="docs/img/screenshot-menu.gif"`
-> con `src="docs/img/demo.gif"` (cerca il commento `TODO`).
+> L'immagine hero in cima ai README è ora `analisi.gif` (clip dell'Analisi).
+> `screenshot-menu.gif` resta nel repo ma non è più mostrata inline; per
+> cambiare hero, modifica la riga `<img src="docs/img/...">` in ciascun README.
 
 ## Come registrare `demo.gif` (Windows)
 
