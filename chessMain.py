@@ -535,12 +535,25 @@ def mainMenu(width,height, test: bool = False) -> None:
         app.main_menu.add.button('BrainMaster lessons', BrainMasterMenu)
     # Insights from your own games
     app.main_menu.add.vertical_margin(10)
-    app.main_menu.add.button('Improve from your games', buildImproveMenu(width, height))
-    app.main_menu.add.button('Suggestion for study', buildAdvisorMenu(width, height))
+    improveMenu = buildImproveMenu(width, height)
+    advisorMenu = buildAdvisorMenu(width, height)
+    app.main_menu.add.button('Improve from your games', improveMenu)
+    app.main_menu.add.button('Suggestion for study', advisorMenu)
     # Utility
     app.main_menu.add.vertical_margin(10)
     app.main_menu.add.button('Tools', toolsMenu)
     app.main_menu.add.button('Quit', quit_program) # pygame_menu.events.EXIT
+
+    # A visible "Back" at the bottom of every submenu (Esc also goes back); the
+    # root main_menu keeps "Quit" instead. None entries (BrainMaster menus when
+    # base_url is unset) are skipped.
+    for _submenu in (playComputerMenu, solvePositionsMenu, openingsMenu, endgamesMenu,
+                     CreateCourseMenu, BrainMasterMenu, updateLearningBaseMenu,
+                     createBaseMenu, unrollPGNMenu, unrollPGNMenuAsLesson,
+                     chessComMenu, lichessMenu, configureGame, toolsMenu,
+                     improveMenu, advisorMenu):
+        if _submenu is not None:
+            _submenu.add.button('Back', pygame_menu.events.BACK)
 
     app.main_menu.disable()
     app.main_menu.full_reset()
@@ -560,6 +573,14 @@ def mainMenu(width,height, test: bool = False) -> None:
                 app.main_running = False          # window close
             elif event.type == p.KEYDOWN and event.key == p.K_q:
                 app.main_running = False          # 'q' quits the program
+            elif event.type == p.KEYDOWN and event.key == p.K_ESCAPE:
+                # Esc = back one menu level (the top-right close button is fiddly).
+                # pygame_menu binds "back" to Backspace and leaves Esc as a no-op
+                # (onclose=None), so we route Esc to the current submenu's back.
+                # On the root menu Esc is ignored (use 'q' / Quit to exit).
+                current = app.main_menu.get_current()
+                if current is not app.main_menu:
+                    current.reset(1)
 
 
         # Main menu
