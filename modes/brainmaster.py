@@ -93,6 +93,12 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
 
     BS.set_context_label(f"BrainMaster: {state.id_course or '?'}")
 
+    # Like the other training modes (play_game/openings/endgames): hide the book
+    # and PGN-moves panels on entry -- in a quiz they would give the answer away.
+    # The user can still toggle them with B/D.
+    BS.show_book = False
+    BS.show_pgn = False
+
     # ll is a copy (not a deep copy) of data in the LearningBase
     for q in questions:
         ll.append(LearnPositionSimplified.fromQuestionData(q))
@@ -169,10 +175,13 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
             errorsMade[curr_zobrist] = 0
 
         fen = pos.fen.split()
-        header = ["id_lesson:"+pos.id_lesson, "id_test:"+pos.id_test]
+        # The move-log panel renders the header as key/value pairs (one per line);
+        # pass it that way so id_lesson / id_test / mistake don't end up squashed
+        # on a single clipped line.
+        header = ["id_lesson", pos.id_lesson, "id_test", pos.id_test]
         
         if pos.ok != pos.move:
-            header.append("mistake was " + pos.move)
+            header += ["mistake was", pos.move]
 
         moves = pos.moves.split()
         gs = GameState()
