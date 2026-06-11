@@ -30,38 +30,40 @@ BOARD_Y = TOOLBAR_HEIGHT
 MOVE_LOG_WIDTH = 250
 MOVE_LOG_X = BOARD_WIDTH
 MOVE_LOG_Y = TOOLBAR_HEIGHT
-# Move-log column (2nd column) is split: move log on top (2/3), the PGN-moves
-# panel below it (1/3). The DB-stats panel takes the freed slot in the analysis
-# column (where PGN used to be).
-MOVE_LOG_HEIGHT = 2 * (BOARD_HEIGHT // 3)
 whiteUp = False
 
-ANALYSYS_PANEL_HEIGHT = BOARD_HEIGHT
 ANALYSYS_PANEL_WIDTH = MOVE_LOG_WIDTH
 
-# The book gives up ~4 rows at the bottom so the Personal-Stats panel below it
-# (sharing the boundary) starts higher and has room for its columns.
+# Engine / eval bar: sits UNDER THE BOARD ONLY (board width), bottom-left.
+CPU_HEIGHT = BOARD_HEIGHT // 3
+CPU_WIDTH = BOARD_WIDTH
+CPU_X = 0
+CPU_Y = BOARD_HEIGHT + TOOLBAR_HEIGHT
+
+# The two side columns run the FULL content height -- past the board, down beside
+# the engine bar -- so the panels are TALLER than the board and stop clipping
+# their content at the bottom (Personal Stats / book / move lists were cut off).
+SIDE_HEIGHT = BOARD_HEIGHT + CPU_HEIGHT
+ANALYSYS_PANEL_HEIGHT = SIDE_HEIGHT
+
+# Column 2 (next to the board): move log on top (2/3), PGN-moves panel below (1/3).
+MOVE_LOG_HEIGHT = 2 * (SIDE_HEIGHT // 3)
+PGN_WIDTH = MOVE_LOG_WIDTH
+PGN_X = MOVE_LOG_X
+PGN_Y = MOVE_LOG_Y + MOVE_LOG_HEIGHT
+PGN_HEIGHT = SIDE_HEIGHT - MOVE_LOG_HEIGHT
+
+# Column 3 (analysis): opening book on top (keeps its old size), Personal Stats
+# below -- and Personal Stats takes ALL the extra height of the taller column.
 BOOK_HEIGHT = 2 * (BOARD_HEIGHT // 3) - 90
 BOOK_WIDTH = ANALYSYS_PANEL_WIDTH
 BOOK_X = BOARD_WIDTH + MOVE_LOG_WIDTH
 BOOK_Y = TOOLBAR_HEIGHT
 
-# PGN moves: lower part of the move-log column (under the move log).
-PGN_WIDTH = MOVE_LOG_WIDTH
-PGN_X = MOVE_LOG_X
-PGN_Y = MOVE_LOG_Y + MOVE_LOG_HEIGHT
-PGN_HEIGHT = BOARD_HEIGHT - MOVE_LOG_HEIGHT
-
-# DB stats: lower part of the analysis column (the old PGN slot).
 DBSTATS_WIDTH = ANALYSYS_PANEL_WIDTH
 DBSTATS_X = BOARD_WIDTH + MOVE_LOG_WIDTH
 DBSTATS_Y = BOOK_HEIGHT + TOOLBAR_HEIGHT
-DBSTATS_HEIGHT = BOARD_HEIGHT - BOOK_HEIGHT
-
-CPU_WIDTH = ANALYSYS_PANEL_WIDTH+BOARD_WIDTH+ANALYSYS_PANEL_WIDTH
-CPU_HEIGHT = BOARD_HEIGHT // 3
-CPU_X = 0
-CPU_Y = BOARD_HEIGHT + TOOLBAR_HEIGHT
+DBSTATS_HEIGHT = SIDE_HEIGHT - BOOK_HEIGHT
 
 SCREEN_WIDTH = BOARD_WIDTH + MOVE_LOG_WIDTH + ANALYSYS_PANEL_WIDTH
 SCREEN_HEIGHT = BOARD_HEIGHT + CPU_HEIGHT + TOOLBAR_HEIGHT

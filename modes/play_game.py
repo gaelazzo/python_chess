@@ -414,8 +414,6 @@ def playAGame():
         ToolbarAction("Setup", "Edit position (U) -- analysis only",      _post_key(p.K_u), enabled=_is_analysis),
         ToolbarAction("AddTac", "Save current pos + last move as tactic (K) -- analysis only",
                       _post_key(p.K_k), enabled=_is_analysis),
-        ToolbarAction("DB",    "Position stats from reference DB (Y) -- analysis only",
-                      _post_key(p.K_y), enabled=_is_analysis),
         ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
     ])
 
