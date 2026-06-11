@@ -269,6 +269,8 @@ Se premi **K** senza aver giocato una mossa, vedi *"Gioca prima la mossa
 corretta"* e nulla viene salvato.
 
 #### Sub-mode: Personal Stats — statistiche posizione vs il tuo DB di riferimento (tasto **Y** o bottone *Stats*)
+
+<p align="center"><img src="docs/img/stats.png" alt="Pannello Personal Stats" width="720"></p>
 > **"Come ho giocato questa posizione le volte che l'ho avuta?"** — la feature
 > più potente della modalità analisi. Conta in un PGN di riferimento (le tue
 > partite di Chess.com/lichess, o un libro PGN qualsiasi) quante volte la
@@ -392,6 +394,8 @@ la base `openings_C42Russian` te le ripropone in Solve positions finché non
 le hai chiuse.
 
 ### 3.7 Cosa studio adesso? (Study advisor)
+
+<p align="center"><img src="docs/img/advisor.png" alt="Study advisor: classifica per ECO" width="720"></p>
 > **Quale apertura dovrei studiare prossimamente?** L'advisor analizza le sole
 > intestazioni di un tuo PGN (download Chess.com/lichess) e propone un ranking
 > di urgenza di studio per codice ECO. Nessun motore coinvolto — istantaneo
@@ -579,6 +583,8 @@ PGN) restano nella partita e si ritrovano riaprendola, anche in altri programmi 
 ---
 
 ## 6. Il pannello Notazione
+
+<p align="center"><img src="docs/img/notation.png" alt="Pannello Notazione con l'albero delle varianti" width="720"></p>
 
 Premi **`V`** (in Play between humans) per **affiancare** alla scacchiera un pannello con
 **l'intera partita**: linea principale e **varianti indentate ad albero**, con glifi e

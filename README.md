@@ -265,6 +265,8 @@ If you press **K** without having played a move yet, you'll see *"Play the
 correct move first"* and nothing is saved.
 
 #### Sub-mode: Personal Stats — position statistics vs your reference DB (key **Y** or *Stats* button)
+
+<p align="center"><img src="docs/img/stats.png" alt="Personal Stats panel" width="720"></p>
 > **"How did I play this position the times I had it?"** — the most powerful
 > feature of analysis mode. Counts how many times the current position
 > occurs in a reference PGN (your Chess.com/lichess games, or any PGN book),
@@ -390,6 +392,8 @@ the base `openings_C42Russian` keeps proposing them in Solve positions until
 you've closed them all.
 
 ### 3.7 What should I study next? (Study advisor)
+
+<p align="center"><img src="docs/img/advisor.png" alt="Study advisor ranking by ECO" width="720"></p>
 > **Which opening should I study next?** The advisor reads only the headers of
 > one of your PGN files (Chess.com/lichess download) and produces an urgency
 > ranking by ECO code. No engine involved — instant even on files with
@@ -578,6 +582,8 @@ programs.
 ---
 
 ## 6. The Notation panel
+
+<p align="center"><img src="docs/img/notation.png" alt="Notation panel with the variation tree" width="720"></p>
 
 Press **`V`** (in Play between humans) to open a panel **alongside the board** showing the
 **whole game**: main line and **tree-indented variations**, with glyphs and comments. The
