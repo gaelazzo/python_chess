@@ -245,8 +245,31 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
     margin_x = 24
     top_title = 16
     top_hint = 44
-    top_header = 76
-    top_rows = 104
+
+    # The hint is a long sentence: wrap it to the window width instead of letting
+    # it run off the right edge, then push the table down by however many lines it
+    # took (so it lays out correctly at any window width).
+    hint = ("Row 1 = highest priority. Score = 'Deficit' = points lost BELOW 50%: "
+            "if you win >=50% in an opening the deficit is 0 (whatever the volume). "
+            "Click a row -> I analyze that opening's games and take you to drill them.")
+
+    def _wrap(text, font, max_w):
+        lines, cur = [], ""
+        for word in text.split():
+            trial = (cur + " " + word).strip()
+            if cur and font.size(trial)[0] > max_w:
+                lines.append(cur)
+                cur = word
+            else:
+                cur = trial
+        if cur:
+            lines.append(cur)
+        return lines
+
+    hint_lines = _wrap(hint, hint_font, app.W - 2 * margin_x)
+    hint_lh = hint_font.get_linesize()
+    top_header = top_hint + len(hint_lines) * hint_lh + 10
+    top_rows = top_header + 28
 
     visible_rows = max(1, (app.H - top_rows - 36) // line_h)
     scroll = 0
@@ -290,11 +313,11 @@ def _show_results(stats: List[ECOStat], header: str, user: str,
         app.screen.fill(BG)
         # title
         app.screen.blit(title_font.render(header, True, FG), (margin_x, top_title))
-        # hint
-        hint = ("Row 1 = highest priority. Score = 'Deficit' = points lost BELOW 50%: "
-                "if you win >=50% in an opening the deficit is 0 (whatever the volume). "
-                "Click a row -> I analyze that opening's games and take you to drill them.")
-        app.screen.blit(hint_font.render(hint, True, (200, 200, 200)), (margin_x, top_hint))
+        # hint (wrapped to the window width; computed once in the setup above)
+        hy = top_hint
+        for hint_line in hint_lines:
+            app.screen.blit(hint_font.render(hint_line, True, (200, 200, 200)), (margin_x, hy))
+            hy += hint_lh
         # column header
         cols = [
             (margin_x,         "ECO"),
