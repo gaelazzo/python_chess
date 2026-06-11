@@ -27,9 +27,9 @@ lessons (optionally assisted by the *BrainMaster* AI service).
 
 ## Screenshots
 
-| Analysis — engine eval & opening book | Study openings | Notation panel |
+| Personal Stats — your record in a position | Study advisor — urgency by ECO | Notation panel — variation tree |
 |:---:|:---:|:---:|
-| [![Analysis with multi-PV engine evaluation and opening book](docs/img/screenshot-analysis.gif)](docs/img/screenshot-analysis.gif) | [![Studying an opening repertoire](docs/img/screenshot-openings.gif)](docs/img/screenshot-openings.gif) | [![Notation panel with the full variation tree](docs/img/screenshot-notation.gif)](docs/img/screenshot-notation.gif) |
+| [![Personal Stats panel: W/D/L and continuations for the position](docs/img/stats.png)](docs/img/stats.png) | [![Study advisor: opening urgency ranking by ECO](docs/img/advisor.png)](docs/img/advisor.png) | [![Notation panel with the full variation tree](docs/img/notation.png)](docs/img/notation.png) |
 
 ---
 
@@ -157,6 +157,8 @@ the wizard automates the steps that Recipes A/B do by hand.*
 
 ## 2. The main menu
 
+<p align="center"><img src="docs/img/menu.png" alt="Main menu" width="720"></p>
+
 The items are grouped: the play/practice modes first, then the tools that
 analyse your own games, then utilities.
 
@@ -178,6 +180,9 @@ analyse your own games, then utilities.
 ## 3. The modes
 
 ### 3.1 Improve from your games (wizard)
+
+<p align="center"><img src="docs/img/improve.png" alt="Improve from your games wizard" width="720"></p>
+
 > **Guided path.** From minimal input (Chess.com username + 4 selectors) the wizard does
 > everything: downloads games, creates/updates learning bases, analyses them with
 > auto-chosen presets, and drops you straight into local practice.
@@ -215,6 +220,9 @@ this is the right mode to **analyse** *and* to **manually build positions**
 (variations), annotate and comment them (see §5 and §6).
 
 #### Sub-mode: Position setup (key **U** or *Setup* button)
+
+<p align="center"><img src="docs/img/setup.png" alt="Position setup editor" width="720"></p>
+
 > Modal visual position editor. Build from scratch, edit the current position,
 > or paste a FEN from the clipboard. Handy for adding endgame studies to your
 > practice PGNs, or reproducing a position seen in a book / online diagram.
@@ -298,6 +306,9 @@ The `.idx` files are already in `.gitignore` — they stay local, never reach
 the repo.
 
 ### 3.4 Solve positions
+
+<p align="center"><img src="docs/img/solve.png" alt="Solve positions" width="720"></p>
+
 > **One position, one move.** You're given a position and must play the right move.
 > Good for reviewing *anything* (mistakes, tactics, endgames…).
 
@@ -339,6 +350,9 @@ service (spaced repetition). Choose the **course** and press **Exercise**.
 *(Visible only if `base_url` is configured in Setup.)*
 
 ### 3.6 Study openings
+
+<p align="center"><img src="docs/img/openings.png" alt="Study openings" width="720"></p>
+
 > **A whole line.** You play the entire sequence from your side (your moves are fixed),
 > while the computer may reply with **different variations** among the stored ones.
 > Typical for **drilling openings** / a repertoire.
@@ -412,6 +426,9 @@ The focused bases persist, so later sessions resume directly from *Solve
 positions*.
 
 ### 3.8 Endgame training
+
+<p align="center"><img src="docs/img/endgame.png" alt="Endgame training" width="720"></p>
+
 > **Solve endgames under tablebase judgment.** You load a PGN of endgame
 > studies (folder `endgames/`); the program picks a random game from it and
 > uses the game's starting position as the endgame to solve. The PGN's
@@ -598,6 +615,8 @@ is not clickable for piece moves: you navigate from the panel.
 ---
 
 ## 8. Tools
+
+<p align="center"><img src="docs/img/tools.png" alt="Tools menu" width="720"></p>
 
 | Tool | Purpose |
 |------|---------|

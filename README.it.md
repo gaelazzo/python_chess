@@ -27,9 +27,9 @@ partite con varianti e annotazioni, e di **studiare** posizioni ed errori tramit
 
 ## Screenshot
 
-| Analisi — valutazione engine e libro | Studio aperture | Pannello notazione |
+| Personal Stats — il tuo storico in una posizione | Study advisor — urgenza per ECO | Pannello Notazione — albero varianti |
 |:---:|:---:|:---:|
-| [![Analisi con valutazione multi-PV del motore e libro d'apertura](docs/img/screenshot-analysis.gif)](docs/img/screenshot-analysis.gif) | [![Studio del repertorio d'apertura](docs/img/screenshot-openings.gif)](docs/img/screenshot-openings.gif) | [![Pannello notazione con l'albero delle varianti](docs/img/screenshot-notation.gif)](docs/img/screenshot-notation.gif) |
+| [![Pannello Personal Stats: W/D/L e continuazioni per la posizione](docs/img/stats.png)](docs/img/stats.png) | [![Study advisor: classifica urgenza aperture per ECO](docs/img/advisor.png)](docs/img/advisor.png) | [![Pannello Notazione con l'albero delle varianti](docs/img/notation.png)](docs/img/notation.png) |
 
 ---
 
@@ -158,6 +158,8 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 
 ## 2. Il menu principale
 
+<p align="center"><img src="docs/img/menu.png" alt="Menu principale" width="720"></p>
+
 Le voci sono raggruppate: prima le modalità di gioco/allenamento, poi gli
 strumenti che analizzano le tue partite, infine le utility.
 
@@ -179,6 +181,8 @@ strumenti che analizzano le tue partite, infine le utility.
 ## 3. Le modalità
 
 ### 3.1 Migliora dalle tue partite (wizard)
+
+<p align="center"><img src="docs/img/improve.png" alt="Wizard Migliora dalle tue partite" width="720"></p>
 > **Via guidata.** Da un input minimo (username Chess.com + 4 selettori) il wizard fa
 > tutto: scarica le partite, crea/aggiorna le learning base, le analizza con preset
 > scelti automaticamente, e ti porta direttamente nella pratica locale.
@@ -218,6 +222,8 @@ manualmente posizioni** (vedi i due sub-mode più sotto): puoi tornare indietro,
 provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
 
 #### Sub-mode: Setup posizione (tasto **U** o bottone *Setup*)
+
+<p align="center"><img src="docs/img/setup.png" alt="Editor setup posizione" width="720"></p>
 > Editor visuale di posizione modale. Costruisci da zero, modifichi quella
 > corrente, o incolli una FEN dalla clipboard. Utile per aggiungere studi di
 > finale ai PGN di esercitazione, o per riprodurre una posizione vista in un
@@ -304,6 +310,8 @@ all'avvio durante lo splash screen:
 I file `.idx` sono già nel `.gitignore` — restano locali, non finiscono nel repo.
 
 ### 3.4 Solve positions
+
+<p align="center"><img src="docs/img/solve.png" alt="Solve positions" width="720"></p>
 > **Una posizione, una mossa.** Ti viene proposta una posizione e devi giocare la
 > mossa giusta. Adatto a ripassare *qualsiasi cosa* (errori, tattica, finali…).
 
@@ -345,6 +353,8 @@ Come sopra, ma le posizioni e l'ordine di ripasso sono suggeriti dal servizio
 *(Visibile solo se hai configurato `base_url` in Setup.)*
 
 ### 3.6 Study openings
+
+<p align="center"><img src="docs/img/openings.png" alt="Study openings" width="720"></p>
 > **Una linea intera.** Giochi tu l'intera sequenza dalla tua parte (le tue mosse
 > sono fisse), mentre il computer può rispondere con **varianti diverse** tra quelle
 > memorizzate. Tipico per **ripetere le aperture** / un repertorio.
@@ -419,6 +429,8 @@ quella base. Le basi mirate restano persistenti: nelle sessioni successive ti al
 direttamente da *Solve positions*.
 
 ### 3.8 Allena finali
+
+<p align="center"><img src="docs/img/endgame.png" alt="Allena finali" width="720"></p>
 > **Risolvi finali sotto il giudizio della tablebase.** Carichi un PGN di studi
 > di finali (cartella `endgames/`); il programma pesca una partita random e usa
 > la sua posizione iniziale come finale da risolvere. La mainline del PGN è
@@ -605,6 +617,8 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 ---
 
 ## 8. Strumenti (Tools)
+
+<p align="center"><img src="docs/img/tools.png" alt="Menu Strumenti" width="720"></p>
 
 | Strumento | A cosa serve |
 |-----------|--------------|
