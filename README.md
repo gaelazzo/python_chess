@@ -5,7 +5,7 @@
 > those mistakes with **spaced repetition**, until they become automatic.
 
 <p align="center">
-  <img src="docs/img/analisi.gif" alt="Hires Chess Trainer — analysis in action" width="720">
+  <img src="docs/img/analisishort.gif" alt="Hires Chess Trainer — analysis in action" width="720">
   <br><sub><em>Import your games → find your mistakes → focused spaced-repetition training.</em></sub>
 </p>
 

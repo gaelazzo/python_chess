@@ -5,7 +5,7 @@
 > errori con la **ripetizione spaziata**, finché non diventano automatici.
 
 <p align="center">
-  <img src="docs/img/analisi.gif" alt="Hires Chess Trainer — analisi in azione" width="720">
+  <img src="docs/img/analisishort.gif" alt="Hires Chess Trainer — analisi in azione" width="720">
   <br><sub><em>Importa le partite → individua gli errori → allenamento mirato con ripetizione spaziata.</em></sub>
 </p>
 
