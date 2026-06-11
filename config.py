@@ -54,7 +54,8 @@ DEFAULT_CONFIG = {
         "SyzygyPath": "",
     },
     "maxErrorsToConsider": 10,   # capacity of the review session (Solve positions)
-    "correctsToLearn": 3,         # consecutive correct answers needed to exit the session
+    "correctsToSolve": 3,         # consecutive correct answers needed to EXIT the session (Solve positions)
+    "correctsToLearn": 5,         # consecutive correct answers (serie) to mark a position "Learned" -> skip=True, retired from the base for life
     "user_prefs": {},             # last menu selections (populated by state.save_user_prefs)
     # TTS: case-insensitive substring searched in voice.name or voice.id; empty =
     # automatic selection for English. The available voices are printed
@@ -84,6 +85,17 @@ def load_config():
 
         merged = DEFAULT_CONFIG.copy()
         merged.update(data)
+
+        # Migration: `correctsToLearn` used to mean "consecutive corrects needed
+        # to EXIT the session" (old default 3). It has been split in two:
+        #   correctsToSolve -> exit the session (keeps the old meaning/value)
+        #   correctsToLearn -> mark the position "Learned"/retired (new, default 5)
+        # An old config file has `correctsToLearn` but no `correctsToSolve`:
+        # move the stored value to correctsToSolve and reset correctsToLearn to
+        # the new default, so existing users keep their session behaviour.
+        if "correctsToSolve" not in data and "correctsToLearn" in data:
+            merged["correctsToSolve"] = data["correctsToLearn"]
+            merged["correctsToLearn"] = DEFAULT_CONFIG["correctsToLearn"]
 
         # Sub-dictionaries (engine_options): defaults + user override.
         engine_options = DEFAULT_CONFIG["engine_options"].copy()

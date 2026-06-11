@@ -143,3 +143,67 @@ def test_delete_variation_line_noop_on_mainline():
     gs = _game(["e2e4", "e7e5"])
     assert gs.isInVariation() is False
     assert gs.deleteCurrentVariationLine() is False
+
+
+def test_promote_variation_becomes_main_line():
+    gs = _game(["e2e4", "e7e5", "g1f3"])            # main: 1.e4 e5 2.Nf3
+    gs.undoMove()                                   # back to after 1...e5 (main line)
+    gs.makeChessMove(chess.Move.from_uci("f1c4"))   # 2.Bc4  -> a variation off the main line
+    gs.makeChessMove(chess.Move.from_uci("f8c5"))   # 2...Bc5 (deep in the variation)
+    assert gs.isInVariation() is True
+    assert gs.promoteCurrentVariation() is True
+    assert gs.isInVariation() is False              # current line is now the main line
+    branch = gs.node.parent.parent                  # node after 1...e5 (branch point)
+    assert branch.variations[0].move.uci() == "f1c4"            # Bc4 promoted to main
+    assert any(v.move.uci() == "g1f3" for v in branch.variations)  # Nf3 kept as secondary
+    assert gs.node.move.uci() == "f8c5"             # position unchanged by the promotion
+
+
+def test_promote_variation_noop_on_mainline():
+    gs = _game(["e2e4", "e7e5"])
+    assert gs.isInVariation() is False
+    assert gs.promoteCurrentVariation() is False
+
+
+def test_promote_walks_up_one_level_per_call():
+    # main: 1.e4 e5 2.Nf3 | variation A after 1...e5: 2.Bc4 | sub-variation B of A: 2...Nc6
+    game = chess.pgn.Game()
+    e4 = game.add_variation(chess.Move.from_uci("e2e4"))
+    e5 = e4.add_variation(chess.Move.from_uci("e7e5"))
+    e5.add_variation(chess.Move.from_uci("g1f3"))        # main reply (Nf3)
+    bc4 = e5.add_variation(chess.Move.from_uci("f1c4"))  # variation A
+    bc4.add_variation(chess.Move.from_uci("f8c5"))       # A's main reply (Bc5)
+    nc6 = bc4.add_variation(chess.Move.from_uci("b8c6"))  # sub-variation B
+    gs = GameState()
+    gs.pgn = game
+    gs.node = nc6                                   # sitting in the sub-variation
+    assert gs.isInVariation() is True
+
+    assert gs.promoteCurrentVariation() is True     # 1st P: promote B within A
+    assert bc4.variations[0] is nc6                 # Nc6 now A's main reply
+    assert gs.isInVariation() is True               # still inside variation A
+
+    assert gs.promoteCurrentVariation() is True     # 2nd P: promote A within the main line
+    assert e5.variations[0] is bc4                  # Bc4 now the main reply to 1...e5
+    assert gs.isInVariation() is False              # fully on the main line now
+
+
+def test_promote_keeps_history_navigable():
+    """After promoting, back/forward navigation stays consistent: promote only
+    reorders variations, so the move history (moveLog) is untouched and the
+    line you were on is now the main line you retrace going forward."""
+    gs = _game(["e2e4", "e7e5", "g1f3"])            # main: e4 e5 Nf3
+    gs.undoMove()
+    gs.makeChessMove(chess.Move.from_uci("f1c4"))   # Bc4 (variation)
+    gs.makeChessMove(chess.Move.from_uci("f8c5"))   # Bc5
+    assert gs.promoteCurrentVariation() is True
+    end_fen = gs.board().fen()
+    assert len(gs.moveLog) == 4                      # history intact after promote
+
+    gs.gotoFirstMove()                               # backward all the way: no desync
+    assert len(gs.moveLog) == 0
+    assert gs.node.parent is None
+
+    gs.goToLastMove()                                # forward along the (new) main line
+    assert gs.board().fen() == end_fen               # retraces the promoted line (Bc4/Bc5), not Nf3
+    assert len(gs.moveLog) == 4

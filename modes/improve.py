@@ -29,6 +29,7 @@ import chess_com_download
 import pgngamelist
 from LearningBase import LearningBase, learningBases
 from state import positionParameters, small_font_theme, REVERSE_COLOR_MAP
+from menu_helpers import add_menu_intro
 from modes.replay import solvePositionsFromBase
 
 
@@ -58,6 +59,10 @@ def buildImproveMenu(width, height) -> pygame_menu.Menu:
         theme=pygame_menu.themes.THEME_BLUE,
         title="Improve from your games",
     )
+    add_menu_intro(menu,
+        "Build a personalised training set from your own online games: "
+        "download them, let the engine find your mistakes, and practise them "
+        "locally.")
     user_w = menu.add.text_input("Chess.com user: ", default=positionParameters.get("player") or "")
     # NOTE: we read selector values on Start click (get_value), NOT via
     # onchange: in pygame_menu, onchange only fires when the value changes, and

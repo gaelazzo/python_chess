@@ -87,6 +87,11 @@ class AnalysisPolicy(ModePolicy):
                 s.refresh()
             else:
                 s.message = "Not in a variation"
+        elif cmd == "promote":
+            if s.gs.promoteCurrentVariation():
+                s.refresh()
+            else:
+                s.message = "Already on the main line"
         else:
             return False
         return True

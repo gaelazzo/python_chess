@@ -25,6 +25,26 @@ import pgngamelist
 from LearningBase import DATA_FOLDER
 
 
+def add_menu_intro(menu: pygame_menu.Menu, text: str) -> None:
+    """Add a boxed, wrapped explanatory blurb at the TOP of a second-level menu.
+
+    Tells the user what the mode does -- and where it leads -- before they start
+    configuring it. Call this right after creating the menu, before any other
+    widget, so the box sits above the menu's own controls.
+    """
+    menu.add.label(
+        text,
+        wordwrap=True,
+        font_size=15,
+        font_color=(35, 35, 45),
+        background_color=(206, 223, 242),   # soft panel on the blue theme
+        padding=(8, 12),
+        margin=(0, 6),
+        selectable=False,
+    )
+    menu.add.vertical_margin(8)
+
+
 def make_updater(key, cast_type, target_dict=None, validator=None, target_module=None):
     def updater(value):
         try:

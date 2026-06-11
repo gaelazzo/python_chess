@@ -55,7 +55,7 @@ def playGame():
     playAGame()
 
 def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
-                  font_path: Optional[str] = None):
+                  font_path: Optional[str] = None, cancel_on_left: bool = False):
     """Side selector panel next to the board. Reused by
     `_variation_picker` (variations) and `chooseAnnotation` (NAG).
 
@@ -63,9 +63,11 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
     `value`, or `None` if the user cancels (Cancel button / Esc).
 
     Navigation: click / hover, **up/down arrow** to move, **Enter**
-    to confirm, **Esc** to cancel. The board (to the left of the
-    panel) is NOT redrawn -- it stays as drawn by the main loop
-    before the call, so the user can still see it clearly.
+    to confirm, **Esc** to cancel. With `cancel_on_left=True` the **left
+    arrow** also cancels: at a forward branch (variation picker) Left is the
+    natural "I changed my mind about advancing" key, mirroring Right = confirm.
+    The board (to the left of the panel) is NOT redrawn -- it stays as drawn by
+    the main loop before the call, so the user can still see it clearly.
 
     `font_path` lets you specify a font with Unicode coverage (e.g.
     for the NAG glyphs: 'Segoe UI Symbol').
@@ -141,7 +143,8 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
         p.draw.rect(app.screen, p.Color(110, 30, 30) if cancel_hover else p.Color(60, 30, 30),
                     cancel_rect)
         p.draw.rect(app.screen, p.Color(20, 20, 20), cancel_rect, 1)
-        txt = font_cancel.render('Cancel', True, p.Color('white'))
+        cancel_label = 'Cancel (Esc / ←)' if cancel_on_left else 'Cancel'
+        txt = font_cancel.render(cancel_label, True, p.Color('white'))
         app.screen.blit(txt, txt.get_rect(center=cancel_rect.center))
 
         p.display.update(full_panel)
@@ -151,7 +154,7 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
                 p.quit()
                 sys.exit()
             elif ev.type == p.KEYDOWN:
-                if ev.key == p.K_ESCAPE:
+                if ev.key == p.K_ESCAPE or (cancel_on_left and ev.key == p.K_LEFT):
                     result = None
                 elif ev.key == p.K_DOWN:
                     selected_index = (selected_index + 1) % n
@@ -231,7 +234,10 @@ def _variation_picker(moves, board):
         except Exception:
             label = m.uci()
         items.append((label, m))
-    return _choose_panel(items, "Choose move", row_h=32, font_size=18)
+    # cancel_on_left: at a forward branch the left arrow cancels the advance,
+    # mirroring right = confirm (Esc still works too).
+    return _choose_panel(items, "Choose move", row_h=32, font_size=18,
+                         cancel_on_left=True)
 
 
 def chooseAnnotation(current_nags):
@@ -411,6 +417,8 @@ def playAGame():
         ToolbarAction("Annot", "Annotate last move (N) -- analysis only", _post_key(p.K_n), enabled=_is_analysis),
         ToolbarAction("Cmnt",  "Comment last move (T) -- analysis only",  _post_key(p.K_t), enabled=_is_analysis),
         ToolbarAction("Notat", "Notation panel (V) -- analysis only",     _post_key(p.K_v), enabled=_is_analysis),
+        ToolbarAction("Promo", "Promote variation to main line (P) -- analysis only",
+                      _post_key(p.K_p), enabled=_is_analysis),
         ToolbarAction("Setup", "Edit position (U) -- analysis only",      _post_key(p.K_u), enabled=_is_analysis),
         ToolbarAction("AddTac", "Save current pos + last move as tactic (K) -- analysis only",
                       _post_key(p.K_k), enabled=_is_analysis),
@@ -439,6 +447,7 @@ def playAGame():
         help_text.insert(8, "- N Annotate move (! ? !? ...)")
         help_text.insert(9, "- T Comment move (text)")
         help_text.insert(10, "- V Notation panel (variations)")
+        help_text.insert(11, "- P Promote variation to main line")
         help_text.append("- Del: truncate moves after current")
         help_text.append("- Backspace: delete the whole variation you are in")
     show_help = False
@@ -637,6 +646,18 @@ def playAGame():
                                 moveMade = True
                                 animate = False
                             app.main_background()
+                        continue
+
+                    if e.key == p.K_p and not whiteCPU and not blackCPU:
+                        # Promote the current variation to the main line at its
+                        # branch point (P). Non-destructive -- only reorders the
+                        # variations, position unchanged -- so no confirmation and
+                        # no re-analysis. Press again to keep promoting up a level
+                        # when nested in a sub-variation. KEYDOWN already set
+                        # update=True, so board + side panels redraw below.
+                        if gs.node is not None and gs.isInVariation():
+                            session.do("promote")
+                            validMoves = gs.stdValidMoves()
                         continue
 
                     if e.key == p.K_r:

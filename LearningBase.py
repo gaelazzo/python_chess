@@ -16,6 +16,8 @@ from dataclasses import dataclass,asdict,fields
 import io
 import sys
 
+from config import config   # for correctsToLearn ("Learned" threshold); config imports only stdlib, no cycle
+
 
 
 def get_base_path():
@@ -331,8 +333,10 @@ class LearningBase:
                 moveMade: str  move played by the user  (you give board.uci(move))
                 date: current date when move was played
             Returns:
-                True if a good move was played, also updates the statistics on the position played
-        '''        
+                True if a good move was played, also updates the statistics on the position played.
+                Side effects on skip: serie >= correctsToLearn consecutive corrects sets skip=True
+                ("Learned", retired); a wrong answer on a skip=True position clears it (local revive).
+        '''
         # {zobrist,skip,fen,eco,lastTry,firstTry,ok,move,moves,successful,ntry,white,black,date}        
         position.ntry += 1
         
@@ -350,14 +354,33 @@ class LearningBase:
             else:
                 position.serie = 1
 
-            if position.serie >= 5:
+            # "Learned": after `correctsToLearn` consecutive successes (configurable
+            # in Setup, default 5) the position is retired -> skip=True, excluded
+            # from the base for life. Distinct from `correctsToSolve`, which only
+            # governs leaving the current Solve-positions session. Fallback to 5 if
+            # config is unavailable.
+            learn_threshold = (config.correctsToLearn or 5) if config is not None else 5
+            if position.serie >= learn_threshold:
                 position.skip = True  # mark as learned
             res = True
-        else:            
+        else:
             if position.serie > 0:
                 position.serie = -1
             else:
                 position. serie -= 1
+            # Local "revive": a wrong answer on an already-"Learned" position
+            # (skip=True) brings it back into rotation. getPositions excludes
+            # skip=True positions, so without this they would never be reviewed
+            # locally again even once you start failing them. `serie` is already
+            # reset to negative just above, so the next correct streak must reach
+            # `correctsToLearn` from scratch before it is retired again -- no extra
+            # reset needed. NB: in *Solve positions* a skip=True position is never
+            # proposed, so this only fires when the position is re-encountered in
+            # the PGN-driven modes (Study openings / Endgame) or re-analysed by
+            # Update learning base. This is a LOCAL heuristic only; BrainMaster
+            # keeps its own, far richer scheduling over the full proposal history.
+            if position.skip:
+                position.skip = False
             res =  False
 
         #print("Moves: ",position.moves, "stored:",position.move, "made:",moveMade, "ok is :", position.ok)
@@ -381,6 +404,26 @@ class LearningBase:
             return position
         return None
 
+
+    def reviveLearned(self) -> int:
+        """Bring every "Learned" position back into local rotation.
+
+        For each position with skip=True: clears skip and resets serie to 0
+        (so it must earn a fresh `correctsToLearn` streak before being retired
+        again). Everything else is kept -- attempt history (successful/ntry),
+        dates, severity. Non-destructive: no position or stat is lost, the
+        change is undone simply by re-learning. Returns how many positions were
+        revived. LOCAL only -- BrainMaster keeps its own scheduling.
+        """
+        n = 0
+        for pos in self.positions.values():
+            if pos.skip:
+                pos.skip = False
+                pos.serie = 0
+                n += 1
+        if n:
+            self.save()
+        return n
 
     def updatePosition(self, moveMade: str, goodMove: str, game:PgnGame, board:ChessBoard, severity:int=0):
         """

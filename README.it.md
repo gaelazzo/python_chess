@@ -345,9 +345,21 @@ ti dice se è giusta; con **H** puoi vedere la soluzione.
 > **Sessione di ripasso.** *Solve positions* mantiene una sessione "viva" con al più
 > `maxErrorsToConsider` posizioni attive (default 10, configurabile in **Setup**). Una posizione
 > entra quando viene proposta; esce **subito** se la risolvi al primo tentativo, oppure dopo
-> `correctsToLearn` corrette consecutive (default 3, configurabile in Setup) se la sbagli almeno
-> una volta. Le posizioni totalmente apprese (`serie ≥ 5` sull'intera storia, non solo nella
-> sessione) vengono **escluse a vita** dalla base.
+> `correctsToSolve` corrette consecutive (default 3, configurabile in Setup) se la sbagli almeno
+> una volta. Le posizioni totalmente apprese (`serie ≥ correctsToLearn` sull'intera storia, non
+> solo nella sessione; default 5, configurabile in Setup) vengono **ritirate dalla base** e non
+> più proposte — finché non ne sbagli una di nuovo (es. rigiocandola in *Study openings*), il
+> che la **riattiva** per il ripasso locale. Le due soglie sono **distinte e indipendenti**:
+> `correctsToSolve` regola solo la sessione corrente, `correctsToLearn` regola il ritiro dalla base.
+>
+> **Quando finisce la sessione?** Immaginala come un lotto a scorrimento: a ogni round il
+> programma o **pesca** una posizione nuova dalla base, o ti **ripropone** uno dei tuoi errori
+> ancora aperti, con il mix regolato da `maxErrorsToConsider`. La base viene consumata posizione
+> per posizione, e quelle che continui a sbagliare restano nel lotto finché non le chiudi. La
+> sessione **finisce da sola** quando **tutte** le posizioni (non escluse, filtrate per ECO)
+> della base sono state proposte **e** ogni errore è stato chiuso — oppure appena premi **Q**.
+> Quindi, a differenza di *Study openings* (che gira all'infinito su una scelta casuale), *Solve
+> positions* ha una **fine definita**: completarla significa aver ripassato tutta la base.
 
 ### 3.5 BrainMaster lessons
 Come sopra, ma le posizioni e l'ordine di ripasso sono suggeriti dal servizio
@@ -383,12 +395,22 @@ memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
 > del repertorio in proporzioni uguali (prima invece con prob. 1/3 di break ad ogni
 > turno la distribuzione era geometrica: ~33% sulla 1ª mossa, ~0.2% sull'ultima).
 
+> **Selezione casuale, sessione infinita.** A ogni round la linea è scelta **a
+> caso** (uniformemente) tra le partite del PGN, e la posizione di partenza è
+> scelta a caso al suo interno (vedi sopra). La modalità **non tiene memoria** di
+> ciò che già conosci: le posizioni che padroneggi possono ricapitare, e la
+> sessione **non termina mai da sola** — premi **Q** (o il pulsante *Quit*)
+> quando hai finito. È voluto: è pratica libera, non un drill finito. (Se vuoi un
+> drill finito guidato dagli errori, che *invece* traccia i progressi e si ferma,
+> usa *Solve positions* sulla base `openings_<filename>` — vedi *Persistenza
+> errori* sotto.)
+
 **Persistenza errori.** Come per *Allena finali*, ogni errore commesso durante
 una sessione di Study openings viene registrato in una learning base dedicata
 `openings_<filename>` in `data/`. Drillabile da *Solve positions* (la base
 appare nel dropdown). Mosse corrette su posizioni già tracciate aggiornano le
-stat (per la spaced repetition: `correctsToLearn` corrette consecutive →
-uscita dalla sessione di Solve; `serie ≥ 5` → esclusione a vita). Esempio
+stat (per la spaced repetition: `correctsToSolve` corrette consecutive →
+uscita dalla sessione di Solve; `serie ≥ correctsToLearn` → ritiro dalla base, riattivata se la risbagli). Esempio
 pratico: alleni C42 Russian su `C42Russian.pgn`, sbagli su 7 posizioni →
 la base `openings_C42Russian` te le ripropone in Solve positions finché non
 le hai chiuse.
@@ -509,6 +531,7 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **N** | Annota l'ultima mossa con un glifo (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
 | **T** | Aggiungi un commento testuale all'ultima mossa |
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
+| **P** | **Promuovi** la variante corrente a linea principale nel punto in cui si dirama. Se la diramazione è sulla linea principale, la variante diventa la linea principale; se sei dentro una sotto-variante viene promossa nell'ambito della linea che la contiene — premi **P** di nuovo per salire di un altro livello. Non distruttivo (riordina solo le varianti). |
 | **U** | **Setup posizione**: editor visuale modale (vedi §3.3) |
 | **K** | **Salva come tattica**: la posizione + l'ultima mossa giocata vanno in una learning base (vedi §3.3) |
 | **Y** | Attiva/disattiva il pannello **Personal Stats**: W/D/L + continuazioni per la posizione corrente, dalle tue partite (vedi §3.3) |
@@ -524,7 +547,8 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 > glifo NAG, appare un **pannello laterale a destra della scacchiera** (non
 > più menu full-screen che la copriva). Naviga con **↑/↓** (anche **Home/End**),
 > conferma con **Enter** o **→** (è il tasto naturale di "vai avanti"),
-> annulla con **Esc**. Click e hover col mouse continuano a funzionare in
+> annulla con **Esc** (a un bivio di varianti annulla anche **←**, il tasto
+> naturale di "torna indietro / non avanzare"). Click e hover col mouse continuano a funzionare in
 > parallelo — l'hover prende il sopravvento sulla selezione tastiera solo se
 > il mouse si muove davvero, così `↓↓↓ Enter` è sempre affidabile.
 
@@ -632,10 +656,11 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
 | **Download lichess games** | Stessa logica per le partite lichess (API `/api/games/user/{user}`, parametro `since` per l'incrementale). Lo **stesso file PGN può contenere partite di entrambe le fonti** (Chess.com + lichess): dedup per signature URL, append-only. |
 | **Create learning base** | Crea una nuova learning base vuota: `movesToAnalyze`, `blunderValue` (soglia errore in centipawn), `ponderTime`, `useBook`, `filename`. |
 | **Update learning base** | Analizza le partite di un *player* in un PGN e **registra gli errori** nella base scelta (correzione errori). **Barra di avanzamento** N/M aggiornata ad ogni partita. |
+| **Reset learned positions** | Riporta nel ripasso locale tutte le posizioni "imparate" della base scelta: azzera il flag `skip` e la `serie`, **mantenendo tutto lo storico dei tentativi**. Non distruttivo e solo locale (BrainMaster mantiene il suo scheduling). Riporta quante posizioni sono state riattivate. |
 | **Unroll PGN file** | Trasforma un PGN in un insieme di **posizioni** dentro una learning base. |
 | **Unroll PGN file as lesson** | Come sopra, ma come **lezione** (per il ripasso/BrainMaster). |
 | **Create Course for BrainMaster** | Registra una learning base come **corso** BrainMaster *(se `base_url` configurato)*. |
-| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Choose reference DB (le mie partite)** (PGN per le statistiche di posizione, vedi §3.3), **Max errors in session** (capacità della sessione di *Solve positions*, default 10), **Corrects to learn** (corrette consecutive per uscire dalla sessione dopo un errore, default 3), **TTS speed (wpm)** (velocità della lettura vocale dei commenti, 90–280 wpm, default 170). |
+| **Setup** | Configura (persistente in `config.json`): `base_url` e `id studente` (BrainMaster), **Choose engine** (motore UCI), **Choose book** (libro di aperture), **Choose reference DB (le mie partite)** (PGN per le statistiche di posizione, vedi §3.3), **Max errors in session** (capacità della sessione di *Solve positions*, default 10), **Corrects to solve (exit session)** (corrette consecutive per uscire dalla sessione dopo un errore, default 3), **Corrects to learn (retire)** (successi consecutivi che marcano una posizione come "imparata" e la ritirano dalla base — finché non la risbagli — default 5), **TTS speed (wpm)** (velocità della lettura vocale dei commenti, 90–280 wpm, default 170). |
 
 **Configurazione TTS via `config.json` (avanzata)**: oltre allo slider in Setup,
 puoi forzare manualmente la voce con `"tts_voice": "<sostringa>"` (es. `"zira"`,
@@ -757,16 +782,28 @@ e da dizionario (`from_dict`, usato per leggere le righe del CSV).
 Quando l'utente gioca una mossa, `updatePositionStats` aggiorna la posizione:
 - incrementa `ntry` e aggiorna `firstTry`/`lastTry`;
 - se la mossa coincide con `ok`, incrementa `successful` e la `serie` di successi;
-  raggiunti **5 successi consecutivi** (`serie >= 5`) la posizione viene marcata come
-  imparata (`skip = True`) ed esclusa **a vita** dalla base;
-- se la mossa è errata, la `serie` diventa negativa (azzerando l'eventuale streak positivo).
+  raggiunti `config.correctsToLearn` **successi consecutivi** (`serie >= correctsToLearn`,
+  default 5, configurabile in Setup) la posizione viene marcata come imparata (`skip = True`)
+  e ritirata dalla base (`getPositions` smette di proporla);
+- se la mossa è errata, la `serie` diventa negativa (azzerando l'eventuale streak positivo);
+  e se la posizione era già imparata (`skip = True`), viene **riattivata** (`skip = False`) e
+  rientra nel ripasso locale. Siccome `serie` è ora negativa, dovrà guadagnarsi una nuova serie
+  di `correctsToLearn` corrette prima di essere ritirata di nuovo. NB: una posizione imparata
+  non viene mai mostrata in *Solve positions* (filtrata), quindi questo scatta solo quando la
+  ri-incontri nei modi guidati dal PGN (*Study openings* / *Endgame training*) o quando viene
+  ri-analizzata da *Update learning base*. Solo euristica locale — lo scheduling vero a lungo
+  termine è di BrainMaster.
 
 Distintamente, dentro una **sessione di *Solve positions*** vale anche un secondo countdown:
-una posizione-errore esce **dalla sessione corrente** solo dopo `config.correctsToLearn`
+una posizione-errore esce **dalla sessione corrente** solo dopo `config.correctsToSolve`
 risposte corrette consecutive (default 3, configurabile dal menu Setup). La sessione tiene
 al più `config.maxErrorsToConsider` posizioni attive (default 10). Le due soglie sono
-indipendenti: `correctsToLearn` regola l'uscita dalla **sessione**, `serie >= 5` regola
-l'esclusione **definitiva** dalla base.
+indipendenti: `correctsToSolve` regola l'uscita dalla **sessione**, `correctsToLearn`
+(`serie >= correctsToLearn`) regola il ritiro dalla base (un errore riattiva la posizione —
+vedi i punti su `updatePositionStats` sopra). (Nota legacy:
+`correctsToLearn` un tempo indicava il conteggio di uscita dalla sessione; al primo avvio
+viene migrato automaticamente in `correctsToSolve`, così le configurazioni esistenti non
+cambiano comportamento — vedi `config.load_config`.)
 
 ### Priorità in *Solve positions*
 

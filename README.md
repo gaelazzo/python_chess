@@ -342,9 +342,22 @@ whether it's right; press **H** to reveal the solution.
 > **Review session.** *Solve positions* keeps a "live" session with at most
 > `maxErrorsToConsider` active positions (default 10, configurable in **Setup**). A position
 > enters when proposed; it leaves **immediately** if you solve it on the first try, otherwise
-> after `correctsToLearn` consecutive correct answers (default 3, configurable in Setup) once
-> you've missed it. Fully learned positions (`serie ≥ 5` over the whole history, not just the
-> current session) are **excluded from the base for life**.
+> after `correctsToSolve` consecutive correct answers (default 3, configurable in Setup) once
+> you've missed it. Fully learned positions (`serie ≥ correctsToLearn` over the whole history,
+> not just the current session; default 5, configurable in Setup) are **retired from the base**
+> and no longer proposed — until you get one wrong again (e.g. replaying it in *Study openings*),
+> which **revives** it for local review. The two thresholds are **distinct and independent**:
+> `correctsToSolve` governs only the current session, `correctsToLearn` governs retirement from
+> the base.
+>
+> **When does the session end?** Think of it as a rolling batch: each round the program either
+> draws a **fresh** position from the base or re-asks one of your **outstanding mistakes**, the
+> mix controlled by `maxErrorsToConsider`. The base is drawn down position by position, and
+> positions you keep missing stay in the batch until cleared. The session **ends by itself**
+> once **every** (non-excluded, ECO-filtered) position in the base has been drawn **and** every
+> missed one has been cleared — or as soon as you press **Q**. So, unlike *Study openings*
+> (which loops forever on a random pick), *Solve positions* has a **definite end**: finish it
+> and you've reviewed the whole base.
 
 ### 3.5 BrainMaster lessons
 Same idea, but the positions and review order are suggested by the **BrainMaster**
@@ -381,12 +394,22 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
 > break-probability per user turn, the distribution was geometric: ~33% on the
 > 1st move, ~0.2% on the 16th).
 
+> **Random selection, endless session.** Each round the line is picked **at
+> random** (uniformly) from the games in the PGN, and the starting position is
+> picked at random within it (see above). The mode keeps **no memory** of what
+> you already know: positions you've mastered can come up again, and the session
+> **never ends on its own** — press **Q** (or the *Quit* button) when you're
+> done. This is by design: it's free practice, not a finite drill. (If you want a
+> finite, mistake-driven drill that *does* track progress and stops, use *Solve
+> positions* on the `openings_<filename>` base instead — see *Mistake
+> persistence* below.)
+
 **Mistake persistence.** Just like *Endgame training*, every mistake during a
 Study openings session is logged into a dedicated learning base
 `openings_<filename>` in `data/`. Drillable from *Solve positions* (the base
 appears in the dropdown). Correct moves on already-tracked positions update
-the stats (for spaced repetition: `correctsToLearn` consecutive corrects →
-session exit; `serie ≥ 5` → permanently excluded from the base). Concrete
+the stats (for spaced repetition: `correctsToSolve` consecutive corrects →
+session exit; `serie ≥ correctsToLearn` → retired from the base, revived if you fail it again). Concrete
 example: you drill C42 Russian on `C42Russian.pgn`, mess up on 7 positions →
 the base `openings_C42Russian` keeps proposing them in Solve positions until
 you've closed them all.
@@ -508,6 +531,7 @@ During a game (Play against computer / between humans) the following controls ap
 | **N** | Annotate the last move with a glyph (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
 | **T** | Add a text comment to the last move |
 | **V** | Open the **Notation** panel (whole game + variations) |
+| **P** | **Promote** the current variation to the main line at its branch point. If the branch is on the main line, the variation becomes the main line; if you are nested in a sub-variation it is promoted within the enclosing line — press **P** again to promote up another level. Non-destructive (only reorders variations). |
 | **U** | **Position setup**: modal visual editor (see §3.3) |
 | **K** | **Save as tactic**: current position + last move played → learning base (see §3.3) |
 | **Y** | Toggle the **Personal Stats** panel: W/D/L + continuations for the current position, from your own games (see §3.3) |
@@ -523,7 +547,8 @@ During a game (Play against computer / between humans) the following controls ap
 > move with a NAG glyph, a **side panel appears on the right of the board**
 > (no more full-screen menu hiding it). Navigate with **↑/↓** (and
 > **Home/End**), confirm with **Enter** or **→** (the natural "go forward"
-> key), cancel with **Esc**. Mouse click and hover still work in parallel —
+> key), cancel with **Esc** (at a variation branch, **←** cancels too — the
+> natural "go back / don't advance" key). Mouse click and hover still work in parallel —
 > hover overrides the keyboard selection only when the mouse actually moves,
 > so `↓↓↓ Enter` is always reliable.
 
@@ -630,10 +655,11 @@ is not clickable for piece moves: you navigate from the panel.
 | **Download lichess games** | Same logic for lichess games (API `/api/games/user/{user}`, `since` parameter for the incremental). The **same PGN file can hold games from both sources** (Chess.com + lichess): dedup by URL signature, append-only. |
 | **Create learning base** | Create a new, empty learning base: `movesToAnalyze`, `blunderValue` (mistake threshold in centipawns), `ponderTime`, `useBook`, `filename`. |
 | **Update learning base** | Analyse a *player*'s games in a PGN and **record the mistakes** into the chosen base (mistake correction). **Progress bar** N/M updated per game. |
+| **Reset learned positions** | Bring every "Learned" position in the chosen base back into local review: clears the `skip` flag and resets `serie`, **keeping all attempt history**. Non-destructive and local only (BrainMaster keeps its own scheduling). Reports how many positions were revived. |
 | **Unroll PGN file** | Turn a PGN into a set of **positions** inside a learning base. |
 | **Unroll PGN file as lesson** | Same, but as a **lesson** (for review / BrainMaster). |
 | **Create Course for BrainMaster** | Register a learning base as a BrainMaster **course** *(if `base_url` is configured)*. |
-| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Choose reference DB (my games)** (PGN used for position statistics, see §3.3), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to learn** (consecutive corrects needed to leave the session after a mistake, default 3), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
+| **Setup** | Configure (persisted in `config.json`): `base_url` and `student id` (BrainMaster), **Choose engine** (UCI engine), **Choose book** (opening book), **Choose reference DB (my games)** (PGN used for position statistics, see §3.3), **Max errors in session** (capacity of the *Solve positions* session, default 10), **Corrects to solve (exit session)** (consecutive corrects needed to leave the session after a mistake, default 3), **Corrects to learn (retire)** (consecutive successes that mark a position "Learned" and retire it from the base — until you fail it again — default 5), **TTS speed (wpm)** (read-aloud rate for move comments, 90–280 wpm, default 170). |
 
 **TTS configuration via `config.json` (advanced)**: in addition to the slider in
 Setup, you can force a specific voice with `"tts_voice": "<substring>"` (e.g.
@@ -755,16 +781,26 @@ A dataclass representing a study position. Each CSV row corresponds to one `Lear
 When the user plays a move, `updatePositionStats` updates the position:
 - increments `ntry` and updates `firstTry`/`lastTry`;
 - if the move matches `ok`, increments `successful` and the success `serie`; after
-  **5 consecutive successes** (`serie >= 5`) the position is marked as learned (`skip = True`)
-  and excluded **for life** from the base;
-- if the move is wrong, `serie` becomes negative (resetting any positive streak).
+  `config.correctsToLearn` **consecutive successes** (`serie >= correctsToLearn`, default 5,
+  configurable in Setup) the position is marked as learned (`skip = True`) and retired from the
+  base (`getPositions` stops proposing it);
+- if the move is wrong, `serie` becomes negative (resetting any positive streak); and if the
+  position was already learned (`skip = True`), it is **revived** (`skip = False`) so it
+  re-enters local review. Since `serie` is now negative, it must earn a fresh
+  `correctsToLearn` streak before being retired again. NB: a learned position is never shown in
+  *Solve positions* (filtered out), so this only fires when it is re-encountered in the
+  PGN-driven modes (*Study openings* / *Endgame training*) or re-analysed by *Update learning
+  base*. Local heuristic only — BrainMaster owns the real long-term scheduling.
 
 Separately, within a **session of *Solve positions*** there is a second countdown: a
-mistake-position leaves **the current session** only after `config.correctsToLearn`
+mistake-position leaves **the current session** only after `config.correctsToSolve`
 consecutive correct answers (default 3, configurable in Setup). The session holds at most
 `config.maxErrorsToConsider` active positions (default 10). The two thresholds are
-independent: `correctsToLearn` rules leaving the **session**, `serie >= 5` rules permanent
-exclusion from the base.
+independent: `correctsToSolve` rules leaving the **session**, `correctsToLearn` (`serie >=
+correctsToLearn`) rules retirement from the base (a wrong answer revives the position — see
+the `updatePositionStats` bullets above). (Legacy note: `correctsToLearn`
+once meant the session-exit count; on first launch it is auto-migrated to `correctsToSolve`,
+so existing configs keep their behaviour — see `config.load_config`.)
 
 ### Priority in *Solve positions*
 

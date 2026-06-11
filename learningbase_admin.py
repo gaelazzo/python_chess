@@ -106,6 +106,34 @@ def updateLearningBase():
     BS.drawEndGameText(app.screen, None, text)
     BS.update()
 
+# Bring back every "Learned" (skip=True) position in the chosen base, so it
+# re-enters local review. Non-destructive: only flips skip/serie, keeps stats.
+def resetLearned():
+    learningBaseName = positionParameters.get("base", None)
+    if not learningBaseName:
+        app.main_background()
+        BS.drawEndGameText(app.screen, None, "Please select a base file")
+        BS.update()
+        app.delay(2)
+        return
+
+    learningBase = learningBases.get(learningBaseName, None)
+    if learningBase is None:
+        app.main_background()
+        BS.drawEndGameText(app.screen, None, f"Base '{learningBaseName}' not found")
+        BS.update()
+        app.delay(2)
+        return
+
+    n = learningBase.reviveLearned()
+    app.main_background()
+    BS.drawEndGameText(app.screen, None,
+                       f"Revived {n} learned position(s) in '{learningBaseName}'")
+    BS.update()
+    app.delay(2)
+    return
+
+
 #transforms a pgn file into a set of positions to use with Brainmaster
 def unrollPgnAsLesson():
     pgnFileName = positionParameters.get("filename", None)

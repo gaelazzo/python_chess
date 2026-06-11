@@ -661,6 +661,37 @@ class GameState:
         self.evaluation = None
         return True
 
+    def promoteCurrentVariation(self) -> bool:
+        '''
+        Promote the variation the current node belongs to so that it becomes the
+        MAIN line at the point where it branches off its enclosing line. If that
+        branch point is on the game's main line, the current variation becomes
+        the main line.
+
+        Operates ONE level (the nearest branch going up): when nested in a
+        sub-variation it makes the line main "within the scope of the line it is
+        in"; call it again to keep promoting the next level up. Only the order of
+        the variations is changed -- self.node, the board and moveLog are
+        untouched (the current position simply now lies on the main line).
+        Returns False if the current node is already on the main line.
+        '''
+        if self.node is None or self.node.parent is None:
+            return False
+        # Head = nearest ancestor-or-self that is a non-main child of its parent
+        # (same lookup as deleteCurrentVariationLine).
+        head = None
+        n = self.node
+        while n.parent is not None:
+            if n.parent.variations and n.parent.variations[0] is not n:
+                head = n
+                break
+            n = n.parent
+        if head is None:
+            return False                       # already on the main line
+        head.parent.promote_to_main(head)
+        self.evaluation = None
+        return True
+
     def setMoveNag(self, nag: int) -> bool:
         '''
         Set the (single) annotation glyph on the current move, REPLACING any

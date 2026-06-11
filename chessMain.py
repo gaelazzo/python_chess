@@ -123,12 +123,12 @@ import state
 from state import playParameters, positionParameters, COLOR_MAP, REVERSE_COLOR_MAP, CIRCLE_COLOR, small_font_theme
 from learningbase_admin import (
     createLearningBase, updateLearningBase, unrollPgnAsLesson,
-    unrollPGN, readChessComGames, readLichessGames, createCourse,
+    unrollPGN, readChessComGames, readLichessGames, createCourse, resetLearned,
 )
 from menu_helpers import (
     make_updater, make_selector_updater, make_bool_selector_updater,
     make_file_selector, setPlayColor, addChooseCourse, addChooseBaseFile,
-    addChoosePGNFile, addChoosePGNFromFolder,
+    addChoosePGNFile, addChoosePGNFromFolder, add_menu_intro,
 )
 from save_load import save_menu, load_menu
 from modes.play_game import playGame
@@ -223,7 +223,11 @@ def mainMenu(width,height, test: bool = False) -> None:
         theme=pygame_menu.themes.THEME_BLUE,
         title='Choose play params',
         width=width
-    )    
+    )
+    add_menu_intro(playComputerMenu,
+        "Play a full game against the engine. Choose your colour and the "
+        "engine's strength (ELO), then press Play. This is a normal game and "
+        "ends when the game does.")
     playColorSelector = playComputerMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Random", 2)], onchange=setPlayColor)
     playComputerMenu.add.range_slider('ELO', range_values=(1350, 2850), onchange=setPlayElo, default=2000, increment=50)
     playComputerMenu.add.toggle_switch("ELO MAX", state_text=("Off", "On"), state_values=(False, True),
@@ -248,7 +252,14 @@ def mainMenu(width,height, test: bool = False) -> None:
         theme=pygame_menu.themes.THEME_BLUE,
         title='Solve positions',
         width=width
-    )    
+    )
+    add_menu_intro(solvePositionsMenu,
+        "Drill positions from a learning base (typically your own mistakes): "
+        "find the best move. Solve one first try and it's gone; miss it and you "
+        "must answer it right a few times to clear it. Unlike Study openings, "
+        "this session ENDS by itself once every position in the base has been "
+        "shown and every miss cleared (or press Q). 'Practice order': Priority "
+        "(worst / most frequent first) or Random.")
     solvePositionsMenu.add.text_input('ECO (optional)', default=positionParameters["eco"] or "", onchange=setPositionEco)
     # NB: no color selector in Solve positions. A base already has its own
     # implicit side-to-move (e.g. a tactical base from analyzePgn has positions
@@ -275,6 +286,11 @@ def mainMenu(width,height, test: bool = False) -> None:
         title='Study openings',
         width=width
     )
+    add_menu_intro(openingsMenu,
+        "Train an opening repertoire: you play your side, the engine answers "
+        "with a line stored in the PGN. Lines and positions are picked at "
+        "RANDOM from the file, with no memory of what you already know -- so "
+        "the session never ends on its own. Press Q to quit when you are done.")
 
     # NB: no "You play" selector in Study openings: the color of the side
     # being practiced is DETECTED automatically from the PGN content
@@ -294,6 +310,9 @@ def mainMenu(width,height, test: bool = False) -> None:
         title='Endgame training',
         width=width
     )
+    add_menu_intro(endgamesMenu,
+        "Practise endgames from a PGN of model endings: you play the side to "
+        "move and must find the right continuation.")
     addChoosePGNFromFolder(endgamesMenu, folder=ENDGAMES_FOLDER, key="endgames_filename", title='Choose endgame PGN')
     endgamesMenu.add.button('Play', playEndgames)
 
@@ -315,7 +334,10 @@ def mainMenu(width,height, test: bool = False) -> None:
             theme=pygame_menu.themes.THEME_BLUE,
             title='Exercise with Brainmaster',
             width=width
-        )        
+        )
+        add_menu_intro(BrainMasterMenu,
+            "Work through an exercise course downloaded from BrainMaster: each "
+            "question shows a position and you reply with the best move.")
         addChooseCourse(BrainMasterMenu)
         BrainMasterMenu.add.range_slider('Num Moves to Show', range_values=(0, 10),  onchange=make_updater("num_moves_to_show",int), value_format=lambda x: str(round(x, 0)),
                     default=state.num_moves_to_show, increment=1)  # Add this line
@@ -347,8 +369,23 @@ def mainMenu(width,height, test: bool = False) -> None:
     createBaseMenu.add.text_input('ponderTime:', default=positionParameters["ponderTime"] or "",onchange=make_updater("ponderTime",float,positionParameters))
     createBaseMenu.add.selector('useBook', [("Yes", 1), ("No", 0)], default= reverse_value_map[ positionParameters["useBook"] ], 
                                 onchange=make_bool_selector_updater("useBook", positionParameters))
-    createBaseMenu.add.text_input('filename:', default=positionParameters["filename"] or "",onchange=make_updater("filename",str,positionParameters))    
+    createBaseMenu.add.text_input('filename:', default=positionParameters["filename"] or "",onchange=make_updater("filename",str,positionParameters))
     createBaseMenu.add.button('Create learning base', createLearningBase)
+
+
+    resetLearnedMenu = pygame_menu.Menu(
+        height=height,
+        theme=pygame_menu.themes.THEME_BLUE,
+        title='Reset learned positions',
+        width=width
+    )
+    add_menu_intro(resetLearnedMenu,
+        "Bring every \"Learned\" position in a base back into local review: "
+        "clears the learned flag (and resets the streak), keeping all attempt "
+        "history. Non-destructive and local only -- BrainMaster keeps its own "
+        "scheduling. Choose the base, then press Reset.")
+    addChooseBaseFile(resetLearnedMenu)
+    resetLearnedMenu.add.button('Reset learned', resetLearned)
 
 
     unrollPGNMenu = pygame_menu.Menu(
@@ -468,7 +505,11 @@ def mainMenu(width,height, test: bool = False) -> None:
                                    onchange=combine_onchange(make_updater("maxErrorsToConsider", int, target_module=config), save_config),
                                    value_format=lambda x: str(int(round(x, 0))),
                                    default=config.maxErrorsToConsider)
-    configureGame.add.range_slider('Corrects to learn', range_values=(1, 10), increment=1,
+    configureGame.add.range_slider('Corrects to solve (exit session)', range_values=(1, 10), increment=1,
+                                   onchange=combine_onchange(make_updater("correctsToSolve", int, target_module=config), save_config),
+                                   value_format=lambda x: str(int(round(x, 0))),
+                                   default=config.correctsToSolve)
+    configureGame.add.range_slider('Corrects to learn (retire)', range_values=(1, 10), increment=1,
                                    onchange=combine_onchange(make_updater("correctsToLearn", int, target_module=config), save_config),
                                    value_format=lambda x: str(int(round(x, 0))),
                                    default=config.correctsToLearn)
@@ -511,11 +552,16 @@ def mainMenu(width,height, test: bool = False) -> None:
         theme=pygame_menu.themes.THEME_BLUE,
         title='Tools',
         width=width
-    )  
+    )
+    add_menu_intro(toolsMenu,
+        "Utilities: download your games from Chess.com / Lichess, create and "
+        "update learning bases from PGN files, and set up the engine, opening "
+        "book and app options.")
     toolsMenu.add.button('Download Chess.com games', chessComMenu)
     toolsMenu.add.button('Download lichess games', lichessMenu)
     toolsMenu.add.button("Create learning base", createBaseMenu)
     toolsMenu.add.button('Update learning base', updateLearningBaseMenu)
+    toolsMenu.add.button('Reset learned positions', resetLearnedMenu)
     toolsMenu.add.button('Unroll PGN file', unrollPGNMenu)
     toolsMenu.add.button('Unroll PGN file as lesson', unrollPGNMenuAsLesson)
     if CreateCourseMenu:
@@ -549,7 +595,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     # base_url is unset) are skipped.
     for _submenu in (playComputerMenu, solvePositionsMenu, openingsMenu, endgamesMenu,
                      CreateCourseMenu, BrainMasterMenu, updateLearningBaseMenu,
-                     createBaseMenu, unrollPGNMenu, unrollPGNMenuAsLesson,
+                     createBaseMenu, resetLearnedMenu, unrollPGNMenu, unrollPGNMenuAsLesson,
                      chessComMenu, lichessMenu, configureGame, toolsMenu,
                      improveMenu, advisorMenu):
         if _submenu is not None:

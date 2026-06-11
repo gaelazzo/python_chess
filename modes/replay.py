@@ -44,8 +44,10 @@ def solvePositionsFromBase(learningBase:LearningBase):
     Reviews positions from a LearningBase as a dynamic session of at most
     config.maxErrorsToConsider active positions. A position enters when seen and
     leaves either immediately (correct on the first try) or after
-    config.correctsToLearn consecutive correct answers following a mistake. Both
-    are program-wide settings (Setup menu, persisted in config.json).
+    config.correctsToSolve consecutive correct answers following a mistake.
+    Separately, config.correctsToLearn consecutive successes (over the whole
+    history) retire a position from the base for good ("Learned", skip=True).
+    All three are program-wide settings (Setup menu, persisted in config.json).
     '''
 
     BS.set_context_label(f"Training: {learningBase.filename or '?'}")
@@ -398,7 +400,20 @@ def solvePositionsFromBase(learningBase:LearningBase):
                         if not isNewPosition:
                             # print(f"currentElement is {currentElement}, len of numberOfErrors is {len(numberOfErrors)}")
                             numberOfErrors[currentElement] -= 1
-                            if numberOfErrors[currentElement] == 0 or pos.skip == "S":
+                            # Contract: a position leaves the session after EXACTLY
+                            # `correctsToSolve` consecutive corrects (config / Setup),
+                            # and nothing else. We deliberately do NOT also exit on
+                            # pos.skip ("Learned", serie >= correctsToLearn): when
+                            # correctsToLearn < correctsToSolve that would drop the
+                            # position before the configured number is reached,
+                            # breaking the contract. (The old `pos.skip == "S"`
+                            # compared a bool to a string -> always False, so it never
+                            # fired and the behaviour was already correct; we just drop
+                            # the dead clause instead of resurrecting it.) Retirement
+                            # ("Learned") still happens in the base via the serie >=
+                            # correctsToLearn check, excluding the position from FUTURE
+                            # sessions, not the current one.
+                            if numberOfErrors[currentElement] == 0:
                                 del numberOfErrors[currentElement]
                                 del errorsMade[currentElement]
                                 msg = "Position solved"
@@ -417,12 +432,12 @@ def solvePositionsFromBase(learningBase:LearningBase):
                             # print(f"wrong move, appending new error position")
                             currentElement = len(errorsMade)
                             errorsMade.append(pos)
-                            numberOfErrors.append(config.correctsToLearn)
+                            numberOfErrors.append(config.correctsToSolve)
                             isNewPosition = False
 
                         else:
-                            # print(f"wrong move, setting n.of error = correctsToLearn")
-                            numberOfErrors[currentElement] = config.correctsToLearn
+                            # print(f"wrong move, setting n.of error = correctsToSolve")
+                            numberOfErrors[currentElement] = config.correctsToSolve
 
             # Highlight squares when needed
             if currentMove >= len(moves) and engineMove == 0:

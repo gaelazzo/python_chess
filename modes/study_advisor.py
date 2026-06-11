@@ -26,7 +26,7 @@ from app_context import app
 import BoardScreen as BS
 from state import positionParameters, small_font_theme
 import pgngamelist
-from menu_helpers import make_updater, addChoosePGNFile
+from menu_helpers import make_updater, addChoosePGNFile, add_menu_intro
 import analyzer
 from LearningBase import LearningBase, learningBases
 from modes.replay import solvePositionsFromBase
@@ -151,6 +151,9 @@ def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
         theme=pygame_menu.themes.THEME_BLUE,
         title="Suggestion for study",
     )
+    add_menu_intro(menu,
+        "Analyse your games to find out what to study next: the advisor "
+        "reports your weakest openings and recurring tactical themes.")
     user_w = menu.add.text_input("User(s): ", default=positionParameters.get("player") or "")
     menu.add.label("(several nicks: separate with , or ;)", font_size=14)
     color_w = menu.add.selector(
