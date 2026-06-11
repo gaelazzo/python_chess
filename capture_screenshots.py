@@ -190,6 +190,64 @@ def capture_endgame(screen, path):
                   f"Endgame: esempi -- {title} (1/2, playing White)")
 
 
+# --- modal screens: grab the FIRST rendered frame, then inject Esc to exit -----
+def capture_modal(path, call):
+    """Run a modal render function (its own event loop), save the first frame it
+    presents, and post Esc so it returns -- without touching the modal's code.
+    We hook display.flip/update (whatever it uses to present) and grab app.screen."""
+    state = {"saved": False}
+    orig_flip, orig_update = p.display.flip, p.display.update
+
+    def hook(*a, **k):
+        if not state["saved"]:
+            state["saved"] = True
+            p.image.save(app.screen, path)
+            print("wrote", path)
+            p.event.post(p.event.Event(p.KEYDOWN, key=p.K_ESCAPE, mod=0, unicode="\x1b"))
+
+    p.display.flip = hook
+    p.display.update = hook
+    try:
+        call()
+    finally:
+        p.display.flip, p.display.update = orig_flip, orig_update
+
+
+def capture_notation(screen, path):
+    import io
+    import notation
+    pgn_text = ('[Event "Demo"]\n\n'
+                '1. e4 e5 2. Nf3 Nc6 3. Bb5! {The Ruy Lopez -- the main line.} '
+                '(3. Bc4 {Italian Game} 3... Bc5 4. c3 Nf6) '
+                '3... a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 *\n')
+    game = chess.pgn.read_game(io.StringIO(pgn_text))
+    gs = GameState()
+    gs.setPgn(game)
+    capture_modal(path, lambda: notation.show_notation(gs))
+
+
+def capture_setup(screen, path):
+    import position_setup
+    gs = gs_at(game_from_pgn("openings/B12CaroKan.pgn"), advance=6)
+    capture_modal(path, lambda: position_setup.run(gs))
+
+
+def capture_advisor(screen, path):
+    from modes.study_advisor import _show_results, ECOStat
+    stats = [
+        ECOStat("C01", 637, 292, 31, 314), ECOStat("B01", 631, 291, 31, 309),
+        ECOStat("C77", 75, 31, 1, 43),     ECOStat("B45", 15, 3, 0, 12),
+        ECOStat("B27", 147, 67, 5, 75),    ECOStat("C89", 58, 23, 4, 31),
+        ECOStat("C00", 257, 122, 6, 129),  ECOStat("C64", 218, 102, 7, 109),
+        ECOStat("C70", 111, 51, 2, 58),    ECOStat("A46", 156, 68, 14, 74),
+        ECOStat("C66", 59, 26, 1, 32),     ECOStat("E60", 30, 12, 0, 18),
+        ECOStat("A10", 24, 7, 4, 13),      ECOStat("B29", 12, 3, 0, 9),
+        ECOStat("C40", 176, 83, 5, 88),
+    ]
+    header = "Study priorities for hires (Both) -- 18627 games, 168 ECO"
+    capture_modal(path, lambda: _show_results(stats, header, "hires", None, "pgn/all.pgn"))
+
+
 def main():
     preview = "--preview" in sys.argv
     screen = boot()
@@ -198,6 +256,13 @@ def main():
     capture_solve(screen, f"{prefix}solve.png")
     capture_openings(screen, f"{prefix}openings.png")
     capture_endgame(screen, f"{prefix}endgame.png")
+    capture_notation(screen, f"{prefix}notation.png")
+    capture_setup(screen, f"{prefix}setup.png")
+    # advisor uses mock data; the committed advisor.png is the author's real-data
+    # screenshot, so only (re)generate it in --preview (for verification). Flip
+    # this if you'd rather have the fully-automated mock version.
+    if preview:
+        capture_advisor(screen, f"{prefix}advisor.png")
     p.quit()
 
 
