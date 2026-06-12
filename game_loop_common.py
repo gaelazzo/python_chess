@@ -22,9 +22,14 @@ _HELP_BG = (100, 100, 0)
 _HELP_FG = (0, 0, 0)
 
 
-def engine_callback(text: str) -> None:
-    """Draw the engine evaluation string on the board."""
-    BS.drawCpu(app.screen, text)
+def engine_callback(text) -> None:
+    """Draw the engine evaluation lines through the shared engine panel.
+
+    Invoked from UCIEngines.poll() outside the main render path, so it presents
+    its own rectangle (like play_game._draw_engine)."""
+    BS.engine.visible = BS.show_cpu
+    BS.engine.render(app.screen, text)
+    p.display.update(BS.engine.rect)
 
 
 def stop_speech_on_input(event) -> None:
@@ -67,13 +72,17 @@ def draw_help_overlay(help_text, height: int = 400) -> None:
 def toggle_book(gs) -> None:
     """Toggle the opening-book panel and redraw it."""
     BS.show_book = not BS.show_book
-    BS.drawBook(app.screen, gs)
+    BS.book.visible = BS.show_book
+    BS.book.render(app.screen, BS.book_lines(gs))
+    p.display.update(BS.book.rect)
 
 
 def toggle_pgn(gs) -> None:
     """Toggle the move-list (PGN) panel and redraw it."""
     BS.show_pgn = not BS.show_pgn
-    BS.drawPgn(app.screen, gs)
+    BS.pgn.visible = BS.show_pgn
+    BS.pgn.render(app.screen, BS.pgn_lines(gs))
+    p.display.update(BS.pgn.rect)
 
 
 def toggle_engine(gs) -> None:

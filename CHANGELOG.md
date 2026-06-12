@@ -4,6 +4,28 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.2.5] - 2026-06-12
+
+### Aggiunte
+- **Suggestion for study — niente doppi conteggi al riesame**: rianalizzando lo
+  stesso PGN, le partite già analizzate vengono saltate (per ciascun giocatore si
+  ricorda la finestra di date già esaminata, salvata nella base). Così i contatori
+  degli errori non si gonfiano e le posizioni già "imparate" non riemergono.
+
+### Modifiche
+- **"PGN moves" mostra il prossimo bivio**: la prossima mossa principale e le
+  eventuali varianti alternative *a quella mossa*, così navigando vedi in anticipo
+  una diramazione (prima mostrava il proseguio della linea).
+- **Font più leggibili** per il registro mosse, "PGN moves" e "Book moves".
+
+### Correzioni
+- **Analisi del motore che sforava**: durante l'allenamento le righe del motore
+  non escono più dal riquadro CPU sui pannelli laterali.
+- **Sfarfallio dei pannelli** "Book moves" / "Personal Stats" / "PGN moves" al
+  passaggio del mouse sulla scacchiera.
+
+[1.2.5]: https://github.com/gaelazzo/python_chess/releases/tag/v1.2.5
+
 ## [1.2.4] - 2026-06-10
 
 ### Aggiunte

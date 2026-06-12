@@ -188,6 +188,34 @@ def test_promote_walks_up_one_level_per_call():
     assert gs.isInVariation() is False              # fully on the main line now
 
 
+def test_next_move_lines_main_then_variations():
+    # at the start, 1.e4 main with 1.d4 / 1.c4 as alternative variations
+    gs = GameState()
+    gs.pgn.add_variation(chess.Move.from_uci("e2e4"))    # main next move
+    gs.pgn.add_variation(chess.Move.from_uci("d2d4"))    # variation
+    gs.pgn.add_variation(chess.Move.from_uci("c2c4"))    # variation
+    gs.node = gs.pgn
+    assert gs.getNextMoveLines() == ["1. e4", "   - d4", "   - c4"]
+
+
+def test_next_move_lines_black_to_move_numbering():
+    gs = _game(["e2e4"])                                  # 1.e4, Black to move
+    gs.node.add_variation(chess.Move.from_uci("e7e5"))   # main reply
+    gs.node.add_variation(chess.Move.from_uci("c7c5"))   # variation
+    assert gs.getNextMoveLines() == ["1... e5", "   - c5"]
+
+
+def test_next_move_lines_single_move_has_no_variations():
+    gs = _game(["e2e4"])
+    gs.node.add_variation(chess.Move.from_uci("e7e5"))   # only one continuation
+    assert gs.getNextMoveLines() == ["1... e5"]           # no fork -> just the next move
+
+
+def test_next_move_lines_empty_at_end_of_line():
+    gs = _game(["e2e4", "e7e5"])                          # no stored continuation
+    assert gs.getNextMoveLines() == []
+
+
 def test_promote_keeps_history_navigable():
     """After promoting, back/forward navigation stays consistent: promote only
     reorders variations, so the move history (moveLog) is untouched and the

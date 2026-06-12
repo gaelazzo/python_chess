@@ -95,7 +95,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
             "- D show/hide moves"
         ]
     show_help = False
-    BS.clearCPU(app.screen)
+    BS.engine.clear(app.screen)
 
     # Toolbar (phase 2): same pattern as play_game -- each button posts
     # the same keyboard shortcut, so the handling code stays
@@ -217,8 +217,9 @@ def solvePositionsFromBase(learningBase:LearningBase):
         # show_cpu must reflect the real engine state: if update_board()
         # kept analysis active during the continuation of the previous
         # position, "stopper" is still set but `show_cpu=False` would silence
-        # drawCpu, giving the illusion that the engine no longer writes. For the new
-        # position we show the info if and only if analysis is actually running.
+        # the engine panel (renders cleared), giving the illusion that the engine
+        # no longer writes. For the new position we show the info if and only if
+        # analysis is actually running.
         BS.show_cpu = UCIEngines.is_analysing()
 
         currentMove = 0

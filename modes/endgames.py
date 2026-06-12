@@ -425,7 +425,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
     BS.show_pgn = False
     BS.show_book = False
     BS.show_cpu = False
-    BS.clearCPU(app.screen)
+    BS.engine.clear(app.screen)
     BS.setWhiteUp(app.screen, not human_color_chess)
     BS.drawGameState(app.screen, gs, [], [], ())
     BS.update()

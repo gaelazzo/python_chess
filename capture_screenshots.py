@@ -23,7 +23,6 @@ import safe_font
 import BoardScreen as BS
 from app_context import app
 from GameState import GameState
-from panels import BookPanel, EnginePanel, TextLinesPanel
 from toolbar import Toolbar, ToolbarAction
 
 # The analysis toolbar, as labels (mirrors modes/play_game.py). A screenshot only
@@ -100,28 +99,16 @@ def capture_analysis(screen, path):
     screen.fill(p.Color("black"))
     BS.drawGameState(screen, gs, [], [], ())
 
-    book = BookPanel()
-    book.visible = True
-    book.render(screen, SAMPLE_BOOK)
-
-    pgn = TextLinesPanel(
-        lambda: p.Rect(BS.PGN_X, BS.PGN_Y, BS.PGN_WIDTH, BS.PGN_HEIGHT),
-        title="PGN moves",
-    )
-    pgn.visible = True
-    pgn.render(screen, gs.getContinuationLines())
-
-    stats = TextLinesPanel(
-        lambda: p.Rect(BS.DBSTATS_X, BS.DBSTATS_Y, BS.DBSTATS_WIDTH, BS.DBSTATS_HEIGHT),
-        title="Personal Stats",
-        font=p.font.SysFont('Consolas,Courier New,Lucida Console', 16),
-    )
-    stats.visible = True
-    stats.render(screen, SAMPLE_STATS)
-
-    engine = EnginePanel()
-    engine.visible = True
-    engine.render(screen, SAMPLE_ENGINE)
+    # Use the shared singletons so the screenshot matches the live app exactly
+    # (fonts, titles, rects); feed them representative sample data.
+    BS.book.visible = True
+    BS.book.render(screen, SAMPLE_BOOK)
+    BS.pgn.visible = True
+    BS.pgn.render(screen, BS.pgn_lines(gs))
+    BS.dbstats.visible = True
+    BS.dbstats.render(screen, SAMPLE_STATS)
+    BS.engine.visible = True
+    BS.engine.render(screen, SAMPLE_ENGINE)
 
     draw_toolbar(screen)
 

@@ -133,7 +133,7 @@ def playBrainMasterSet(questions: List[QuestionData])->Dict[str, AnswerData] :
     # show_cpu must follow the engine's real state, otherwise if the analysis
     # was left active the CPU panel stays empty while the engine is running.
     BS.show_cpu = UCIEngines.is_analysing()
-    BS.clearCPU(app.screen)
+    BS.engine.clear(app.screen)
 
     # Toolbar (phase 2): same pattern as the other modes.
     def _post_key(key, mod=0):

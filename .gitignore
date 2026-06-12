@@ -6,6 +6,7 @@ config.json
 
 # Temporary files including undo
 *~
+*.bak
 .DS_Store
 #
 __pycache__/

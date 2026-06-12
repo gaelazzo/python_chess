@@ -10,5 +10,6 @@ session); a renderer draws the visible panels from the view-model.
 from .base import Panel, TextLinesPanel
 from .book_panel import BookPanel
 from .engine_panel import EnginePanel
+from .movelog_panel import MoveLogPanel
 
-__all__ = ["Panel", "TextLinesPanel", "BookPanel", "EnginePanel"]
+__all__ = ["Panel", "TextLinesPanel", "BookPanel", "EnginePanel", "MoveLogPanel"]

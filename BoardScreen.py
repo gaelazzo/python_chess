@@ -77,6 +77,17 @@ show_book = True
 show_pgn = True
 show_cpu = True
 
+# Shared side-panel singletons: ONE instance per box, the single render()/clear()
+# interface every writer goes through (drawGameState, the engine callback,
+# play_game). Built in init() once the fonts exist; None until then. Because each
+# panel reads its rect lazily from the geometry constants above, moving a panel
+# moves it for everyone.
+book = None
+engine = None
+pgn = None
+movelog = None
+dbstats = None
+
 # Context label shown at the top of the move log (e.g. "Training: c96" or
 # "Opening: openings.pgn") and replicated in the window caption. Set by
 # the various modes on entry and cleared on exit. None = no label.
@@ -118,8 +129,30 @@ def init():
     loadImages()
     # Segoe UI Symbol (Win) / Cambria Math cover the chess annotation glyphs
     # (= ± ∓ ⩲ ⩱ ∞ □ ⨀); Arial does not. Fall back gracefully elsewhere.
-    MOVELOGFONT = p.font.SysFont("Segoe UI Symbol,Cambria Math,DejaVu Sans,Arial", 14, False, False)
+    MOVELOGFONT = p.font.SysFont("Segoe UI Symbol,Cambria Math,DejaVu Sans,Arial", 16, False, False)
     BOOKFONT = p.font.SysFont("Arial", 14, False, False)
+
+    # Build the shared side-panel singletons now that the fonts exist. Local
+    # import keeps the BoardScreen<->panels dependency one-way (no import cycle).
+    global book, engine, pgn, movelog, dbstats
+    from panels import BookPanel, EnginePanel, TextLinesPanel, MoveLogPanel
+    # A slightly bigger font for the book + PGN boxes (readability), kept separate
+    # from BOOKFONT so the dense CPU/engine strip stays at its compact size.
+    panel_font = p.font.SysFont("Arial", 16, False, False)
+    book = BookPanel(font=panel_font)
+    engine = EnginePanel()
+    pgn = TextLinesPanel(
+        lambda: p.Rect(PGN_X, PGN_Y, PGN_WIDTH, PGN_HEIGHT), title="PGN moves",
+        font=panel_font)
+    dbstats = TextLinesPanel(
+        lambda: p.Rect(DBSTATS_X, DBSTATS_Y, DBSTATS_WIDTH, DBSTATS_HEIGHT),
+        title="Personal Stats",
+        font=p.font.SysFont('Consolas,Courier New,Lucida Console', 16),
+    )
+    movelog = MoveLogPanel(
+        lambda: p.Rect(MOVE_LOG_X, MOVE_LOG_Y, MOVE_LOG_WIDTH, MOVE_LOG_HEIGHT),
+        font=MOVELOGFONT)
+
     height = SCREEN_HEIGHT
     width = SCREEN_WIDTH
     clock = p.time.Clock()
@@ -324,83 +357,16 @@ def add_txt_line(t: str, text_y: int, font, screen, move_log_rect, padding, line
     screen.blit(text_object, text_location)
     return text_object.get_height() + line_spacing
 
-def clearBook(screen):
-    bookRect = p.Rect(BOOK_X, BOOK_Y, BOOK_WIDTH, BOOK_HEIGHT)
-    p.draw.rect(screen, p.Color("black"), bookRect)
-    return bookRect
-
-def drawBook(screen, gs: GameState):    
-    book = gs.getMovesFromBook()
-    bookRect = clearBook(screen)
-    if not book or not show_book:
-        return
-    myfont = BOOKFONT
-    textsurface = myfont.render('Book moves', False, p.Color("white"))
-    screen.blit(textsurface, (BOOK_X+ 5, BOOK_Y+ 5))
-    padding = 5
-    textY = padding
-    lineSpacing = 2
-    textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
-    for entry in book[:10]:
-        textY+= add_txt_line(entry.move.uci(), textY, myfont, screen, bookRect, padding, lineSpacing)
-        
-    update()
+def book_lines(gs):
+    """Opening-book move strings (UCI) for the current position; [] if none.
+    The single source feeding the shared `book` panel (BookPanel caps at 10)."""
+    return [entry.move.uci() for entry in (gs.getMovesFromBook() or [])]
 
 
-def drawCpu(screen, text:List[str]):
-    cpuRect = clearCPU(screen)
-    if not show_cpu:
-        return
-    myfont = BOOKFONT
-    text_cpu = "CPU info"
-    if not UCIEngines.cpu_is_on():
-        text_cpu = "CPU is off"
-
-    textsurface = myfont.render('CPU', False, p.Color("white"))
-    screen.blit(textsurface, (CPU_X + 5, CPU_Y + 5))
-    padding = 5
-    textY = padding
-    lineSpacing = 2
-    textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
-    for txt in text:
-        textY+= add_txt_line(txt, textY, myfont, screen, cpuRect, padding, lineSpacing)
-    update()
-
-def clearCPU(screen):
-    cpuRect = p.Rect(CPU_X, CPU_Y, CPU_WIDTH, CPU_HEIGHT)
-    p.draw.rect(screen, p.Color("black"), cpuRect)
-    return cpuRect
-
-def clearPgn(screen):
-    pgnRect = p.Rect(PGN_X, PGN_Y, PGN_WIDTH, PGN_HEIGHT)
-    p.draw.rect(screen, p.Color("black"), pgnRect)
-    return pgnRect
-
-def clearDbStats(screen):
-    rect = p.Rect(DBSTATS_X, DBSTATS_Y, DBSTATS_WIDTH, DBSTATS_HEIGHT)
-    p.draw.rect(screen, p.Color("black"), rect)
-    return rect
-
-def drawPgn(screen, gs: GameState):    
-    lines = gs.getContinuationLines()   # continuation of the line (SAN + move numbers), not just the next move
-    pgnRect = clearPgn(screen)
-    myfont = BOOKFONT
-    textsurface = myfont.render('PGN moves', False, p.Color("white"))
-    screen.blit(textsurface, (PGN_X + 5, PGN_Y+5))
-    padding = 5
-    textY = padding
-    lineSpacing = 2
-    textY += textsurface.get_height() + lineSpacing  # <-- ADD THIS LINE
-   
-    prev_clip = screen.get_clip()
-    screen.set_clip(pgnRect)
-    try:
-        for line in lines:
-            textY += add_txt_line(line, textY, myfont, screen, pgnRect, padding, lineSpacing)
-    finally:
-        screen.set_clip(prev_clip)
-
-    update()
+def pgn_lines(gs):
+    """Feeds the `pgn` panel: the next main move + its alternative variations
+    (the upcoming fork), so navigating you see a branch coming."""
+    return gs.getNextMoveLines()
 
 
 def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, sqSelected):
@@ -413,107 +379,22 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
     highlightCircles(screen, toHighlightCirclesColor)
     highlightSquaresColor(screen, toHighlightSquareColor)
     drawPieces(screen, gs)
-    drawMoveLog(screen, gs)
-    if show_book:
-        drawBook(screen, gs)
-    else:
-        clearBook(screen)
 
-    if show_pgn:
-        drawPgn(screen, gs)
-    else:
-        clearPgn(screen)
-
-    # DB-stats slot (analysis column, lower third): painted by the analysis mode's
-    # panel; here we just blank it so other modes don't show stale content.
-    clearDbStats(screen)
-
-
-def drawMoveLog(screen, gs):
-    movesPerRow = 1   # one full move ("1. e4 e5") per row -- canonical, like the PGN panel
-    assert(MOVELOGFONT is not None)
-    font:p.font.Font = MOVELOGFONT
-    moveLogRect = p.Rect(MOVE_LOG_X, MOVE_LOG_Y,MOVE_LOG_WIDTH,MOVE_LOG_HEIGHT)
-    p.draw.rect(screen, p.Color("black"), moveLogRect)
-
-    # Clip to the panel rectangle: a long comment (or move list)
-    # can no longer overflow into the boxes below, which this function
-    # does not clear (this was the cause of the "ghost" text left at the bottom).
-    prev_clip = screen.get_clip()
-    screen.set_clip(moveLogRect)
-    try:
-        moveLog = gs.moveLog
-        glyphs = gs.getMoveGlyphs()  # annotation glyph per move ('' if none)
-        moveTexts = []  # [m.getChessNotation() for m in moveLog]
-        for i in range(0, len(moveLog),2 ):
-            moveString = str(i//2 + 1)+"."+ moveLog[i].prettyChessNotation() + glyphs[i]
-            if i +1 < len(moveLog):
-                moveString += " " + moveLog[i+1].prettyChessNotation() + glyphs[i+1]
-            moveTexts.append(moveString)
-        padding = 5
-        textY = padding
-        lineSpacing = 2
-
-        # Context label (what I am training): if present, first line
-        # in cyan so it stands out from the normal game headers.
-        if context_label:
-            textY += add_txt_line(context_label, textY, font, screen, moveLogRect, padding, lineSpacing, color="cyan")
-
-        header = gs.getHeader()
-        for i in range(0, len(header), 2):
-            key = header[i]
-            value = header[i + 1] if i + 1 < len(header) else ""
-            textY+= add_txt_line(f"{key}: {value}", textY, font, screen, moveLogRect, padding, lineSpacing)
-
-        # Scroll to the tail: when the list is taller than the space left, drop the
-        # earliest rows so the latest played moves (= the current move while
-        # navigating) stay visible, with a "..." marker for the hidden ones.
-        lineHeight = font.get_height() + lineSpacing
-        n_rows = (len(moveTexts) + movesPerRow - 1) // movesPerRow
-        max_rows = max(1, (MOVE_LOG_HEIGHT - textY) // lineHeight)
-        start_row = max(0, n_rows - max_rows)
-        if start_row > 0:
-            add_txt_line("...", textY, font, screen, moveLogRect, padding, lineSpacing, color="gray")
-            textY += lineHeight
-            start_row = min(n_rows, start_row + 1)
-        for r in range(start_row, n_rows):
-            i = r * movesPerRow
-            text = ""
-            for j in range(movesPerRow):
-                if i + j < len(moveTexts):
-                    text += moveTexts[i + j] + " "
-            textY += add_txt_line(text, textY, font, screen, moveLogRect, padding, lineSpacing)
-
-        evaluation = gs.getEvaluation()
-        if evaluation is not None:
-            textY+= add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, moveLogRect, padding, lineSpacing)
-
-        comment = gs.getMoveComment()
-        if comment:
-            textY += add_txt_line("Comment:", textY, font, screen, moveLogRect, padding, lineSpacing, color="yellow")
-            maxw = MOVE_LOG_WIDTH - 2 * padding
-            lines = []
-            line = ""
-            for word in comment.split():
-                trial = (line + " " + word).strip()
-                if line and font.size(trial)[0] > maxw:
-                    lines.append(line)
-                    line = word
-                else:
-                    line = trial
-            if line:
-                lines.append(line)
-            # keep only the lines that fit in the panel; if truncated, "..."
-            lineHeight = font.get_height() + lineSpacing
-            maxLines = max(0, (MOVE_LOG_HEIGHT - textY) // lineHeight)
-            if len(lines) > maxLines:
-                lines = lines[:max(0, maxLines - 1)] + ["..."]
-            for ln in lines:
-                textY += add_txt_line(ln, textY, font, screen, moveLogRect, padding, lineSpacing)
-    finally:
-        screen.set_clip(prev_clip)
-
-    update()
+    # Side boxes through the shared panel singletons (the one render/clear per
+    # box). visible=show_* means a hidden panel renders as just a cleared rect,
+    # so the old "if show: draw else: clear" collapses into one render() each.
+    movelog.render(screen, gs)
+    book.visible = show_book
+    book.render(screen, book_lines(gs) if show_book else [])
+    pgn.visible = show_pgn
+    pgn.render(screen, pgn_lines(gs) if show_pgn else [])
+    # DB-stats slot (analysis column, lower third): blanked here; the analysis
+    # mode's own render paints it.
+    dbstats.clear(screen)
+    # NB: no present here -- every caller flips after drawing (one-shot calls do
+    # BS.update() right after; the loops flip once per iteration; play_game repaints
+    # book/pgn/dbstats from its view-model first). Presenting here would show those
+    # boxes cleared for one frame before play_game refills them = flicker.
 
 
 def animateMove(move, screen, board:GameState):

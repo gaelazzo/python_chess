@@ -134,6 +134,10 @@ class LearningBaseData:
     ponderTime:float
     useBook:bool
     filename:Optional[str]=None
+    # Per-nick [first, last] game-date window already analyzed into this base
+    # (ISO "YYYY-MM-DD" strings). Used by the Study Advisor to skip, on a re-run,
+    # the games a previous analysis already counted. Absent in old bases -> None.
+    analyzedRanges:Optional[Dict[str,List[Optional[str]]]]=None
 
 class LearningBase:
     
@@ -144,6 +148,8 @@ class LearningBase:
         self.blunderValue:int = blunderValue
         self.ponderTime:float = ponderTime
         self.useBook:bool = useBook
+        # nick(lowercased) -> [first_date, last_date] already analyzed (see LearningBaseData)
+        self.analyzedRanges:Dict[str,List[Optional[date]]] = {}
     
     def setFileName(self, filename:str):
         self.filename = filename
@@ -159,7 +165,13 @@ class LearningBase:
             useBook=self.useBook)
 
         if self.filename:
-            data_dict.filename= self.filename      
+            data_dict.filename= self.filename
+
+        if self.analyzedRanges:
+            data_dict.analyzedRanges = {
+                nick: [d.isoformat() if d is not None else None for d in pair]
+                for nick, pair in self.analyzedRanges.items()
+            }
 
         return data_dict
 
@@ -177,8 +189,43 @@ class LearningBase:
         
         if data_dict.filename is not None:
             instance.setFileName(data_dict.filename)
-        
+
+        ranges = getattr(data_dict, "analyzedRanges", None)
+        if ranges:
+            instance.analyzedRanges = {
+                nick: [date.fromisoformat(s) if s else None for s in pair]
+                for nick, pair in ranges.items()
+            }
+
         return instance
+
+    def isInAnalyzedRange(self, nick: str, d: date) -> bool:
+        """True if game-date `d` falls inside the [first,last] window already
+        analyzed for `nick` (INCLUSIVE on both ends). Lets a re-run skip the games
+        a previous analysis of the same nick already counted, so it neither
+        inflates the per-position stats nor revives 'Learned' positions."""
+        pair = self.analyzedRanges.get((nick or "").lower())
+        if not pair:
+            return False
+        first, last = pair
+        if first is not None and d < first:
+            return False
+        if last is not None and d > last:
+            return False
+        return True
+
+    def extendAnalyzedRange(self, nick: str, d: date) -> None:
+        """Grow the analyzed [first,last] window for `nick` to include `d`."""
+        key = (nick or "").lower()
+        pair = self.analyzedRanges.get(key)
+        if pair is None:
+            self.analyzedRanges[key] = [d, d]
+        else:
+            first, last = pair
+            self.analyzedRanges[key] = [
+                d if first is None or d < first else first,
+                d if last is None or d > last else last,
+            ]
 
 
     def save(self, filename:Optional[str]=None):

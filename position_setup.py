@@ -195,9 +195,8 @@ def run(gs: GameState) -> bool:
         BS.drawBoard(app.screen)
         if tmp_gs is not None:
             BS.drawPieces(app.screen, tmp_gs)
-        # Palette area: clear and draw
-        p.draw.rect(app.screen, p.Color('black'),
-                    p.Rect(0, BS.CPU_Y, BS.CPU_WIDTH, BS.CPU_HEIGHT))
+        # Palette area: clear and draw (reuses the CPU-strip rect via its panel)
+        BS.engine.clear(app.screen)
         _draw_palette(app.screen, cells, armed)
         _draw_buttons(app.screen, buttons, board.turn == chess.WHITE, error)
         BS.update()

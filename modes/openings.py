@@ -197,7 +197,7 @@ def playOpeningLine(filename, humanColor):
     # was left running from the previous position, the CPU panel stays empty
     # while the engine is still running in the background.
     BS.show_cpu = UCIEngines.is_analysing()
-    BS.clearCPU(app.screen)
+    BS.engine.clear(app.screen)
     
     help_text = [
             "Instructions:",

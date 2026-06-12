@@ -28,7 +28,6 @@ from modes.common import show_message, setAlfa
 import notation
 from modes.board_session import BoardSession, AnalysisPolicy
 from modes.pygame_input import PygameInput
-from panels import BookPanel, EnginePanel, TextLinesPanel
 
 
 def _confirm(prompt: str) -> bool:
@@ -354,22 +353,14 @@ def playAGame():
     # far: undo (Left) / truncate (Del) / delete-variation (Backspace).
     session = BoardSession(AnalysisPolicy(), gs=gs, white_cpu=whiteCPU, black_cpu=blackCPU)
 
-    # View layer: the side panels render from the session's view-model (book/pgn)
-    # or from the engine info (cpu), never from GameState. BoardScreen no longer
-    # owns book/pgn here -- show_book/show_pgn stay off so drawGameState only
-    # clears their rectangles, and these panels paint over the cleared boxes.
-    book_panel = BookPanel()
-    pgn_panel = TextLinesPanel(
-        lambda: p.Rect(BS.PGN_X, BS.PGN_Y, BS.PGN_WIDTH, BS.PGN_HEIGHT),
-        title="PGN moves",
-    )
-    dbstats_panel = TextLinesPanel(
-        lambda: p.Rect(BS.DBSTATS_X, BS.DBSTATS_Y, BS.DBSTATS_WIDTH, BS.DBSTATS_HEIGHT),
-        title="Personal Stats",
-        # monospace + a touch bigger so the W/D/L columns line up and read clearly
-        font=p.font.SysFont('Consolas,Courier New,Lucida Console', 16),
-    )
-    engine_panel = EnginePanel()
+    # View layer: the SHARED side-panel singletons (BoardScreen owns one instance
+    # per box -- same render/clear interface as every other mode). play_game keeps
+    # show_book/show_pgn off so drawGameState only clears those boxes, then repaints
+    # them here from the session view-model, over the cleared rectangles.
+    book_panel = BS.book
+    pgn_panel = BS.pgn
+    dbstats_panel = BS.dbstats
+    engine_panel = BS.engine
 
     # Input port: pygame events -> Commands -> session.apply(), the SAME path a
     # test drives with a ScriptedInput. The keymap holds only the plain game
@@ -392,7 +383,7 @@ def playAGame():
         session.white_up = True                      # human plays Black -> White at the top
         BS.setWhiteUp(app.screen, session.white_up)  # initial orientation (draws once)
 
-    BS.clearCPU(app.screen)
+    BS.engine.clear(app.screen)
 
     # Toolbar at the top: each button posts the same corresponding keyboard
     # shortcut, so the KEYDOWN code handles everything and we don't duplicate
@@ -593,7 +584,7 @@ def playAGame():
                         # the menu draws full-screen: clear before
                         # redrawing the board (including the CPU strip below)
                         app.main_background()
-                        BS.clearCPU(app.screen)
+                        BS.engine.clear(app.screen)
                         continue
 
                     if e.key == p.K_t and not whiteCPU and not blackCPU:
@@ -605,7 +596,7 @@ def playAGame():
                         # the menu draws full-screen: clear before
                         # redrawing the board (including the CPU strip below)
                         app.main_background()
-                        BS.clearCPU(app.screen)
+                        BS.engine.clear(app.screen)
                         continue
 
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
@@ -614,7 +605,7 @@ def playAGame():
                         # the panel draws full-screen: clear before
                         # redrawing the board (including the CPU strip below)
                         app.main_background()
-                        BS.clearCPU(app.screen)
+                        BS.engine.clear(app.screen)
                         moveMade = False
                         animate = False
                         validMoves = gs.stdValidMoves()
@@ -737,7 +728,7 @@ def playAGame():
         book_panel.render(app.screen, vm.book)          # SAN list (session.book_view)
         pgn_panel.visible = vm.panels["pgn"]
         pgn_panel.render(app.screen,
-                         gs.getContinuationLines() if vm.panels["pgn"] else [])
+                         BS.pgn_lines(gs) if vm.panels["pgn"] else [])
         dbstats_panel.visible = vm.panels["dbstats"]
         dbstats_panel.render(app.screen,
                              _db_stats_lines(gs) if vm.panels["dbstats"] else [])

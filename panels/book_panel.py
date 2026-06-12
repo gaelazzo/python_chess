@@ -12,9 +12,10 @@ class BookPanel(TextLinesPanel):
     e.g. `BoardSession.book_view()` -- so it never touches the book or GameState.
     """
 
-    def __init__(self):
+    def __init__(self, font=None):
         super().__init__(
             lambda: p.Rect(BS.BOOK_X, BS.BOOK_Y, BS.BOOK_WIDTH, BS.BOOK_HEIGHT),
             title="Book moves",
             max_lines=10,
+            font=font,
         )

@@ -104,7 +104,6 @@ class Voce:
             return
         try:
             sapi.Rate = sapi_rate
-            print(f"TTS: rate={wpm}wpm -> SAPI5 Rate={sapi_rate}")
         except Exception as e:
             print(f"TTS apply rate failed: {e}")
 
@@ -114,7 +113,6 @@ class Voce:
             try:
                 self._engine.setProperty('voice', voice_id)
                 self._voice_id = voice_id
-                print(f"TTS: voice applied (source={source}) -> {voice_id}")
                 return True
             except Exception as e:
                 print(f"TTS apply voice failed: {e}")
@@ -135,10 +133,7 @@ class Voce:
                     sapi.Voice = token
                     self._voice_id = voice_id
                     # Direct verification on the COM object
-                    actual = sapi.Voice.Id if sapi.Voice else None
-                    print(f"TTS: voice applied (source={source}) "
-                          f"actual={actual} -> "
-                          f"{'OK' if actual == voice_id else 'MISMATCH'}")
+                    actual = sapi.Voice.Id if sapi.Voice else None                   
                     return actual == voice_id
         except Exception as e:
             print(f"TTS apply voice failed: {e}")
@@ -151,16 +146,12 @@ class Voce:
         except Exception as e:
             print(f"TTS: cannot list voices: {e}")
             return
-        print(f"TTS: {len(voices)} voices available:")
-        for v in voices:
-            print(f"  - id={v.id!r} name={v.name!r} langs={v.languages}")
+        
         voice_id, source = self._find_target_voice_id(voices)
         if voice_id is None:
             print(f"TTS: no voice '{self._lang_prefix}' found, OS default")
             return
         ok = self._apply_voice(voice_id, source)
-        print(f"TTS: target voice id={voice_id} (source={source}) -> "
-              f"{'applied' if ok else 'NOT APPLIED'}")
 
     def _worker(self):
         try:
@@ -471,6 +462,34 @@ class GameState:
             n = nxt
         if pending:
             lines.append(pending)
+        return lines
+
+    def getNextMoveLines(self) -> List[str]:
+        '''
+            Lines for the "PGN moves" panel: the next MAIN move plus any
+            alternative variations available right here (only the immediate next
+            move of each), so that while navigating you can see a fork coming.
+            Main line first (with move number); the alternatives are listed
+            below, indented. [] at the end of the line.
+        '''
+        if self.node is None:
+            return []
+        children = self.node.variations
+        if not children:
+            return []
+        board = self.node.board()
+        num = board.fullmove_number
+        sep = "." if board.turn else "..."        # "13." (White) / "13..." (Black)
+        lines: List[str] = []
+        for idx, child in enumerate(children):
+            try:
+                san = board.san(child.move)
+            except Exception:
+                continue
+            if idx == 0:
+                lines.append(f"{num}{sep} {san}")     # next main move
+            else:
+                lines.append(f"   - {san}")           # alternative next move
         return lines
 
 

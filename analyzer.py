@@ -176,9 +176,12 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
     board.push(moveMade) # restores the move
     
    
-def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None):
-    """`eco` (e.g. "B01"): if not None, filters to only the games with that ECO header."""
-    pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco)
+def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None, use_analyzed_range:bool=False):
+    """`eco` (e.g. "B01"): if not None, filters to only the games with that ECO header.
+    `use_analyzed_range`: when True, skip games whose date is already inside the
+    base's per-nick analyzed window and grow that window with the games processed
+    (Study Advisor re-run dedup). Off by default -> other callers are unchanged."""
+    pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco, use_analyzed_range=use_analyzed_range)
     pg.analyzeDataBase(start_from,skip_player, progress=progress)
 
 
@@ -189,18 +192,33 @@ def _same_player(header_name: Optional[str], player: Optional[str]) -> bool:
     return (header_name or "").lower() == (player or "").lower()
 
 
+def _game_date(headers) -> Optional[date]:
+    """Game date from the PGN headers (UTCDate preferred, then Date), or None.
+    Both chess.com and lichess emit YYYY.MM.DD; '????.??.??' placeholders yield None."""
+    for key in ("UTCDate", "Date"):
+        raw = (headers.get(key) or "").strip()
+        if raw and "?" not in raw:
+            try:
+                return datetime.strptime(raw, "%Y.%m.%d").date()
+            except ValueError:
+                continue
+    return None
+
+
 class PgnAnalyzer:
     '''
         Analyze games of  a player, using and updating a specified learningBase, that contains positions found
     '''
 
-    def __init__(self, playerName:str, filename:str, learningBase:LearningBase, eco:Optional[str]=None):
+    def __init__(self, playerName:str, filename:str, learningBase:LearningBase, eco:Optional[str]=None, use_analyzed_range:bool=False):
         '''
             Args:
             playerName: the name of the player to analyze
             pgnfile: the name of the pgn file to analyze (with or without .pgn)
             learningBase: the learning base to update
             eco: if not None, filters to only the games with that ECO (case-insensitive)
+            use_analyzed_range: skip games already inside the base's per-nick
+                analyzed date window, and extend it with processed games
         '''
         # make_file_selector saves the filename without extension, but on disk the
         # PGN files have it -- we append .pgn if it is missing (mirroring PgnGameList,
@@ -211,6 +229,7 @@ class PgnAnalyzer:
         self.pgn = open(pathcomplete, encoding='utf-8')
         self.player = playerName
         self.eco_filter = eco.upper() if eco else None
+        self.use_analyzed_range = use_analyzed_range
         self.movesToAnalyze = learningBase.movesToAnalyze
         self.engine = None
         self.blunderValue = learningBase.blunderValue
@@ -246,6 +265,10 @@ class PgnAnalyzer:
             if progress is not None:
                 progress(n_games)
             self.analyzeGame(game, colorToAnalyze)
+            if self.use_analyzed_range and self.player is not None:
+                gdate = _game_date(game.headers)
+                if gdate is not None:
+                    self.learningBase.extendAnalyzedRange(self.player, gdate)
             if n_games % 50 == 0:
                 self.learningBase.save()
                 print(f"{n_games} analyzed")
@@ -267,9 +290,19 @@ class PgnAnalyzer:
             if self.player is None:
                 return game, True
             if _same_player(game.headers.get("White"), self.player):
-                return game, True
-            if _same_player(game.headers.get("Black"), self.player):
-                return game, False
+                color = True
+            elif _same_player(game.headers.get("Black"), self.player):
+                color = False
+            else:
+                continue
+            # Re-run dedup: skip games already inside the per-nick analyzed window
+            # (inclusive), so a rebuild neither double-counts them nor revives their
+            # "Learned" positions. Undated games fall through and are analyzed.
+            if self.use_analyzed_range:
+                gdate = _game_date(game.headers)
+                if gdate is not None and self.learningBase.isInAnalyzedRange(self.player, gdate):
+                    continue
+            return game, color
 
     def getPositionEvaluation(self, board:chess.Board, colorSide:bool)->Tuple[int,Optional[str]]:
          if self.learningBase.useBook:

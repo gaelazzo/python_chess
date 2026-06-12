@@ -447,7 +447,8 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
             app.main_background()
             BS.drawEndGameText(app.screen, None, f"{eco}: analyzing {base + n}/{total}", size=24)
             p.event.pump()
-        analyzer.analyzePgn(pgn_name, nick, lb, progress=progress_cb, eco=eco)
+        analyzer.analyzePgn(pgn_name, nick, lb, progress=progress_cb, eco=eco,
+                            use_analyzed_range=True)
         done += nick_total
     lb.save()
 
