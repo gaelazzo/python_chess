@@ -71,10 +71,6 @@ class MoveLogPanel(TextLinesPanel):
                         text += moveTexts[i + j] + " "
                 textY += BS.add_txt_line(text, textY, font, screen, rect, padding, lineSpacing)
 
-            evaluation = gs.getEvaluation()
-            if evaluation is not None:
-                textY += BS.add_txt_line(f"Evaluation is {evaluation}", textY, font, screen, rect, padding, lineSpacing)
-
             comment = gs.getMoveComment()
             if comment:
                 textY += BS.add_txt_line("Comment:", textY, font, screen, rect, padding, lineSpacing, color="yellow")

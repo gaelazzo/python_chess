@@ -37,7 +37,7 @@ from GameState import Move, GameState
 from modes.board_session import BoardSession, ModePolicy
 import UCIEngines
 import BoardScreen as BS
-from toolbar import Toolbar, ToolbarAction
+from toolbar import IconToolbar, ToolbarAction
 import syzygy_helper as sh
 from LearningBase import LearningBase, learningBases
 from modes.common import show_message, setAlfa
@@ -439,15 +439,17 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
     # Toolbar.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
-    toolbar = Toolbar([
-        ToolbarAction("Flip",  "Flip board (F)",               _post_key(p.K_f)),
-        ToolbarAction("Hint",  "Show correct move (H)",    _post_key(p.K_h)),
-        ToolbarAction("Eng",   "Engine on/off (E)",            _post_key(p.K_e)),
-        ToolbarAction("Moves", "Toggle move list (D)",         _post_key(p.K_d)),
-        ToolbarAction("C-FEN", "Copy FEN (C)",                 _post_key(p.K_c)),
-        ToolbarAction("Next",  "Next endgame (N)",          _post_key(p.K_n)),
-        ToolbarAction("Quit",  "Back to menu (Q)",            _post_key(p.K_q)),
-    ])
+    # Icon toolbar: only the buttons that apply to this mode (Copy FEN stays on
+    # the keyboard, C). Each button posts its keyboard shortcut, as before.
+    toolbar = IconToolbar([
+        ToolbarAction("Hint",  "Show correct move (H)",        _post_key(p.K_h), icon="hint"),
+        ToolbarAction("Next",  "Next endgame (N)",             _post_key(p.K_n), icon="nextitem"),
+        ToolbarAction("CopyFEN", "Copy FEN (Shift+F)",         _post_key(p.K_f, p.KMOD_SHIFT), icon="copyfen"),
+        ToolbarAction("PGN",   "Toggle move list (M)",         _post_key(p.K_m), icon="pgn"),
+        ToolbarAction("Engine", "Engine on/off (E)",           _post_key(p.K_e), icon="engine"),
+        ToolbarAction("Flip",  "Flip board (F)",               _post_key(p.K_f), icon="flip"),
+        ToolbarAction("Menu",  "Back to menu (Q)",             _post_key(p.K_q), icon="home"),
+    ], y=0, height=BS.TOOLBAR_HEIGHT)
 
     sqSelected: tuple = ()
     playerClicks: list = []
@@ -466,7 +468,7 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
         "- N next endgame",
         "- Q back to menu",
         "- F flip board",
-        "- D toggle move list",
+        "- M toggle move list",
         "- E engine on/off",
     ]
 
@@ -563,12 +565,12 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
                     else:
                         show_message(gs, "No hint available")
                     app.delay(1)
-                elif e.key == p.K_f:
+                elif e.key == p.K_f and not (e.mod & p.KMOD_SHIFT):
                     BS.flipBoard(app.screen)
                     animate = False
-                elif e.key == p.K_c:
+                elif e.key == p.K_f and (e.mod & p.KMOD_SHIFT):  # Shift+F: copy FEN
                     glc.copy_to_clipboard(board.fen(), "FEN copied", gs)
-                elif e.key == p.K_d:
+                elif e.key == p.K_m:
                     glc.toggle_pgn(gs)
                 elif e.key == p.K_e:
                     glc.toggle_engine(gs)

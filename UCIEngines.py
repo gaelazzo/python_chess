@@ -86,8 +86,47 @@ stopper = None
 def cpu_is_on():
     return stopper is not None
 
+def _eval_str(info) -> str:
+    """Signed evaluation from White's POV: '+0.80', '-1.23', '+M5', '-M3', or ''.
+
+    Used both for the per-variation lines and for the headline eval shown big at
+    the top of the CPU panel (`latest_eval_str`)."""
+    score = info.get("score")
+    if not score:
+        return ""
+    s = score.white()
+    if isinstance(s, chess.engine.Mate):
+        m = s.mate()
+        return f"{'+' if m >= 0 else '-'}M{abs(m)}"
+    if isinstance(s, chess.engine.Cp):
+        return f"{s.score() / 100:+.2f}"
+    return ""
+
+
+def engine_name() -> str:
+    """Display name of the running engine (UCI `id name`, e.g. 'Stockfish 16'),
+    falling back to the configured filename without extension, or '' if none."""
+    try:
+        if engine is not None:
+            n = (getattr(engine, "id", None) or {}).get("name")
+            if n:
+                return n
+    except Exception:
+        pass
+    fn = (getattr(config, "engine", "") or "").strip()
+    return os.path.splitext(os.path.basename(fn))[0] if fn else ""
+
+
+def current_eval() -> str:
+    """The headline eval (best line, White's POV) as a signed string, or ''."""
+    return latest_eval_str
+
+
 def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants=3) -> list[str]:
+    global latest_eval_str
     result_lines = []
+    # Headline eval = the best line (info_list[0]); shown big in the panel header.
+    latest_eval_str = _eval_str(info_list[0]) if info_list else ""
 
     # Take the general data from the first info (e.g. time and nodes)
     if info_list:
@@ -128,6 +167,7 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
 
 analysis_results = []  # List of valid dictionaries with score + pv
 latest_status_line = ""  # Last line of the current status
+latest_eval_str = ""  # Headline eval of the best line (White POV), e.g. "+0.80"
 
 
 # "single-engine-thread, polling from main" architecture.
@@ -196,9 +236,10 @@ def start_analysis(board, callback, interval_sec=1.0) -> None:
     """Start an analysis on the `board`. Stop the current one, if any.
     Reopen the engine if dead. Does not raise exceptions to the caller."""
     global _active_analysis, _active_callback, _active_interval, _last_callback_time
-    global analysis_results, latest_status_line, stopper
+    global analysis_results, latest_status_line, latest_eval_str, stopper
 
     stop_analysis()
+    latest_eval_str = ""   # clear the headline eval until the first score arrives
     if not _engine_alive():
         print("start_analysis: engine not alive, reopening...")
         try:

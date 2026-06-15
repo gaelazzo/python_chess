@@ -128,7 +128,7 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 - **Procurati il PGN dell'apertura**, in due modi:
   - (a) copia un file `.pgn` esistente (con le linee dell'apertura) nella cartella `pgn/`; **oppure**
   - (b) **costruiscilo tu**: *Play between humans*, gioca le mosse dell'apertura, aggiungi
-    **varianti** (gioca mosse alternative col mouse), eventualmente annota (**N**) e commenta
+    **varianti** (gioca mosse alternative col mouse), eventualmente annota (**A**) e commenta
     (**T**), poi **Salva (S)** in un file PGN.
 - **Allenati sul repertorio** — Menu principale → Study openings → *Choose PGN file*
   (il tuo PGN) → **Play**: il computer gioca le linee memorizzate e tu devi trovare la
@@ -140,11 +140,11 @@ il wizard orchestra tutti i passaggi delle Ricette A/B in automatico.*
 
 ### Ricetta C — Analizzare una partita con varianti e annotazioni
 1. Menu principale → **Play between humans**.
-2. Carica una partita (**L**) oppure giocala; scorri con **←/→**.
+2. Apri una partita (**O**) oppure giocala; scorri con **←/→**.
 3. Prova mosse alternative **col mouse** → vengono aggiunte come varianti.
-4. Annota la qualità (**N**) e aggiungi commenti (**T**).
+4. Annota la qualità (**A**) e aggiungi commenti (**T**).
 5. Guarda tutto nel **pannello Notazione** (**V**); naviga con ←/→ e ↑/↓.
-6. **Salva (S)** o copia il PGN (**G**) per riprenderla in seguito.
+6. **Salva (S)** o copia il PGN (**Shift+P**) per riprenderla in seguito.
 
 ### Ricetta D — Lezioni a ripetizione spaziata (BrainMaster)
 *(Richiede `base_url` configurato in Setup.)*
@@ -221,7 +221,7 @@ risponde**, questa è la modalità giusta per **analizzare** *e* per **costruire
 manualmente posizioni** (vedi i due sub-mode più sotto): puoi tornare indietro,
 provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
 
-#### Sub-mode: Setup posizione (tasto **U** o bottone *Setup*)
+#### Sub-mode: Setup posizione (tasto **U** o bottone ✏️ *Edit position*)
 
 <p align="center"><img src="docs/img/setup.png" alt="Editor setup posizione" width="720"></p>
 > Editor visuale di posizione modale. Costruisci da zero, modifichi quella
@@ -246,7 +246,7 @@ provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
   Salva con il consueto **S** (Save) — vedi §7 per il dialogo e la cartella
   di destinazione.
 
-#### Sub-mode: Salva tattica in learning base (tasto **K** o bottone *AddTac*)
+#### Sub-mode: Salva tattica in learning base (tasto **K** o bottone 🧩 *Save as tactic*)
 > Workflow per costruire manualmente posizioni di tattica con la mossa
 > corretta da memorizzare. Tu sei il "judge": niente engine, niente Update
 > learning base — adatto a quando hai un libro / diagramma in mano.
@@ -268,7 +268,7 @@ Flusso:
 Se premi **K** senza aver giocato una mossa, vedi *"Gioca prima la mossa
 corretta"* e nulla viene salvato.
 
-#### Sub-mode: Personal Stats — statistiche posizione vs il tuo DB di riferimento (tasto **Y** o bottone *Stats*)
+#### Sub-mode: Personal Stats — statistiche posizione vs il tuo DB di riferimento (tasto **Y** o bottone 📊 *Statistics*)
 
 <p align="center"><img src="docs/img/stats.png" alt="Pannello Personal Stats" width="720"></p>
 > **"Come ho giocato questa posizione le volte che l'ho avuta?"** — la feature
@@ -281,7 +281,7 @@ Setup: **Tools → Setup → "Choose reference DB (le mie partite)"** apre un fi
 selector con cui scegli il PGN (può stare in `pgn/`, in `endgames/`, ovunque).
 Il path completo è memorizzato in `config.reference_db`.
 
-Attiva/disattiva il pannello **Personal Stats** con **Y** (o il bottone *Stats*):
+Attiva/disattiva il pannello **Personal Stats** con **Y** (o il bottone 📊 *Statistics*):
 come i pannelli libro / engine / PGN resta acceso e si **aggiorna in tempo reale
 sulla posizione corrente** mentre navighi. La scacchiera resta visibile. Il
 pannello mostra, in colonne monospace allineate:
@@ -385,7 +385,7 @@ memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
   (§3.4) — *Skip* salta la sequenza di lead-in e parte dalla posizione, *Replay* la
   rigioca tutta; *Num Moves to Show* è il numero di mosse di continuazione mostrate
   dopo una risposta corretta.
-- **Hint** (tasto **H** o bottone toolbar): mostra in SAN la prossima mossa attesa
+- **Hint** (tasto **H** o bottone 💡 *Hint*): mostra in SAN la prossima mossa attesa
   dalla mainline (es. *"Hint: Nf3"*) per 2 secondi. Disponibile solo quando è il
   tuo turno.
 
@@ -399,7 +399,7 @@ memorizzate e **tu devi trovare la mossa migliore** a ogni turno.
 > caso** (uniformemente) tra le partite del PGN, e la posizione di partenza è
 > scelta a caso al suo interno (vedi sopra). La modalità **non tiene memoria** di
 > ciò che già conosci: le posizioni che padroneggi possono ricapitare, e la
-> sessione **non termina mai da sola** — premi **Q** (o il pulsante *Quit*)
+> sessione **non termina mai da sola** — premi **Q** (o il bottone 🏠 *Torna al menu*)
 > quando hai finito. È voluto: è pratica libera, non un drill finito. (Se vuoi un
 > drill finito guidato dagli errori, che *invece* traccia i progressi e si ferma,
 > usa *Solve positions* sulla base `openings_<filename>` — vedi *Persistenza
@@ -492,7 +492,7 @@ Loop di gioco:
   per 2.5s, riprovi sulla stessa posizione.
 - L'avversario gioca **TB-ottima** quando in range (massimizza DTZ se perde,
   minimizza se vince), altrimenti Stockfish.
-- Tasto **H** (o bottone *Hint*) → mostra in SAN la mossa TB-ottima.
+- Tasto **H** (o bottone 💡 *Hint*) → mostra in SAN la mossa TB-ottima.
 
 **Persistenza errori.** Ogni errore viene registrato in una learning base
 dedicata `endgames_<filename>` in `data/`. Puoi ripassarla da *Solve positions*
@@ -504,31 +504,43 @@ aggiornano comunque le stat (per la spaced repetition).
 ## 4. Comandi durante una partita
 
 Durante una partita (Play against computer / between humans) valgono questi comandi.
-**Tieni premuto il tasto destro del mouse** per vedere l'aiuto a schermo.
+Premi **H** (o il bottone ❓ *Help*), oppure **tieni premuto il tasto destro del
+mouse**, per vedere l'aiuto a schermo.
+
+**Toolbar a icone.** Tutto quanto segue è anche a un clic. La **barra in alto** ha a
+sinistra gli strumenti — apri/salva, copia FEN/PGN, i toggle di analisi e motore, i
+pannelli laterali (libro, mosse PGN, Personal Stats), ribalta e aiuto — e a destra il
+**gruppo di modifica posizione** (edit posizione, salva-come-tattica, taglia, elimina
+variante) più 🏠 **Torna al menu**. La **barra in basso, sotto la scacchiera**, ha la
+navigazione tra le mosse — **⏮ prima / ◀ precedente / ▶ successiva / ⏭ ultima** — e le
+azioni sulla mossa (annota / commenta / promuovi). I bottoni non applicabili al momento
+sono sbiaditi; passa il mouse su un bottone per il tooltip con nome e scorciatoia. Ogni
+bottone lancia semplicemente la sua scorciatoia da tastiera, quindi i tasti qui sotto
+continuano a funzionare.
 
 | Tasto | Azione |
 |-------|--------|
 | **clic mouse** | Seleziona la casella di partenza e quella di arrivo per muovere |
 | **tasto destro** (tenuto) | Mostra il pannello di aiuto |
-| **←** | Torna indietro di una mossa |
-| **→** | Vai alla mossa successiva (se ci sono più varianti, le scegli da un menu) |
-| **C** | Copia la posizione corrente (FEN) negli appunti |
-| **G** | Copia l'intera partita (PGN, con varianti e annotazioni) negli appunti |
+| **←** / **→** | Mossa precedente / successiva (se ci sono più varianti, le scegli da un menu) |
+| **Home** / **End** | Prima / ultima mossa (l'ultima segue la linea principale) |
+| **Shift+F** | Copia la posizione corrente (FEN) negli appunti |
+| **Shift+P** | Copia l'intera partita (PGN, con varianti e annotazioni) negli appunti |
 | **S** | Salva la partita |
-| **A** | Modalità analisi (blocca l'orientamento della scacchiera) |
+| **L** | Lock side / orientamento scacchiera (blocca l'auto-ribaltamento sul lato al tratto) |
 | **F** | Ruota la scacchiera |
 | **R** | Reset (nuova partita) |
 | **E** | Motore di analisi ON/OFF (mostra la valutazione) |
 | **B** | Mostra/nascondi il libro di aperture |
-| **D** | Mostra/nascondi il pannello **PGN moves** (il proseguio della linea corrente, in SAN) |
+| **M** | Mostra/nascondi il pannello **PGN moves** (il proseguio della linea corrente, in SAN) |
 | **Q** | Torna al menu principale |
 
 **Solo in "Play between humans" (analisi):**
 
 | Tasto | Azione |
 |-------|--------|
-| **L** | Carica una partita (parte dalla prima mossa, da scorrere con →) |
-| **N** | Annota l'ultima mossa con un glifo (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
+| **O** | Apri / carica una partita (parte dalla prima mossa, da scorrere con →) |
+| **A** | Annota l'ultima mossa con un glifo (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
 | **T** | Aggiungi un commento testuale all'ultima mossa |
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
 | **P** | **Promuovi** la variante corrente a linea principale nel punto in cui si dirama. Se la diramazione è sulla linea principale, la variante diventa la linea principale; se sei dentro una sotto-variante viene promossa nell'ambito della linea che la contiene — premi **P** di nuovo per salire di un altro livello. Non distruttivo (riordina solo le varianti). |
@@ -537,7 +549,7 @@ Durante una partita (Play against computer / between humans) valgono questi coma
 | **Y** | Attiva/disattiva il pannello **Personal Stats**: W/D/L + continuazioni per la posizione corrente, dalle tue partite (vedi §3.3) |
 
 > **Pannelli di analisi & layout.** In analisi attivi tre pannelli informativi
-> in modo indipendente: **B** libro d'apertura, **D** *PGN moves* (il proseguio
+> in modo indipendente: **B** libro d'apertura, **M** *PGN moves* (il proseguio
 > della linea corrente in SAN, sotto la lista mosse), **Y** *Personal Stats* (il
 > tuo storico dal DB di riferimento per questa posizione). La lista mosse mostra
 > **una mossa per riga** e scorre per tenere visibile l'ultima mossa giocata.
@@ -584,7 +596,7 @@ mossa diversa** da quella già presente: viene aggiunta automaticamente come **v
 a partire da quel punto. Le mosse già presenti si seguono con **→** (se ci sono più
 continuazioni appare un menu di scelta).
 
-**Annotare la qualità di una mossa (tasto `N`).** Apre un menu con i glifi standard;
+**Annotare la qualità di una mossa (tasto `A`).** Apre un menu con i glifi standard;
 quello scelto viene mostrato accanto alla mossa nella lista (es. `2. Nf3!`). Una mossa
 ha **una sola** valutazione: sceglierne un'altra sostituisce la precedente; *(remove all)*
 la rimuove. Glifi disponibili:
@@ -601,7 +613,7 @@ la rimuove. Glifi disponibili:
 **Commentare una mossa (tasto `T`).** Apre un campo di testo: scrivi il commento e
 premi **Save**. Il commento appare nella lista mosse (in giallo) e nel pannello Notazione.
 
-**Persistenza.** Glifi e commenti sono salvati nel PGN: con **S** (salva) o **G** (copia
+**Persistenza.** Glifi e commenti sono salvati nel PGN: con **S** (salva) o **Shift+P** (copia
 PGN) restano nella partita e si ritrovano riaprendola, anche in altri programmi di scacchi.
 
 ---
@@ -640,7 +652,7 @@ aperto la scacchiera non è cliccabile per muovere i pezzi: navighi dal pannello
     in un'altra cartella (es. `endgames/` per salvare uno studio di finale
     appena costruito col setup posizione) e scegli un file lì, **il salvataggio
     rispetta la cartella scelta** invece di forzare sempre `pgn/`.
-- **Carica** (tasto **L**, solo in Play between humans): scegli il file PGN e la partita
+- **Apri / Carica** (tasto **O**, solo in Play between humans): scegli il file PGN e la partita
   dall'elenco. La partita viene caricata **dall'inizio**, così puoi scorrerla con **→**
   ed esplorarne le varianti.
 
@@ -836,7 +848,7 @@ Il codice è organizzato in moduli a responsabilità singola (refactoring di `ch
 | `lichess_download.py` | Download incrementale partite lichess (API `since`, dedup per URL `[Site]`) |
 | `notation.py` | Pannello Notazione (vista albero affiancata alla scacchiera) |
 | `move_speech.py` | Espande le mosse SAN nei commenti TTS (`Qe4` → "Queen to e4") |
-| `toolbar.py` | Toolbar superiore con `UIButton` + tooltip; condivisa da tutti i mode |
+| `toolbar.py` | `IconToolbar`: righe di bottoni a icone colorate disegnate a mano (hover/attivo/disabilitato + tooltip), condivisa da tutti i mode. Le icone in `images/icons/` sono generate dalle emoji da `tools/generate_icons.py` |
 | `syzygy_helper.py` | Apre le TB Syzygy da `config.engine_options.SyzygyPath`, espone `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Script diagnostici: integrità delle TB + verifica che Stockfish le veda davvero (`tbhits`) |
 | `position_setup.py` | Editor visuale di posizione (palette pezzi + Paste FEN), sub-mode modale invocato da Analysis / Human Play (vedi §3.3) |

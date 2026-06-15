@@ -26,7 +26,11 @@ class PygameInput:
         """Map a single pygame event to a Command, or None if it isn't one."""
         if event.type == p.QUIT:
             return QUIT
-        if event.type == p.KEYDOWN and event.key in self.keymap:
+        # Plain keys only: a held Shift/Ctrl means a different binding (e.g.
+        # Shift+F = copy FEN vs. F = flip), so let modified keys fall through to
+        # the loop's explicit handlers instead of the plain keymap.
+        if (event.type == p.KEYDOWN and event.key in self.keymap
+                and not (getattr(event, "mod", 0) & (p.KMOD_SHIFT | p.KMOD_CTRL))):
             return do(self.keymap[event.key])
         if event.type == p.MOUSEBUTTONDOWN and event.button == 1:
             row, col = BS.getRowColFromLocation(event.pos)

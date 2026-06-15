@@ -36,8 +36,7 @@ from GameState import Move, GameState
 from modes.board_session import BoardSession, ModePolicy
 import UCIEngines
 import BoardScreen as BS
-from toolbar import Toolbar, ToolbarAction
-import analyzer
+from toolbar import IconToolbar, ToolbarAction
 import BrainMaster
 from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, unlock_new_lesson
 import Quiz
@@ -205,11 +204,11 @@ def playOpeningLine(filename, humanColor):
             "- right to play next move",
             "- Q to quit",
             "- H Hint (show the correct move)",
-            "- C Copy FEN to clipboard",
-            "- G Copy PGN to clipboard ",
+            "- Shift+F Copy FEN to clipboard",
+            "- Shift+P Copy PGN to clipboard",
             "- E Engine ON/OFF",
             "- B show/hide book",
-            "- D show/hide moves"
+            "- M show/hide moves"
         ]
     show_help = False
     def do_show_help():
@@ -235,20 +234,21 @@ def playOpeningLine(filename, humanColor):
     # interacts in a non-intuitive way with the sequence (stopCondition /
     # opponent auto-moves), causing solution steps to be skipped. The
     # keyboard shortcut Z/Left remains available for manual use.
-    toolbar = Toolbar([
-        ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
-        ToolbarAction("Eval",  "Evaluate position (S)",                   _post_key(p.K_s)),
-        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
-        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
-        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
-        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
-        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
+    # Icon toolbar: only the buttons that apply to this mode (Copy FEN/PGN stay on
+    # the keyboard, C/G). Each button posts its keyboard shortcut, as before.
+    toolbar = IconToolbar([
         ToolbarAction("Hint",  "Show next correct move (H)",              _post_key(p.K_h),
-                      enabled=lambda: humanCanPlay),
+                      enabled=lambda: humanCanPlay, icon="hint"),
         ToolbarAction("Next",  "Next game (N) -- after a correct line",   _post_key(p.K_n),
-                      enabled=lambda: not humanCanPlay),
-        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
-    ])
+                      enabled=lambda: not humanCanPlay, icon="nextitem"),
+        ToolbarAction("CopyFEN", "Copy FEN to clipboard (Shift+F)",       _post_key(p.K_f, p.KMOD_SHIFT), icon="copyfen"),
+        ToolbarAction("CopyPGN", "Copy PGN to clipboard (Shift+P)",       _post_key(p.K_p, p.KMOD_SHIFT), icon="copypgn"),
+        ToolbarAction("Openings", "Toggle opening book (B)",              _post_key(p.K_b), icon="openings"),
+        ToolbarAction("PGN",   "Toggle PGN move list (M)",                _post_key(p.K_m), icon="pgn"),
+        ToolbarAction("Engine", "Engine on/off (E)",                      _post_key(p.K_e), icon="engine"),
+        ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f), icon="flip"),
+        ToolbarAction("Menu",  "Quit to menu (Q)",                        _post_key(p.K_q), icon="home"),
+    ], y=0, height=BS.TOOLBAR_HEIGHT)
 
     while running:
         gs = GameState()
@@ -415,16 +415,11 @@ def playOpeningLine(filename, humanColor):
                     if e.key == p.K_LESS and ((e.mod & p.KMOD_SHIFT) == 0):
                         BS.setFactor( BS.getFactor() / 1.2)
 
-                    if e.key == p.K_c:
-                        # copy position to clibboard
+                    if e.key == p.K_f and (e.mod & p.KMOD_SHIFT):  # Shift+F: copy FEN
                         glc.copy_to_clipboard(gs.node.board().fen(), "Position copied to clipboard", gs)
-                    
-                    if e.key == p.K_g:
-                        # copy position to clibboard
-                        glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
-                    if e.key == p.K_s:  # evaluate score
-                        gs.setEvaluation(analyzer.evaluatePosition(gs.node.board(), 5))
+                    if e.key == p.K_p and (e.mod & p.KMOD_SHIFT):  # Shift+P: copy PGN
+                        glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_q:
                         running = False
@@ -435,13 +430,13 @@ def playOpeningLine(filename, humanColor):
                     if e.key == p.K_b:
                         glc.toggle_book(gs)
 
-                    if e.key == p.K_d:
+                    if e.key == p.K_m:
                         glc.toggle_pgn(gs)
 
                     if e.key == p.K_e:  # Engine on /off
                         glc.toggle_engine(gs)
 
-                    if e.key == p.K_f:
+                    if e.key == p.K_f and not (e.mod & p.KMOD_SHIFT):
                         # Bugfix: previously this branch used "whiteUp = not whiteUp"
                         # but whiteUp was not a local variable -> UnboundLocalError at runtime.
                         # Now it uses BS.flipBoard like the other modes.

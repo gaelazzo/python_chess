@@ -16,7 +16,7 @@ from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState, NAG_CHOICES
 import UCIEngines
 import BoardScreen as BS
-from toolbar import Toolbar, ToolbarAction
+from toolbar import IconToolbar, ToolbarAction
 import analyzer
 import BrainMaster
 from BrainMaster import AnswerData, QuestionData, give_answers, ask_for_quiz, unlock_new_lesson
@@ -54,7 +54,8 @@ def playGame():
     playAGame()
 
 def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
-                  font_path: Optional[str] = None, cancel_on_left: bool = False):
+                  font_path: Optional[str] = None, cancel_on_left: bool = False,
+                  nav_toolbar=None):
     """Side selector panel next to the board. Reused by
     `_variation_picker` (variations) and `chooseAnnotation` (NAG).
 
@@ -102,6 +103,13 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
     SENTINEL = object()
     result = SENTINEL
     last_mouse_pos = (-1, -1)
+
+    # While this modal runs the main loop (and its toolbar handling) is suspended,
+    # but the bottom nav bar stays visible to the left of the panel. Let its
+    # Next/Prev buttons drive the picker too: ▶ confirms the highlighted move
+    # (like Right arrow), ◀ cancels (like Left arrow).
+    next_rect = nav_toolbar.icon_rect("next") if nav_toolbar else None
+    prev_rect = nav_toolbar.icon_rect("prev") if nav_toolbar else None
 
     while result is SENTINEL:
         app.clock.tick(60)
@@ -169,14 +177,19 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
                     # confirming the chosen variation / annotation.
                     result = items[selected_index][1]
             elif ev.type == p.MOUSEBUTTONDOWN and ev.button == 1:
-                picked = False
-                for i, r in enumerate(item_rects):
-                    if r.collidepoint(ev.pos):
-                        result = items[i][1]
-                        picked = True
-                        break
-                if not picked and cancel_rect.collidepoint(ev.pos):
-                    result = None
+                if next_rect is not None and next_rect.collidepoint(ev.pos):
+                    result = items[selected_index][1]   # ▶ confirms the highlighted move
+                elif prev_rect is not None and prev_rect.collidepoint(ev.pos):
+                    result = None                        # ◀ cancels (go back)
+                else:
+                    picked = False
+                    for i, r in enumerate(item_rects):
+                        if r.collidepoint(ev.pos):
+                            result = items[i][1]
+                            picked = True
+                            break
+                    if not picked and cancel_rect.collidepoint(ev.pos):
+                        result = None
 
     return result
 
@@ -220,11 +233,14 @@ def _db_stats_lines(gs) -> list:
     return lines
 
 
-def _variation_picker(moves, board):
+def _variation_picker(moves, board, nav_toolbar=None):
     """UI port for BoardSession.next_move: choose among several continuations
     (shown in SAN). Returns the chosen move, or None if cancelled. The single-
     and no-continuation cases are handled by the core, so this is only ever
     called when there really is a choice to make.
+
+    `nav_toolbar`, when given, lets the bottom nav bar's ▶/◀ buttons confirm/cancel
+    the choice too (it stays visible while this modal runs).
     """
     items = []
     for m in moves:
@@ -236,7 +252,7 @@ def _variation_picker(moves, board):
     # cancel_on_left: at a forward branch the left arrow cancels the advance,
     # mirroring right = confirm (Esc still works too).
     return _choose_panel(items, "Choose move", row_h=32, font_size=18,
-                         cancel_on_left=True)
+                         cancel_on_left=True, nav_toolbar=nav_toolbar)
 
 
 def chooseAnnotation(current_nags):
@@ -366,9 +382,9 @@ def playAGame():
     # test drives with a ScriptedInput. The keymap holds only the plain game
     # commands; richer keys (Right=variation picker, Del/Backspace=confirm, the
     # modal/engine keys) stay in the bespoke handling below.
-    game_input = PygameInput({p.K_LEFT: "undo", p.K_b: "book", p.K_d: "pgn",
+    game_input = PygameInput({p.K_LEFT: "undo", p.K_b: "book", p.K_m: "pgn",
                               p.K_y: "dbstats",
-                              p.K_f: "flip", p.K_a: "analyze"})
+                              p.K_f: "flip", p.K_l: "analyze"})
 
     def _draw_engine(lines):
         """Engine callback: draw the analysis lines through the EnginePanel.
@@ -385,57 +401,79 @@ def playAGame():
 
     BS.engine.clear(app.screen)
 
-    # Toolbar at the top: each button posts the same corresponding keyboard
-    # shortcut, so the KEYDOWN code handles everything and we don't duplicate
-    # logic. The shortcuts keep working in parallel.
-    def _post_key(key):
-        return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key))
+    # Two icon toolbars: the TOP row holds the in-game tools, the BOTTOM row
+    # (under the board) holds move navigation. Each button posts the same keyboard
+    # shortcut its action already uses, so the KEYDOWN code below does the work and
+    # we never duplicate logic; the shortcuts keep working in parallel. Icons are
+    # the colour PNGs in images/icons (see tools/generate_icons.py). Buttons not in
+    # these rows (Reset R, Comment T, Setup U, Save-tactic K, ...) stay on the keyboard.
+    def _post_key(key, mod=0):
+        return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     _is_analysis = lambda: (not whiteCPU) and (not blackCPU)
-    toolbar = Toolbar([
-        ToolbarAction("Undo",  "Undo (Left arrow)",                       _post_key(p.K_LEFT)),
-        ToolbarAction("Next",  "Next move (Right arrow)",                 _post_key(p.K_RIGHT)),
-        ToolbarAction("Save",  "Save game (S)",                           _post_key(p.K_s)),
-        ToolbarAction("Anal",  "Analyze mode toggle (A)",                 _post_key(p.K_a), active=lambda: session.policy.locked),
-        ToolbarAction("Flip",  "Flip board (F)",                          _post_key(p.K_f)),
-        ToolbarAction("Reset", "Reset game (R)",                          _post_key(p.K_r)),
-        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e), active=UCIEngines.is_analysing),
-        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b), active=lambda: session.show_book),
-        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d), active=lambda: session.show_pgn),
-        ToolbarAction("Stats", "Toggle Personal Stats (Y)",              _post_key(p.K_y), active=lambda: session.show_dbstats),
-        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
-        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
-        ToolbarAction("Load",  "Load game (L) -- analysis only",          _post_key(p.K_l), enabled=_is_analysis),
-        ToolbarAction("Annot", "Annotate last move (N) -- analysis only", _post_key(p.K_n), enabled=_is_analysis),
-        ToolbarAction("Cmnt",  "Comment last move (T) -- analysis only",  _post_key(p.K_t), enabled=_is_analysis),
-        ToolbarAction("Notat", "Notation panel (V) -- analysis only",     _post_key(p.K_v), enabled=_is_analysis),
-        ToolbarAction("Promo", "Promote variation to main line (P) -- analysis only",
-                      _post_key(p.K_p), enabled=_is_analysis),
-        ToolbarAction("Setup", "Edit position (U) -- analysis only",      _post_key(p.K_u), enabled=_is_analysis),
-        ToolbarAction("AddTac", "Save current pos + last move as tactic (K) -- analysis only",
-                      _post_key(p.K_k), enabled=_is_analysis),
-        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
-    ])
+    top_toolbar = IconToolbar([
+        ToolbarAction("Open",       "Open / load game (O) -- analysis only", _post_key(p.K_o), enabled=_is_analysis, icon="open"),
+        ToolbarAction("Save",       "Save game (S)",                   _post_key(p.K_s), icon="save"),
+        ToolbarAction("CopyFEN",    "Copy FEN to clipboard (Shift+F)", _post_key(p.K_f, p.KMOD_SHIFT), icon="copyfen"),
+        ToolbarAction("CopyPGN",    "Copy PGN to clipboard (Shift+P)", _post_key(p.K_p, p.KMOD_SHIFT), icon="copypgn"),
+        ToolbarAction("Lock",       "Lock side / board orientation (L)", _post_key(p.K_l), active=lambda: session.policy.locked, icon="lock"),
+        ToolbarAction("Openings",   "Toggle opening book (B)",         _post_key(p.K_b), active=lambda: session.show_book, icon="openings"),
+        ToolbarAction("PGN",        "Toggle PGN moves panel (M)",      _post_key(p.K_m), active=lambda: session.show_pgn, icon="pgn"),
+        ToolbarAction("Statistics", "Toggle Personal Stats (Y)",       _post_key(p.K_y), active=lambda: session.show_dbstats, icon="statistics"),
+        ToolbarAction("Variations", "Notation panel (V) -- analysis only", _post_key(p.K_v), enabled=_is_analysis, icon="variations"),
+        ToolbarAction("Engine",     "Engine on/off (E)",               _post_key(p.K_e), active=UCIEngines.is_analysing, icon="engine"),
+        ToolbarAction("Flip",       "Flip board (F)",                  _post_key(p.K_f), icon="flip"),
+        ToolbarAction("Help",       "Show help (H)",                   _post_key(p.K_h), icon="help"),
+    ], y=0, height=BS.TOOLBAR_HEIGHT)
+    # Structure/edit group: a separate right-aligned cluster on the SAME top strip
+    # (analysis only), kept apart from the slim main tools on the left.
+    _edit_x0 = top_toolbar.content_right() + 16
+    top_edit_toolbar = IconToolbar([
+        ToolbarAction("EditPos",   "Edit position (U) -- analysis only",                _post_key(p.K_u),         enabled=_is_analysis, icon="editpos"),
+        ToolbarAction("AddTactic", "Save position as tactic (K) -- analysis only",       _post_key(p.K_k),         enabled=_is_analysis, icon="addtac"),
+        ToolbarAction("Truncate",  "Truncate moves after here (Del) -- analysis only",   _post_key(p.K_DELETE),    enabled=_is_analysis, icon="truncate"),
+        ToolbarAction("DeleteVar", "Delete this variation (Backspace) -- analysis only", _post_key(p.K_BACKSPACE), enabled=_is_analysis, icon="delvar"),
+        None,                                                                            # separator before the exit button
+        ToolbarAction("Menu",      "Back to menu (Q)",                                   _post_key(p.K_q), icon="home"),
+    ], y=0, height=BS.TOOLBAR_HEIGHT, x0=_edit_x0,
+       width=BS.SCREEN_WIDTH - _edit_x0, align="right")
+    # Bottom bar: navigation + the move-level actions, separated by a gap (`None`).
+    # The move ops are analysis only.
+    nav_toolbar = IconToolbar([
+        ToolbarAction("First", "First move (Home)",   _post_key(p.K_HOME),  icon="first"),
+        ToolbarAction("Prev",  "Previous move (Left)", _post_key(p.K_LEFT),  icon="prev"),
+        ToolbarAction("Next",  "Next move (Right)",    _post_key(p.K_RIGHT), icon="next"),
+        ToolbarAction("Last",  "Last move (End)",      _post_key(p.K_END),   icon="last"),
+        None,
+        ToolbarAction("Annotate", "Annotate last move (A) -- analysis only", _post_key(p.K_a), enabled=_is_analysis, icon="annotate"),
+        ToolbarAction("Comment",  "Comment last move (T) -- analysis only",  _post_key(p.K_t), enabled=_is_analysis, icon="comment"),
+        ToolbarAction("Promote",  "Promote variation to main line (P) -- analysis only", _post_key(p.K_p), enabled=_is_analysis, icon="promote"),
+    ], y=BS.NAV_Y, height=BS.NAV_HEIGHT, x0=BS.NAV_X, width=BS.NAV_WIDTH,
+       align="center", tooltip_above=True)
+
+    def _in_toolbars(pos):
+        return (top_toolbar.pointer_in_toolbar(pos) or
+                top_edit_toolbar.pointer_in_toolbar(pos) or
+                nav_toolbar.pointer_in_toolbar(pos))
 
     help_text = [
             "Instructions:",
-            "- left to take back a move",
-            "- right to play next move",
+            "- left/right: previous / next move",
+            "- Home/End: first / last move",
             "- Q to quit",
-            "- C Copy FEN to clipboard",
-            "- G Copy PGN to clipboard ", 
+            "- Shift+F Copy FEN to clipboard",
+            "- Shift+P Copy PGN to clipboard",
             "- S Save game ",
-            "- A Analyze mode",
+            "- L Lock side (board orientation)",
             "- F Flip board",
-            "- R reset"
+            "- R reset",
             "- E Engine ON/OFF",
             "- B show/hide book",
-            "- D show/hide moves"
+            "- M show/hide moves",
         ]
     if not whiteCPU and not blackCPU:
-        # "Load game" appears only without a computer (analysis mode)
-        # available only without a computer (analysis mode)
-        help_text.insert(7, "- L Load game ")
-        help_text.insert(8, "- N Annotate move (! ? !? ...)")
+        # These appear only without a computer (analysis mode)
+        help_text.insert(7, "- O Open / load game ")
+        help_text.insert(8, "- A Annotate move (! ? !? ...)")
         help_text.insert(9, "- T Comment move (text)")
         help_text.insert(10, "- V Notation panel (variations)")
         help_text.insert(11, "- P Promote variation to main line")
@@ -465,7 +503,12 @@ def playAGame():
             for e in p.event.get():
                 app.manager.process_events(e)
                 glc.stop_speech_on_input(e)
-                if toolbar.process_event(e):
+                # Order matters: top_edit_toolbar (right cluster) is queried BEFORE
+                # top_toolbar, because top_toolbar spans the whole strip and would
+                # otherwise swallow clicks on the edit/menu buttons (its
+                # pointer_in_toolbar fallback returns True for the whole top row).
+                if (top_edit_toolbar.process_event(e) or top_toolbar.process_event(e)
+                        or nav_toolbar.process_event(e)):
                     update = True
                     continue
                 update = True
@@ -480,7 +523,7 @@ def playAGame():
                     if cmd.kind == "quit":
                         running = False
                     elif cmd.kind == "click":
-                        if not gameOver and not toolbar.pointer_in_toolbar(e.pos):
+                        if not gameOver and not _in_toolbars(e.pos):
                             moved = session.apply(cmd,
                                 ask_promotion=lambda color: BS.choosePromotion(app.screen, color))
                             sqSelected = session.selected if session.selected is not None else ()
@@ -508,11 +551,38 @@ def playAGame():
                 elif e.type == p.KEYDOWN:
                     update = True
                     if e.key == p.K_RIGHT:
-                        moved = session.next_move(pick_variation=_variation_picker)
+                        moved = session.next_move(
+                            pick_variation=lambda mv, bd: _variation_picker(mv, bd, nav_toolbar=nav_toolbar))
                         if moved is not None:
                             validMoves = session.validMoves
                             moveMade = True
                             animate = False
+
+                    if e.key == p.K_HOME:
+                        # First move: jump to the start of the game (nav bar |<<).
+                        gs.gotoFirstMove()
+                        session.refresh()
+                        validMoves = session.validMoves
+                        sqSelected = ()
+                        playerClicks = []
+                        moveMade = True
+                        animate = False
+                        gameOver = False
+
+                    if e.key == p.K_END:
+                        # Last move: follow the MAIN line to its end (nav bar >>|).
+                        gs.goToLastMove()
+                        session.refresh()
+                        validMoves = session.validMoves
+                        sqSelected = ()
+                        playerClicks = []
+                        moveMade = True
+                        animate = False
+                        gameOver = False
+
+                    if e.key == p.K_h:
+                        # Toggle the help overlay (also shown while right mouse held).
+                        show_help = not show_help
 
                     if e.key == p.K_q:
                         #quit
@@ -545,7 +615,7 @@ def playAGame():
                         app.main_background()
                         continue
 
-                    if e.key == p.K_c:  # copy to clipboard
+                    if e.key == p.K_f and (e.mod & p.KMOD_SHIFT):  # Shift+F: copy FEN
                         glc.copy_to_clipboard(gs.board().fen(), "Position copied to clipboard", gs)
                         
                    
@@ -557,8 +627,8 @@ def playAGame():
                         BS.show_cpu = True
                         UCIEngines.engine_on_off(gs.board(), _draw_engine)
 
-                    if e.key == p.K_l and not whiteCPU and not blackCPU:
-                        # Loading enabled only WITHOUT a computer (analysis mode):
+                    if e.key == p.K_o and not whiteCPU and not blackCPU:
+                        # Open/load a game. Enabled only WITHOUT a computer (analysis mode):
                         # the game starts from the first move and you scroll forward with
                         # the right arrow (Next / variation picker), exploring the variations.
                         # Against the computer, loading is disabled.
@@ -573,7 +643,7 @@ def playAGame():
                         session.reorient()   # analysis mode keeps the board fixed
                         continue
 
-                    if e.key == p.K_n and not whiteCPU and not blackCPU:
+                    if e.key == p.K_a and not whiteCPU and not blackCPU:
                         # Annotate the last move (analysis only, no computer)
                         if len(gs.moveLog) > 0:
                             nag = chooseAnnotation(gs.node.nags)
@@ -612,7 +682,7 @@ def playAGame():
                         session.reorient()   # analysis mode keeps the board fixed
                         continue
 
-                    if e.key == p.K_g:  # copy to clipboard
+                    if e.key == p.K_p and (e.mod & p.KMOD_SHIFT):  # Shift+P: copy PGN
                         glc.copy_to_clipboard(gs.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_DELETE and not whiteCPU and not blackCPU:
@@ -639,9 +709,10 @@ def playAGame():
                             app.main_background()
                         continue
 
-                    if e.key == p.K_p and not whiteCPU and not blackCPU:
+                    if e.key == p.K_p and not (e.mod & p.KMOD_SHIFT) and not whiteCPU and not blackCPU:
                         # Promote the current variation to the main line at its
-                        # branch point (P). Non-destructive -- only reorders the
+                        # branch point (plain P; Shift+P is copy-PGN). Non-destructive --
+                        # only reorders the
                         # variations, position unchanged -- so no confirmation and
                         # no re-analysis. Press again to keep promoting up a level
                         # when nested in a sub-variation. KEYDOWN already set
@@ -661,16 +732,20 @@ def playAGame():
                             
                 
 
-        toolbar.update(time_delta)
+        top_toolbar.update(time_delta)
+        top_edit_toolbar.update(time_delta)
+        nav_toolbar.update(time_delta)
 
         if show_help:
                 do_show_help()
                 continue
 
         if not update:
-            # Idle frame: we redraw the toolbar anyway (for the on-hover
-            # tooltip animations) and flip the display.
-            toolbar.draw(app.screen)
+            # Idle frame: we redraw the toolbars anyway (for the on-hover
+            # highlight + tooltip) and flip the display.
+            top_toolbar.draw(app.screen)
+            top_edit_toolbar.draw(app.screen)
+            nav_toolbar.draw(app.screen)
             p.display.update()
             continue
 
@@ -733,10 +808,14 @@ def playAGame():
         dbstats_panel.render(app.screen,
                              _db_stats_lines(gs) if vm.panels["dbstats"] else [])
 
-        toolbar.draw(app.screen)
+        top_toolbar.draw(app.screen)
+        top_edit_toolbar.draw(app.screen)
+        nav_toolbar.draw(app.screen)
         BS.update()
 
-    toolbar.kill()
+    top_toolbar.kill()
+    top_edit_toolbar.kill()
+    nav_toolbar.kill()
     BS.set_context_label(None)
     p.event.clear()
     UCIEngines.stop_analysis()

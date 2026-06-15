@@ -22,10 +22,19 @@ MAX_FPS = 60
 factor = 2.0
 IMAGES:Dict[str,p.Surface] = {}
 
-# Top strip for the icon-button toolbar. Everything else (board +
-# panels + CPU strip) is pushed down by TOOLBAR_HEIGHT.
+# Top strip for the icon-button toolbar (tools). Everything else (board +
+# panels + nav bar + CPU strip) is pushed down by TOOLBAR_HEIGHT.
 TOOLBAR_HEIGHT = 40
 BOARD_Y = TOOLBAR_HEIGHT
+
+# Bottom navigation toolbar: sits DIRECTLY UNDER THE BOARD (board width), between
+# the board and the engine/eval strip. Only the analysis screen draws buttons
+# here; the other modes simply leave the strip empty. The whole window is a bit
+# taller to make room (CPU_Y / SIDE_HEIGHT / SCREEN_HEIGHT all account for it).
+NAV_HEIGHT = 44
+NAV_X = 0
+NAV_WIDTH = BOARD_WIDTH
+NAV_Y = BOARD_Y + BOARD_HEIGHT
 
 MOVE_LOG_WIDTH = 250
 MOVE_LOG_X = BOARD_WIDTH
@@ -34,16 +43,17 @@ whiteUp = False
 
 ANALYSYS_PANEL_WIDTH = MOVE_LOG_WIDTH
 
-# Engine / eval bar: sits UNDER THE BOARD ONLY (board width), bottom-left.
+# Engine / eval bar: sits UNDER THE BOARD ONLY (board width), below the nav bar.
 CPU_HEIGHT = BOARD_HEIGHT // 3
 CPU_WIDTH = BOARD_WIDTH
 CPU_X = 0
-CPU_Y = BOARD_HEIGHT + TOOLBAR_HEIGHT
+CPU_Y = BOARD_HEIGHT + TOOLBAR_HEIGHT + NAV_HEIGHT
 
 # The two side columns run the FULL content height -- past the board, down beside
-# the engine bar -- so the panels are TALLER than the board and stop clipping
-# their content at the bottom (Personal Stats / book / move lists were cut off).
-SIDE_HEIGHT = BOARD_HEIGHT + CPU_HEIGHT
+# the nav bar and the engine bar -- so the panels are TALLER than the board and
+# stop clipping their content at the bottom (Personal Stats / book / move lists
+# were cut off).
+SIDE_HEIGHT = BOARD_HEIGHT + NAV_HEIGHT + CPU_HEIGHT
 ANALYSYS_PANEL_HEIGHT = SIDE_HEIGHT
 
 # Column 2 (next to the board): move log on top (2/3), PGN-moves panel below (1/3).
@@ -66,7 +76,7 @@ DBSTATS_Y = BOOK_HEIGHT + TOOLBAR_HEIGHT
 DBSTATS_HEIGHT = SIDE_HEIGHT - BOOK_HEIGHT
 
 SCREEN_WIDTH = BOARD_WIDTH + MOVE_LOG_WIDTH + ANALYSYS_PANEL_WIDTH
-SCREEN_HEIGHT = BOARD_HEIGHT + CPU_HEIGHT + TOOLBAR_HEIGHT
+SCREEN_HEIGHT = TOOLBAR_HEIGHT + BOARD_HEIGHT + NAV_HEIGHT + CPU_HEIGHT
 
 clock:Optional[p.time.Clock] = None
 

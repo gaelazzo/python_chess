@@ -128,7 +128,7 @@ the wizard automates the steps that Recipes A/B do by hand.*
 - **Get the opening PGN**, in two ways:
   - (a) copy an existing `.pgn` file (with the opening lines) into the `pgn/` folder; **or**
   - (b) **build it yourself**: *Play between humans*, play the opening moves, add **variations**
-    (play alternative moves with the mouse), optionally annotate (**N**) and comment (**T**),
+    (play alternative moves with the mouse), optionally annotate (**A**) and comment (**T**),
     then **Save (S)** to a PGN file.
 - **Train on the repertoire** — Main menu → Study openings → *Choose PGN file* (your PGN)
   → **Play**: the computer plays the stored lines and you must find the right move.
@@ -139,11 +139,11 @@ the wizard automates the steps that Recipes A/B do by hand.*
 
 ### Recipe C — Analysing a game with variations and annotations
 1. Main menu → **Play between humans**.
-2. Load a game (**L**) or play it; step through with **←/→**.
+2. Open a game (**O**) or play it; step through with **←/→**.
 3. Try alternative moves **with the mouse** → they are added as variations.
-4. Annotate the quality (**N**) and add comments (**T**).
+4. Annotate the quality (**A**) and add comments (**T**).
 5. See it all in the **Notation panel** (**V**); navigate with ←/→ and ↑/↓.
-6. **Save (S)** or copy the PGN (**G**) to resume it later.
+6. **Save (S)** or copy the PGN (**Shift+P**) to resume it later.
 
 ### Recipe D — Spaced-repetition lessons (BrainMaster)
 *(Requires `base_url` configured in Setup.)*
@@ -219,7 +219,7 @@ this is the right mode to **analyse** *and* to **manually build positions**
 (see the two sub-modes below): you can take moves back, try alternative moves
 (variations), annotate and comment them (see §5 and §6).
 
-#### Sub-mode: Position setup (key **U** or *Setup* button)
+#### Sub-mode: Position setup (key **U** or the ✏️ *Edit position* button)
 
 <p align="center"><img src="docs/img/setup.png" alt="Position setup editor" width="720"></p>
 
@@ -242,7 +242,7 @@ this is the right mode to **analyse** *and* to **manually build positions**
 - Once applied, the new position is the starting state of `gs`. Save with the
   usual **S** key — see §7 for the dialog and target folder.
 
-#### Sub-mode: Save as tactic to learning base (key **K** or *AddTac* button)
+#### Sub-mode: Save as tactic to learning base (key **K** or the 🧩 *Save as tactic* button)
 > Workflow for manually building tactical problems with the correct move
 > recorded. You are the "judge": no engine, no Update learning base — handy
 > when you have a book / diagram in hand.
@@ -264,7 +264,7 @@ Flow:
 If you press **K** without having played a move yet, you'll see *"Play the
 correct move first"* and nothing is saved.
 
-#### Sub-mode: Personal Stats — position statistics vs your reference DB (key **Y** or *Stats* button)
+#### Sub-mode: Personal Stats — position statistics vs your reference DB (key **Y** or the 📊 *Statistics* button)
 
 <p align="center"><img src="docs/img/stats.png" alt="Personal Stats panel" width="720"></p>
 > **"How did I play this position the times I had it?"** — the most powerful
@@ -276,7 +276,7 @@ Setup: **Tools → Setup → "Choose reference DB (my games)"** opens a file
 selector for the PGN (can live in `pgn/`, `endgames/`, anywhere). The full
 path is stored in `config.reference_db`.
 
-Toggle the **Personal Stats** panel with **Y** (or the *Stats* button): like the
+Toggle the **Personal Stats** panel with **Y** (or the 📊 *Statistics* button): like the
 book / engine / PGN panels it stays on and **updates live for the current
 position** as you navigate. The board stays visible. The panel shows, in aligned
 monospace columns:
@@ -384,7 +384,7 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
 - **Lead-in moves** and **Num Moves to Show**: same semantics as *Solve positions*
   (§3.4) — *Skip* skips the lead-in and starts at the position, *Replay* replays it;
   *Num Moves to Show* is the number of continuation moves shown after a correct answer.
-- **Hint** (key **H** or toolbar button): shows the next expected move from the
+- **Hint** (key **H** or the 💡 *Hint* button): shows the next expected move from the
   mainline in SAN (e.g. *"Hint: Nf3"*) for 2 seconds. Available only on your turn.
 
 > **Uniform depth-of-start** (with *Lead-in = Skip*): each round the program
@@ -398,7 +398,7 @@ You load a PGN file of "model" lines. The computer plays one of the stored lines
 > random** (uniformly) from the games in the PGN, and the starting position is
 > picked at random within it (see above). The mode keeps **no memory** of what
 > you already know: positions you've mastered can come up again, and the session
-> **never ends on its own** — press **Q** (or the *Quit* button) when you're
+> **never ends on its own** — press **Q** (or the 🏠 *Back to menu* button) when you're
 > done. This is by design: it's free practice, not a finite drill. (If you want a
 > finite, mistake-driven drill that *does* track progress and stops, use *Solve
 > positions* on the `openings_<filename>` base instead — see *Mistake
@@ -492,7 +492,7 @@ Gameplay loop:
   2.5s, you retry from the same position.
 - The opponent plays **TB-optimal** when in range (maximizes DTZ when losing,
   minimizes when winning), otherwise Stockfish.
-- Key **H** (or *Hint* button) → shows the TB-optimal move in SAN.
+- Key **H** (or the 💡 *Hint* button) → shows the TB-optimal move in SAN.
 
 **Mistake persistence.** Every mistake is logged to a dedicated learning
 base `endgames_<filename>` in `data/`. You can review it from *Solve positions*
@@ -504,31 +504,42 @@ still update stats (for spaced repetition).
 ## 4. In-game controls
 
 During a game (Play against computer / between humans) the following controls apply.
-**Hold the right mouse button** to see the on-screen help.
+Press **H** (or the ❓ *Help* button), or **hold the right mouse button**, to see
+the on-screen help.
+
+**Icon toolbars.** Everything below is also one click away. The **top bar** has the
+tools on the left — open/save, copy FEN/PGN, analysis & engine toggles, the side
+panels (opening book, PGN moves, Personal Stats), flip and help — and on the right
+the **position-editing group** (edit position, save-as-tactic, truncate, delete
+variation) plus 🏠 **Back to menu**. The **bottom bar, under the board**, has move
+navigation — **⏮ first / ◀ previous / ▶ next / ⏭ last** — and the move actions
+(annotate / comment / promote). Buttons that don't apply right now are greyed out;
+hover any button for a tooltip with its name and shortcut. Each button simply fires
+its keyboard shortcut, so the keys below keep working in parallel.
 
 | Key | Action |
 |-----|--------|
 | **mouse click** | Click the source square then the destination square to move |
 | **right mouse button** (held) | Show the help panel |
-| **←** | Take back one move |
-| **→** | Go to the next move (if several variations exist, pick from a menu) |
-| **C** | Copy the current position (FEN) to the clipboard |
-| **G** | Copy the whole game (PGN, with variations and annotations) to the clipboard |
+| **←** / **→** | Previous / next move (if several variations exist, pick from a menu) |
+| **Home** / **End** | First / last move (last follows the main line) |
+| **Shift+F** | Copy the current position (FEN) to the clipboard |
+| **Shift+P** | Copy the whole game (PGN, with variations and annotations) to the clipboard |
 | **S** | Save the game |
-| **A** | Analysis mode (locks the board orientation) |
+| **L** | Lock side / board orientation (stops the auto-flip to the side to move) |
 | **F** | Flip the board |
 | **R** | Reset (new game) |
 | **E** | Analysis engine ON/OFF (shows the evaluation) |
 | **B** | Show/hide the opening book |
-| **D** | Show/hide the **PGN moves** panel (the continuation of the current line, in SAN) |
+| **M** | Show/hide the **PGN moves** panel (the continuation of the current line, in SAN) |
 | **Q** | Back to the main menu |
 
 **Only in "Play between humans" (analysis):**
 
 | Key | Action |
 |-----|--------|
-| **L** | Load a game (starts from the first move; step through with →) |
-| **N** | Annotate the last move with a glyph (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
+| **O** | Open / load a game (starts from the first move; step through with →) |
+| **A** | Annotate the last move with a glyph (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
 | **T** | Add a text comment to the last move |
 | **V** | Open the **Notation** panel (whole game + variations) |
 | **P** | **Promote** the current variation to the main line at its branch point. If the branch is on the main line, the variation becomes the main line; if you are nested in a sub-variation it is promoted within the enclosing line — press **P** again to promote up another level. Non-destructive (only reorders variations). |
@@ -537,7 +548,7 @@ During a game (Play against computer / between humans) the following controls ap
 | **Y** | Toggle the **Personal Stats** panel: W/D/L + continuations for the current position, from your own games (see §3.3) |
 
 > **Analysis side panels & layout.** In analysis you toggle three info panels
-> independently: **B** opening book, **D** *PGN moves* (the continuation of the
+> independently: **B** opening book, **M** *PGN moves* (the continuation of the
 > current line in SAN, shown under the move list), **Y** *Personal Stats* (your
 > reference-DB record for this position). The move list itself shows **one move
 > per row** and auto-scrolls so the latest move stays visible.
@@ -584,7 +595,7 @@ the mouse** than the one already there: it is automatically added as a **variati
 that point. Existing moves are followed with **→** (if there are several continuations a
 selection menu appears).
 
-**Annotating move quality (key `N`).** Opens a menu of standard glyphs; the chosen one is
+**Annotating move quality (key `A`).** Opens a menu of standard glyphs; the chosen one is
 shown next to the move in the list (e.g. `2. Nf3!`). A move has a **single** assessment:
 choosing another one replaces the previous; *(remove all)* clears it. Available glyphs:
 
@@ -600,7 +611,7 @@ choosing another one replaces the previous; *(remove all)* clears it. Available 
 **Commenting a move (key `T`).** Opens a text field: type the comment and press **Save**.
 The comment appears in the move list (in yellow) and in the Notation panel.
 
-**Persistence.** Glyphs and comments are stored in the PGN: with **S** (save) or **G**
+**Persistence.** Glyphs and comments are stored in the PGN: with **S** (save) or **Shift+P**
 (copy PGN) they stay in the game and are restored when you reopen it, even in other chess
 programs.
 
@@ -639,7 +650,7 @@ is not clickable for piece moves: you navigate from the panel.
     another folder (e.g. `endgames/` to save a study you just built via the
     position setup editor) and pick a file there, **the save respects the
     chosen folder** instead of always writing into `pgn/`.
-- **Load** (key **L**, only in Play between humans): pick the PGN file and the game from
+- **Open / Load** (key **O**, only in Play between humans): pick the PGN file and the game from
   the list. The game is loaded **from the start**, so you can step through it with **→**
   and explore its variations.
 
@@ -833,7 +844,7 @@ The code is organised into single-responsibility modules (a refactoring of `ches
 | `lichess_download.py` | Incremental lichess game download (API `since`, dedup by URL `[Site]`) |
 | `notation.py` | Notation panel (tree view next to the board) |
 | `move_speech.py` | Expands SAN moves in TTS-read comments (`Qe4` → "Queen to e4") |
-| `toolbar.py` | Top toolbar with `UIButton`s + tooltips; shared by all modes |
+| `toolbar.py` | `IconToolbar`: custom-drawn colour-icon button rows (hover/active/disabled + tooltips), shared by all modes. Icons in `images/icons/` are baked from emoji by `tools/generate_icons.py` |
 | `syzygy_helper.py` | Opens the Syzygy TB from `config.engine_options.SyzygyPath`; exposes `probe_wdl/dtz/best_tb_move` |
 | `verify_syzygy.py`, `verify_stockfish_tb.py` | Diagnostic scripts: TB file integrity + check that Stockfish actually sees them (`tbhits`) |
 | `position_setup.py` | Visual position editor (piece palette + Paste FEN), modal sub-mode invoked from Analysis / Human Play (see §3.3) |

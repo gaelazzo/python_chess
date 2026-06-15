@@ -266,7 +266,6 @@ class GameState:
         self.pgn = Game()        
         self.moveLog:List[Move] = []
         self.header = []
-        self.evaluation:Optional[float] = None
         self.node = self.pgn
         
     def get_hash(self):
@@ -294,7 +293,6 @@ class GameState:
         
         self.node = pgn        
         self.moveLog = []        
-        self.evaluation = None
 
         self.header = []
         for key, value in pgn.headers.items():
@@ -364,19 +362,6 @@ class GameState:
 
     def setHeader(self, header):
         self.header = header
-
-    def setEvaluation(self, evaluation:float):
-        '''
-        sets the evaluation associated to current position
-        '''
-        self.evaluation = evaluation
-
-    def getEvaluation(self)->Optional[float]:
-        '''
-        gets the evaluation associated to current position
-        '''
-        # assert(self.evaluation is not None)
-        return self.evaluation
 
     def getHeader(self):
         return self.header
@@ -593,7 +578,6 @@ class GameState:
         self._pgnMakeMove(move.move)
         #self.pgn.board.push(move.move)        
         self.moveLog.append(move)
-        self.evaluation = None
 
     def undoMove(self):
         '''
@@ -607,7 +591,6 @@ class GameState:
 
         #self.board.pop()
         del self.moveLog[-1]
-        self.evaluation = None
         
 
     def truncateAfterCurrent(self) -> bool:
@@ -618,7 +601,6 @@ class GameState:
         if self.node is None or not self.node.variations:
             return False
         self.node.variations = []
-        self.evaluation = None
         return True
 
     def deleteCurrentVariation(self) -> bool:
@@ -634,7 +616,6 @@ class GameState:
         self.node = parent
         if self.moveLog:
             del self.moveLog[-1]
-        self.evaluation = None
         return True
 
     def isInVariation(self) -> bool:
@@ -677,7 +658,6 @@ class GameState:
         self.node = head.parent
         if steps:
             del self.moveLog[max(0, len(self.moveLog) - steps):]
-        self.evaluation = None
         return True
 
     def promoteCurrentVariation(self) -> bool:
@@ -708,7 +688,6 @@ class GameState:
         if head is None:
             return False                       # already on the main line
         head.parent.promote_to_main(head)
-        self.evaluation = None
         return True
 
     def setMoveNag(self, nag: int) -> bool:
@@ -781,7 +760,6 @@ class GameState:
             n = n.parent
         path.reverse()
         self.moveLog = []
-        self.evaluation = None
         # Rebuild moveLog directly. We deliberately do NOT replay via
         # makeChessMove/_pgnMakeMove: that reads every move's comment aloud (TTS,
         # blocking), making navigation take seconds when moves are annotated.

@@ -18,7 +18,7 @@ from GameState import Move, GameState
 from modes.board_session import BoardSession, TacticsDrillPolicy
 import UCIEngines
 import BoardScreen as BS
-from toolbar import Toolbar, ToolbarAction
+from toolbar import IconToolbar, ToolbarAction
 import analyzer
 import analyzer as AN
 import BrainMaster
@@ -86,13 +86,13 @@ def solvePositionsFromBase(learningBase:LearningBase):
     help_text = [
             "Instructions:",
             "- Q to quit",
-            "- C copy the FEN position to the clipboard",
-            "- G copy the game to the clipboard",
+            "- Shift+F copy the FEN position to the clipboard",
+            "- Shift+P copy the game to the clipboard",
             "- + show more moves",
             "- H show the solution" ,
             "- E Engine ON/OFF",
             "- B show/hide book", 
-            "- D show/hide moves"
+            "- M show/hide moves"
         ]
     show_help = False
     BS.engine.clear(app.screen)
@@ -105,22 +105,24 @@ def solvePositionsFromBase(learningBase:LearningBase):
     # the lambdas resolve them at call time, so they always see the current value.
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
-    toolbar = Toolbar([
-        ToolbarAction("Sol",   "Show solution (H)",                       _post_key(p.K_h),
-                      enabled=lambda: not updateStats),
-        ToolbarAction("+Mov",  "Show more continuation moves (+) -- after a correct answer",
+    # Icon toolbar: only the buttons that apply to this mode (Copy FEN/PGN stay on
+    # the keyboard, C/G). Each button posts its keyboard shortcut, as before.
+    toolbar = IconToolbar([
+        ToolbarAction("Solution", "Show solution (H)",                    _post_key(p.K_h),
+                      enabled=lambda: not updateStats, icon="hint"),
+        ToolbarAction("MoreMoves", "Show more continuation moves (+) -- after a correct answer",
                                                                           _post_key(p.K_KP_PLUS),
-                      enabled=lambda: not humanCanPlay),
+                      enabled=lambda: not humanCanPlay, icon="moremoves"),
         ToolbarAction("Next",  "Next position (N) -- after a correct answer",
                                                                           _post_key(p.K_n),
-                      enabled=lambda: not humanCanPlay),
-        ToolbarAction("Eng",   "Engine on/off (E)",                       _post_key(p.K_e)),
-        ToolbarAction("Book",  "Toggle opening book (B)",                 _post_key(p.K_b)),
-        ToolbarAction("Moves", "Toggle PGN move list (D)",                _post_key(p.K_d)),
-        ToolbarAction("C-FEN", "Copy FEN to clipboard (C)",               _post_key(p.K_c)),
-        ToolbarAction("C-PGN", "Copy PGN to clipboard (G)",               _post_key(p.K_g)),
-        ToolbarAction("Quit",  "Quit to menu (Q)",                        _post_key(p.K_q)),
-    ])
+                      enabled=lambda: not humanCanPlay, icon="nextitem"),
+        ToolbarAction("CopyFEN", "Copy FEN to clipboard (Shift+F)",       _post_key(p.K_f, p.KMOD_SHIFT), icon="copyfen"),
+        ToolbarAction("CopyPGN", "Copy PGN to clipboard (Shift+P)",       _post_key(p.K_p, p.KMOD_SHIFT), icon="copypgn"),
+        ToolbarAction("Openings", "Toggle opening book (B)",              _post_key(p.K_b), icon="openings"),
+        ToolbarAction("PGN",   "Toggle PGN move list (M)",                _post_key(p.K_m), icon="pgn"),
+        ToolbarAction("Engine", "Engine on/off (E)",                      _post_key(p.K_e), icon="engine"),
+        ToolbarAction("Menu",  "Quit to menu (Q)",                        _post_key(p.K_q), icon="home"),
+    ], y=0, height=BS.TOOLBAR_HEIGHT)
 
     def do_show_help():
         glc.draw_help_overlay(help_text, height=300)
@@ -328,12 +330,10 @@ def solvePositionsFromBase(learningBase:LearningBase):
 
                 elif e.type == p.KEYDOWN:
 
-                    if e.key == p.K_c:
-                        # copy position to clibboard
+                    if e.key == p.K_f and (e.mod & p.KMOD_SHIFT):  # Shift+F: copy FEN
                         glc.copy_to_clipboard(gs.node.board().fen(), "Position copied to clipboard", gs)
 
-                    if e.key == p.K_g:
-                        # copy position to clibboard
+                    if e.key == p.K_p and (e.mod & p.KMOD_SHIFT):  # Shift+P: copy PGN
                         glc.copy_to_clipboard(pos.to_PgnString(), "Game copied to clipboard", gs)
 
                     if e.key == p.K_LESS and (e.mod & p.KMOD_SHIFT):
@@ -351,7 +351,7 @@ def solvePositionsFromBase(learningBase:LearningBase):
                     if e.key == p.K_b:
                         glc.toggle_book(gs)
 
-                    if e.key == p.K_d:
+                    if e.key == p.K_m:
                         glc.toggle_pgn(gs)
 
                     if e.key == p.K_KP_PLUS and not humanCanPlay:

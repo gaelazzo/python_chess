@@ -23,13 +23,29 @@ import safe_font
 import BoardScreen as BS
 from app_context import app
 from GameState import GameState
-from toolbar import Toolbar, ToolbarAction
+from toolbar import IconToolbar, ToolbarAction
 
-# The analysis toolbar, as labels (mirrors modes/play_game.py). A screenshot only
-# needs the row of buttons drawn, so the handlers are no-ops.
-TOOLBAR_LABELS = ["Undo", "Next", "Save", "Anal", "Flip", "Reset", "Eng", "Book",
-                  "Moves", "Stats", "C-FEN", "C-PGN", "Load", "Annot", "Cmnt",
-                  "Notat", "Setup", "AddTac", "Quit"]
+# Icon toolbars, as (label, icon) specs that MIRROR the live modes. A screenshot
+# only needs the buttons drawn, so the handlers are no-ops. `None` is a separator.
+# Analysis (modes/play_game.py): main tools (left) + structure group (right) + the
+# bottom navigation / move-actions bar.
+ANALYSIS_MAIN = [("Open", "open"), ("Save", "save"), ("CopyFEN", "copyfen"),
+                 ("CopyPGN", "copypgn"), ("Lock", "lock"), ("Openings", "openings"),
+                 ("PGN", "pgn"), ("Statistics", "statistics"), ("Variations", "variations"),
+                 ("Engine", "engine"), ("Flip", "flip"), ("Help", "help")]
+ANALYSIS_EDIT = [("EditPos", "editpos"), ("AddTactic", "addtac"), ("Truncate", "truncate"),
+                 ("DeleteVar", "delvar"), None, ("Menu", "home")]
+ANALYSIS_NAV = [("First", "first"), ("Prev", "prev"), ("Next", "next"), ("Last", "last"),
+                None, ("Annotate", "annotate"), ("Comment", "comment"), ("Promote", "promote")]
+# Training modes (one top toolbar each), mirroring modes/{replay,openings,endgames}.py.
+SOLVE_TB = [("Solution", "hint"), ("MoreMoves", "moremoves"), ("Next", "nextitem"),
+            ("CopyFEN", "copyfen"), ("CopyPGN", "copypgn"), ("Openings", "openings"),
+            ("PGN", "pgn"), ("Engine", "engine"), ("Menu", "home")]
+OPENINGS_TB = [("Hint", "hint"), ("Next", "nextitem"), ("CopyFEN", "copyfen"),
+               ("CopyPGN", "copypgn"), ("Openings", "openings"), ("PGN", "pgn"),
+               ("Engine", "engine"), ("Flip", "flip"), ("Menu", "home")]
+ENDGAME_TB = [("Hint", "hint"), ("Next", "nextitem"), ("CopyFEN", "copyfen"),
+              ("PGN", "pgn"), ("Engine", "engine"), ("Flip", "flip"), ("Menu", "home")]
 
 
 # --- sample content (representative, just so the panels look real) ----------
@@ -75,12 +91,36 @@ def boot():
     return screen
 
 
-def draw_toolbar(screen):
-    """Draw the top button row (decorative, for the screenshot)."""
-    actions = [ToolbarAction(lbl, lbl, lambda: None) for lbl in TOOLBAR_LABELS]
-    Toolbar(actions)
-    app.manager.update(0.05)
-    app.manager.draw_ui(screen)
+def _acts(specs):
+    """Turn (label, icon) / None specs into ToolbarActions (no-op handlers)."""
+    out = []
+    for s in specs:
+        if s is None:
+            out.append(None)
+        else:
+            label, icon = s
+            out.append(ToolbarAction(label, label, lambda: None, icon=icon))
+    return out
+
+
+def draw_top_toolbar(screen, specs):
+    """Draw a single top icon toolbar (the training modes)."""
+    tb = IconToolbar(_acts(specs), y=0, height=BS.TOOLBAR_HEIGHT)
+    tb.update(0.0)
+    tb.draw(screen)
+
+
+def draw_analysis_toolbars(screen):
+    """Draw the analysis screen's three icon toolbars (mirrors play_game)."""
+    main = IconToolbar(_acts(ANALYSIS_MAIN), y=0, height=BS.TOOLBAR_HEIGHT)
+    edit_x0 = main.content_right() + 16
+    edit = IconToolbar(_acts(ANALYSIS_EDIT), y=0, height=BS.TOOLBAR_HEIGHT,
+                       x0=edit_x0, width=BS.SCREEN_WIDTH - edit_x0, align="right")
+    nav = IconToolbar(_acts(ANALYSIS_NAV), y=BS.NAV_Y, height=BS.NAV_HEIGHT,
+                      x0=BS.NAV_X, width=BS.NAV_WIDTH, align="center", tooltip_above=True)
+    for t in (main, edit, nav):
+        t.update(0.0)
+        t.draw(screen)
 
 
 def sample_game():
@@ -110,7 +150,7 @@ def capture_analysis(screen, path):
     BS.engine.visible = True
     BS.engine.render(screen, SAMPLE_ENGINE)
 
-    draw_toolbar(screen)
+    draw_analysis_toolbars(screen)
 
     p.image.save(screen, path)
     print("wrote", path)
@@ -140,13 +180,13 @@ def gs_at(game, advance=0):
     return gs
 
 
-def capture_board(screen, path, gs, label):
-    """A training-style screen: board + move log (with the cyan label) + toolbar.
-    The side panels stay off, exactly as the training modes show them."""
+def capture_board(screen, path, gs, label, toolbar_specs):
+    """A training-style screen: board + move log (with the cyan label) + the mode's
+    icon toolbar. The side panels stay off, exactly as the training modes show them."""
     BS.set_context_label(label)
     screen.fill(p.Color("black"))
     BS.drawGameState(screen, gs, [], [], ())
-    draw_toolbar(screen)
+    draw_top_toolbar(screen, toolbar_specs)
     p.image.save(screen, path)
     BS.set_context_label(None)
     print("wrote", path)
@@ -162,19 +202,19 @@ def capture_solve(screen, path):
     game.setup(chess.Board(pos.fen))
     gs = GameState()
     gs.setPgn(game)
-    capture_board(screen, path, gs, f"Training: {lb.filename}")
+    capture_board(screen, path, gs, f"Training: {lb.filename}", SOLVE_TB)
 
 
 def capture_openings(screen, path):
     gs = gs_at(game_from_pgn("openings/B12CaroKan.pgn"), advance=6)
-    capture_board(screen, path, gs, "Opening: B12CaroKan (Black)")
+    capture_board(screen, path, gs, "Opening: B12CaroKan (Black)", OPENINGS_TB)
 
 
 def capture_endgame(screen, path):
     g = game_from_pgn("endgames/esempi.pgn")
     title = (g.headers.get("White") or g.headers.get("Event") or "study")
     capture_board(screen, path, gs_at(g, advance=0),
-                  f"Endgame: esempi -- {title} (1/2, playing White)")
+                  f"Endgame: esempi -- {title} (1/2, playing White)", ENDGAME_TB)
 
 
 # --- modal screens: grab the FIRST rendered frame, then inject Esc to exit -----
