@@ -11,7 +11,7 @@ I file qui sotto sono quelli che **esistono davvero** e che i README usano.
 
 | File | Uso | Stato |
 |------|-----|-------|
-| `analisishort.gif` | **clip hero** in cima ai README (Analisi in azione) | 🔄 **da rifare** (mostra le vecchie toolbar testuali) |
+| `analisishort.gif` | **clip hero** in cima ai README (Analisi in azione) | ✅ aggiornato (rifatto a mano il 2026-06-15 con la UI a icone) |
 
 > (Le vecchie `analisi.gif` / `analisi.mp4`, mai referenziate da alcun README,
 > sono state rimosse.)
@@ -25,19 +25,16 @@ I file qui sotto sono quelli che **esistono davvero** e che i README usano.
 | `menu.png` `tools.png` `improve.png` | schermate `pygame_menu` (menu principale, Tools, Improve) | manuale (non coperte dal tool) |
 
 > L'hero in cima ai README è `analisishort.gif` (riga
-> `<img src="docs/img/analisishort.gif" ...>` in ciascun README).
->
-> ⚠️ Dopo il passaggio alle **toolbar a icone** (giugno 2026) i clip animati
-> mostrano ancora i vecchi bottoni testuali e vanno **rifatti a mano** (sotto). I
-> PNG di analisi/gioco invece si rigenerano col tool.
+> `<img src="docs/img/analisishort.gif" ...>` in ciascun README), già aggiornato
+> alla UI a icone. I **PNG** di analisi/gioco si rigenerano col tool; il GIF hero
+> è manuale (vedi sotto se in futuro va rifatto).
 >
 > Nota: nomi tipo `screenshot-*.gif` o `demo.gif` citati in vecchie versioni di
 > questo file **non sono mai stati creati** e nessun README li usa — ignorali.
 
-## (Ri)registrare il clip hero Analisi (`analisishort.gif`, toolbar a icone)
+## (Ri)registrare il clip hero Analisi (`analisishort.gif`)
 
-Da quando la UI usa le **toolbar a icone**, il clip hero va rifatto perché mostra
-ancora i vecchi bottoni testuali.
+Riferimento per quando il clip hero va rifatto (es. dopo un cambio di UI).
 
 **Prima di registrare**
 - La finestra ora è **1012×766** (cresciuta di 44 px per la barra di navigazione
