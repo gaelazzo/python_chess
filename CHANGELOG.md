@@ -4,6 +4,37 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.4.0] - 2026-06-19
+
+### Aggiunte
+- **Toolbar a icone** in tutti i modi, con remap dei tasti e la valutazione del
+  motore mostrata nel pannello CPU.
+- **Piani d'apertura dai maestri (tasto `G`)**: dal database *masters* di Lichess
+  estrae i piani tipici per lato (gruppi di mosse che ricorrono insieme), ciascuno
+  con uno score e la risposta condizionata dell'avversario (W/D/L per risposta).
+  I piani sono numerati: premendo **1–9** le mosse della variante compaiono come
+  **frecce** sulla scacchiera (bianche per il Bianco, nere per il Nero), **0** le
+  toglie. Cache su disco delle interrogazioni (istantanea dopo la prima volta) e
+  parametri configurabili nel Setup. Il risultato precompila il dossier **idee**
+  della struttura (tasto `I`).
+- **Statistiche database Lichess (tasto `D`)**: query secca della distribuzione
+  delle mosse (tutti i giocatori, non masters) con W/D/L per la posizione corrente.
+- **Gestione trasposizioni in analisi**: avviso quando una mossa traspone in una
+  posizione già presente; blocco dell'analisi duplicata (da una posizione duplicata
+  non si aggiungono nuove mosse); bottone **Twins** / tasto **N** per ciclare tra i
+  "gemelli"; **J** salta all'originale; **Shift+J** cerca una posizione per FEN.
+- **Commenti mossa multi-riga (tasto `T`)**: editor su più righe (Invio = a capo,
+  Ctrl+Invio = salva); gli a-capo sono preservati nel PGN.
+- **INSTALL.md**: elenco di fonti di libri d'apertura Polyglot (`.bin`) gratuiti.
+
+### Correzioni
+- I libri d'apertura **commerciali** (ChessBase/Fritz) non vengono mai inclusi nel
+  pacchetto distribuito: bonifica e blindatura del packaging.
+- Le **icone della toolbar** ora sono incluse nel pacchetto PyInstaller
+  (`images/icons/`): prima mancavano dal build.
+
+[1.4.0]: https://github.com/gaelazzo/python_chess/releases/tag/v1.4.0
+
 ## [1.2.5] - 2026-06-12
 
 ### Aggiunte

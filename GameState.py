@@ -769,6 +769,95 @@ class GameState:
         self.node = node
         return True
 
+    # --- Transposition awareness (analysis): the same position can appear in
+    # several variations of one game by move-order inversion. ----------------
+    def _iter_nodes(self):
+        """All nodes of the game tree (root + every variation), DFS order."""
+        out = []
+        def walk(n):
+            out.append(n)
+            for child in n.variations:
+                walk(child)
+        if self.pgn is not None:
+            walk(self.pgn)
+        return out
+
+    def _position_index(self):
+        """zobrist -> [nodes with that exact position], DFS order (index 0 is the
+        CANONICAL first occurrence). Built on demand (analysis trees are small)."""
+        idx = {}
+        for n in self._iter_nodes():
+            try:
+                z = chess.polyglot.zobrist_hash(n.board())
+            except Exception:
+                continue
+            idx.setdefault(z, []).append(n)
+        return idx
+
+    def canonical_node(self, node=None):
+        """The first (canonical) node sharing `node`'s exact position."""
+        node = node if node is not None else self.node
+        if node is None:
+            return None
+        occ = self._position_index().get(chess.polyglot.zobrist_hash(node.board()))
+        return occ[0] if occ else node
+
+    def transpositions_of(self, node=None):
+        """Other nodes (besides `node`) with the same exact position; [] if unique."""
+        node = node if node is not None else self.node
+        if node is None:
+            return []
+        z = chess.polyglot.zobrist_hash(node.board())
+        return [n for n in self._position_index().get(z, []) if n is not node]
+
+    def is_frozen(self, node=None):
+        """True if `node` is a DUPLICATE occurrence (not the canonical one): its
+        continuations belong to the canonical node, so no new moves should grow it."""
+        node = node if node is not None else self.node
+        if node is None:
+            return False
+        return self.canonical_node(node) is not node
+
+    def node_line_san(self, node) -> str:
+        """SAN line from the root to `node`, e.g. '1.e4 d6 2.d4 Nf6'. '' for root."""
+        chain = []
+        n = node
+        while n is not None and n.parent is not None:
+            chain.append(n)
+            n = n.parent
+        chain.reverse()
+        board = self.pgn.board() if self.pgn is not None else chess.Board()
+        out = []
+        for nd in chain:
+            if board.turn == chess.WHITE:
+                out.append(f"{board.fullmove_number}.{board.san(nd.move)}")
+            else:
+                out.append(board.san(nd.move))
+            board.push(nd.move)
+        return " ".join(out)
+
+    def find_node_by_fen(self, fen: str):
+        """The canonical node whose position matches `fen` (pieces+turn+castling+
+        en-passant), or None. For 'search a position inside this game'."""
+        try:
+            z = chess.polyglot.zobrist_hash(chess.Board(fen))
+        except Exception:
+            return None
+        occ = self._position_index().get(z)
+        return occ[0] if occ else None
+
+    def next_transposition(self, node=None):
+        """The next node sharing `node`'s position, cycling through ALL its
+        occurrences (twins); None if the position is unique."""
+        node = node if node is not None else self.node
+        if node is None:
+            return None
+        occ = self._position_index().get(chess.polyglot.zobrist_hash(node.board()), [])
+        if len(occ) < 2:
+            return None
+        idx = next((k for k, n in enumerate(occ) if n is node), 0)
+        return occ[(idx + 1) % len(occ)]
+
     def whiteToMove(self)->chess.Color:
         return self.board().turn
 

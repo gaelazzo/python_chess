@@ -89,8 +89,21 @@ computer.
    file. La scelta viene salvata in `config.json` (chiave `engine`).
 
 ### 2. Libro d'apertura Polyglot (facoltativo)
-Per far giocare il computer "su libro": metti un file `.bin` nella cartella
-**`books\`**, poi **Tools → Setup → Choose book**.
+Per far giocare il computer "su libro": metti un file `.bin` (formato **Polyglot**)
+nella cartella **`books\`**, poi **Tools → Setup → Choose book**.
+
+Il programma **non** include un libro: scaricane uno gratuito. Alcune fonti:
+
+- **donna_opening_books** — <https://github.com/michaeldv/donna_opening_books>
+  (`gm2001.bin`: partite 2001–2013 con Elo ≥ 2530; `komodo.bin`; `rodent.bin`).
+- **free-opening-books** — <https://github.com/gmcheems-org/free-opening-books>
+  (raccolta più ampia: `gm2001.bin`, `komodo.bin`, `rodent.bin`, `Titans.bin`,
+  `Human.bin`, Cerebellum, …).
+
+Su GitHub: apri il file `.bin` → **Download raw file**, poi copialo in `books\`.
+Sono libri distribuiti dalla community: le licenze non sono sempre esplicite,
+verificale prima di **ridistribuirli**. Chi ha ChessBase/Fritz può anche esportare
+un proprio libro in formato Polyglot.
 
 ### 3. Syzygy tablebase (facoltativo, per i finali)
 Per il giudizio perfetto dei finali (≤ 7 pezzi):

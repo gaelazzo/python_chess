@@ -350,6 +350,75 @@ def draw_polygon_alpha(surface, color, points):
 
 
 
+# Blue "only move" arrow (semi-transparent), drawn over the pieces.
+ONLY_MOVE_ARROW_COLOR = (40, 110, 240, 215)
+
+
+def _square_center(square):
+    """Pixel centre of a chess square, honouring the current board orientation.
+    `square` is a python-chess square index (0=a1 .. 63=h8)."""
+    internal_row = 7 - chess.square_rank(square)   # row 0 = rank 8 (see notes above)
+    internal_col = chess.square_file(square)        # col 0 = file a
+    sc = adjustedCol(internal_col)
+    sr = adjustedRow(internal_row)
+    return (sc * SQ_SIZE + SQ_SIZE / 2, BOARD_Y + sr * SQ_SIZE + SQ_SIZE / 2)
+
+
+def drawArrow(screen, from_square, to_square, color=ONLY_MOVE_ARROW_COLOR):
+    """Draw a thick arrow from `from_square` to `to_square` on the board."""
+    sx, sy = _square_center(from_square)
+    ex, ey = _square_center(to_square)
+    overlay = p.Surface((BOARD_WIDTH, BOARD_HEIGHT), p.SRCALPHA)
+    sy -= BOARD_Y
+    ey -= BOARD_Y
+    dx, dy = ex - sx, ey - sy
+    dist = math.hypot(dx, dy) or 1.0
+    ux, uy = dx / dist, dy / dist
+    head = SQ_SIZE * 0.40
+    width = max(4, int(SQ_SIZE * 0.14))
+    bx, by = ex - ux * head, ey - uy * head      # base of the arrowhead
+    px, py = -uy, ux                              # perpendicular unit
+    half = head * 0.62
+    p.draw.line(overlay, color, (sx, sy), (bx, by), width)
+    p.draw.polygon(overlay, color,
+                   [(ex, ey), (bx + px * half, by + py * half), (bx - px * half, by - py * half)])
+    screen.blit(overlay, (0, BOARD_Y))
+
+
+def _draw_only_move_arrow(screen):
+    """If the live engine analysis flagged an only move, draw its blue arrow."""
+    mv = getattr(UCIEngines, "latest_only_move", None)
+    if mv is not None and UCIEngines.is_analysing():
+        drawArrow(screen, mv.from_square, mv.to_square)
+
+
+# Plan arrows from the masters-plans popup: White's moves white, Black's black.
+PLAN_ARROW_WHITE = (245, 245, 245, 225)
+PLAN_ARROW_BLACK = (20, 20, 20, 235)
+plan_arrows = []   # list of (from_square, to_square, color)
+
+
+def set_plan_arrows(arrows):
+    """Set (or clear, with [] ) the plan arrows shown over the board."""
+    global plan_arrows
+    plan_arrows = list(arrows or [])
+
+
+def _draw_plan_arrows(screen):
+    for fr, to, col in plan_arrows:
+        drawArrow(screen, fr, to, col)
+
+
+def draw_board_only(screen, gs):
+    """Redraw just the board (pieces + arrows) and flip its rect -- used to show
+    plan arrows live while the masters-plans popup is open over the side panel."""
+    drawBoard(screen)
+    drawPieces(screen, gs)
+    _draw_only_move_arrow(screen)
+    _draw_plan_arrows(screen)
+    p.display.update(p.Rect(0, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT))
+
+
 def highlightCircles(screen, squares):
     for s in squares:
         draw_circle_alpha(screen, s[2], (adjustedRow(s[1]) * SQ_SIZE + SQ_SIZE // 2,
@@ -389,6 +458,8 @@ def drawGameState(screen, gs, toHighlightCirclesColor, toHighlightSquareColor, s
     highlightCircles(screen, toHighlightCirclesColor)
     highlightSquaresColor(screen, toHighlightSquareColor)
     drawPieces(screen, gs)
+    _draw_only_move_arrow(screen)   # blue arrow when the engine found an only move
+    _draw_plan_arrows(screen)       # white/black arrows when a plan variant is selected
 
     # Side boxes through the shared panel singletons (the one render/clear per
     # box). visible=show_* means a hidden panel renders as just a cleared rect,

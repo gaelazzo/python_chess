@@ -466,6 +466,8 @@ def mainMenu(width,height, test: bool = False) -> None:
                                             onchange=combine_onchange(make_updater("base_url",str,config), save_config))
     configureGame.add.text_input('student id:', default=config.id_student or "",
                                         onchange=combine_onchange(make_updater("id_student",str,config), save_config))
+    configureGame.add.text_input('Lichess token:', default=config.lichess_token or "",
+                                        onchange=combine_onchange(make_updater("lichess_token",str,config), save_config))
 
     def choose_engine(engine):
         config.engine = engine.name
@@ -519,6 +521,30 @@ def mainMenu(width,height, test: bool = False) -> None:
                                        lambda: (save_config(), voce.refresh_rate())),
                                    value_format=lambda x: str(int(round(x, 0))),
                                    default=config.tts_rate)
+
+    # Opening-plan analysis parameters (Lichess masters explorer). See plan_analysis.py.
+    _int_fmt = lambda x: str(int(round(x, 0)))
+    configureGame.add.range_slider('Plan: Lichess cache (days)', range_values=(0, 730), increment=30,
+                                   onchange=combine_onchange(make_updater("lichess_cache_days", int, target_module=config), save_config),
+                                   value_format=_int_fmt, default=config.lichess_cache_days)
+    configureGame.add.range_slider('Plan: search depth (plies)', range_values=(4, 16), increment=1,
+                                   onchange=combine_onchange(make_updater("plan_depth", int, target_module=config), save_config),
+                                   value_format=_int_fmt, default=config.plan_depth)
+    configureGame.add.range_slider('Plan: min master games', range_values=(5, 200), increment=5,
+                                   onchange=combine_onchange(make_updater("plan_min_games", int, target_module=config), save_config),
+                                   value_format=_int_fmt, default=config.plan_min_games)
+    configureGame.add.range_slider('Plan: max branches', range_values=(2, 6), increment=1,
+                                   onchange=combine_onchange(make_updater("plan_max_branch", int, target_module=config), save_config),
+                                   value_format=_int_fmt, default=config.plan_max_branch)
+    configureGame.add.range_slider('Plan: min move share %', range_values=(0.05, 0.40), increment=0.01,
+                                   onchange=combine_onchange(make_updater("plan_min_share", float, target_module=config), save_config),
+                                   value_format=lambda x: f"{x*100:.0f}%", default=config.plan_min_share)
+    configureGame.add.range_slider('Plan: bundle min support %', range_values=(0.05, 0.50), increment=0.05,
+                                   onchange=combine_onchange(make_updater("plan_min_support", float, target_module=config), save_config),
+                                   value_format=lambda x: f"{x*100:.0f}%", default=config.plan_min_support)
+    configureGame.add.range_slider('Plan: how many plans', range_values=(1, 6), increment=1,
+                                   onchange=combine_onchange(make_updater("plan_max_shown", int, target_module=config), save_config),
+                                   value_format=_int_fmt, default=config.plan_max_shown)
 
     # Reference DB for position statistics (see position_stats.py).
     # Selection via file selector (starts from pgn/ but you can browse anywhere);

@@ -45,6 +45,15 @@ DEFAULT_CONFIG = {
     "id_student": "",
     "api_key": "",        # BrainMaster device key, auto-filled on first use (ensure_registered)
     "admin_token": "",    # BrainMaster authoring token, maintainer-only (empty for normal users)
+    "lichess_token": "",  # Lichess API token for the opening explorer (set via Setup menu)
+    # Opening-plan analysis (Lichess masters explorer). All set from the Setup menu.
+    "lichess_cache_days": 365,  # reuse a cached explorer response for this many days
+    "plan_depth": 8,            # fixed search depth in plies (development window)
+    "plan_min_share": 0.12,     # follow moves played in >= this share at a node
+    "plan_min_games": 20,       # don't follow into positions with fewer master games
+    "plan_max_branch": 3,       # follow at most this many moves per position
+    "plan_min_support": 0.20,   # a move/bundle must be played in >= this share of lines
+    "plan_max_shown": 3,        # how many plans (per side / responses) to list
     "engine": "",
     "book": "",
     "engine_usebook": False,   # if True, "Play vs computer" consults the opening book before the engine

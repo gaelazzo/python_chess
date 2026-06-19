@@ -5,9 +5,11 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 # App resources + data files of the GUI libraries that ship themes/fonts as
 # package data (pygame_menu, pygame_gui): without these the build succeeds but
 # crashes at runtime when it looks for the fonts/themes.
-datas = [('images/*.png', 'images'), ('pic-chess.png', '.')]
+datas = [('images/*.png', 'images'), ('images/icons/*.png', 'images/icons'), ('pic-chess.png', '.')]
 datas += collect_data_files('pygame_menu')
 datas += collect_data_files('pygame_gui')
+# NOTE: do NOT bundle books/ -- it holds COMMERCIAL opening books (ChessBase/Fritz)
+# that must not be redistributed. The user downloads a free Polyglot book (INSTALL.md).
 
 # Dynamic imports that PyInstaller's static analysis does not detect.
 hiddenimports = [

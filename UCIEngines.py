@@ -168,6 +168,47 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
 analysis_results = []  # List of valid dictionaries with score + pv
 latest_status_line = ""  # Last line of the current status
 latest_eval_str = ""  # Headline eval of the best line (White POV), e.g. "+0.80"
+# A chess.Move when the LIVE analysis shows a single clearly-best move (only
+# move), else None. The board reads it to draw the blue "only move" arrow. It is
+# reset whenever analysis (re)starts or stops -- so it clears on every move.
+latest_only_move = None
+ONLY_MOVE_MIN_DEPTH = 10    # ignore shallow, flickery early depths
+# Win% gap (best vs 2nd best) to draw the board arrow. This is the VISUAL
+# "clearly the move" hint and is deliberately MORE sensitive than the comment's
+# strict "only move" wording (move_review.ONLY_MOVE_WIN_GAP=20): 5 points is
+# roughly a ~0.5-0.6 pawn edge near equality -- and because win% is level-aware,
+# a far bigger eval gap is needed once you're already clearly winning.
+ARROW_MIN_WIN_GAP = 5.0
+
+
+def _detect_only_move(multipv):
+    """From the live multipv snapshot, return the best move when it is clearly
+    ahead of the 2nd best (win% gap >= ARROW_MIN_WIN_GAP), else None."""
+    if len(multipv) < 2:
+        return None
+    best, second = multipv[0], multipv[1]
+    pv0 = best.get("pv") or []
+    if not pv0 or best.get("depth", 0) < ONLY_MOVE_MIN_DEPTH:
+        return None
+    s0, s1 = best.get("score"), second.get("score")
+    if s0 is None or s1 is None:
+        return None
+    import move_review as _mr   # lazy: no import cycle (move_review imports us lazily)
+    cp0 = s0.relative.score(mate_score=_mr.MATE_CP)
+    cp1 = s1.relative.score(mate_score=_mr.MATE_CP)
+    gap = _mr.win_percent(cp0) - _mr.win_percent(cp1)
+    return pv0[0] if gap >= ARROW_MIN_WIN_GAP else None
+
+
+def _post_redraw():
+    """Nudge the active game loop to repaint (so a changed only-move arrow shows
+    even while the engine thinks and the user is idle). Harmless USEREVENT the
+    loops already treat as 'something happened -> redraw'."""
+    try:
+        import pygame as _p
+        _p.event.post(_p.event.Event(_p.USEREVENT))
+    except Exception:
+        pass
 
 
 # "single-engine-thread, polling from main" architecture.
@@ -216,11 +257,12 @@ def is_engine_ready() -> bool:
 
 def stop_analysis() -> None:
     """Stop the active analysis. Idempotent. Does not raise."""
-    global _active_analysis, _active_callback, stopper
+    global _active_analysis, _active_callback, stopper, latest_only_move
     sa = _active_analysis
     _active_analysis = None
     _active_callback = None
     stopper = None  # legacy alias
+    latest_only_move = None   # arrow off when analysis stops
     if sa is None:
         return
     try:
@@ -236,10 +278,11 @@ def start_analysis(board, callback, interval_sec=1.0) -> None:
     """Start an analysis on the `board`. Stop the current one, if any.
     Reopen the engine if dead. Does not raise exceptions to the caller."""
     global _active_analysis, _active_callback, _active_interval, _last_callback_time
-    global analysis_results, latest_status_line, latest_eval_str, stopper
+    global analysis_results, latest_status_line, latest_eval_str, stopper, latest_only_move
 
     stop_analysis()
     latest_eval_str = ""   # clear the headline eval until the first score arrives
+    latest_only_move = None  # arrow off until the new position shows an only move
     if not _engine_alive():
         print("start_analysis: engine not alive, reopening...")
         try:
@@ -285,7 +328,7 @@ def poll() -> None:
     updates the CPU panel at most `_active_interval` times/s.
     No-op if no analysis is active.
     """
-    global _active_analysis, _last_callback_time, analysis_results, latest_status_line, stopper
+    global _active_analysis, _last_callback_time, analysis_results, latest_status_line, stopper, latest_only_move
     sa = _active_analysis
     if sa is None or _active_callback is None:
         return
@@ -333,6 +376,10 @@ def poll() -> None:
         return
     try:
         analysis_results = format_engine_info_list(multipv)
+        new_only = _detect_only_move(multipv)
+        if new_only != latest_only_move:
+            latest_only_move = new_only
+            _post_redraw()   # repaint so the arrow appears/disappears even when idle
         _active_callback(analysis_results + [latest_status_line])
     except Exception as e:
         print(f"poll: callback failed: {e}")

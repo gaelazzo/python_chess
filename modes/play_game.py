@@ -15,6 +15,7 @@ import state
 from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState, NAG_CHOICES
 import UCIEngines
+import plan_analysis
 import BoardScreen as BS
 from toolbar import IconToolbar, ToolbarAction
 import analyzer
@@ -275,41 +276,106 @@ def chooseAnnotation(current_nags):
 
 
 def editComment(current_text):
-    """Menu with a text field for the current move's comment.
-    Returns the entered text, or None if cancelled."""
-    result = [None]
-    menu_running = True
+    """Edit the current move's MULTI-LINE comment (Enter = new line). Returns the
+    entered text, or None if cancelled."""
+    return glc.edit_text_multiline("Move comment", current_text or "")
 
-    menu = pygame_menu.Menu("Move comment", app.W, app.H, theme=pygame_menu.themes.THEME_DARK)
-    text_field = menu.add.text_input("> ", default=current_text or "", maxchar=200)
+
+def _split_items(s: str):
+    return [x.strip() for x in s.split("/") if x.strip()]
+
+
+def _plan_arrows_for(board, mover_sans, resp_sans, mover_color, resp_color):
+    """SAN moves -> (from_sq, to_sq, color) arrows on `board`. Mover moves parse
+    directly; opponent moves after a null move (to flip the turn). Moves that
+    don't parse from this position (e.g. late recaptures) are skipped."""
+    arrows, b = [], board.copy()
+    for san in mover_sans:
+        try:
+            m = b.parse_san(san)
+            arrows.append((m.from_square, m.to_square, mover_color))
+        except Exception:
+            pass
+    try:
+        b.push(chess.Move.null())
+        for san in resp_sans:
+            try:
+                m = b.parse_san(san)
+                arrows.append((m.from_square, m.to_square, resp_color))
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return arrows
+
+
+def _mined_hint(mined) -> str:
+    """One-line masters suggestion (from the cached analysis) for the editor:
+    the strongest correlated plan (bundle) per side."""
+    def top(side):
+        side = side or {}
+        bundles = side.get("bundles") or []
+        if bundles:
+            return bundles[0]["moves"]
+        spots = side.get("spots") or []
+        return ", ".join(s["move"] for s in spots[:3])
+    w, b = top(mined.get("white")), top(mined.get("black"))
+    parts = []
+    if w:
+        parts.append("W: " + w)
+    if b:
+        parts.append("B: " + b)
+    return "Masters — " + "  |  ".join(parts) if parts else "Masters: (no data)"
+
+
+def editOpeningIdeas(board):
+    """Edit the IDEAS/PLANS dossier of the CURRENT pawn structure (authoring,
+    analysis only). Keyed by the structure signature, so the same dossier is
+    shared by every position / move order / opening reaching that structure."""
+    import opening_ideas as OI
+    d = OI.get_dossier(board)
+
+    menu = pygame_menu.Menu("Opening ideas", app.W, app.H, theme=pygame_menu.themes.THEME_DARK)
+    menu.add.label(OI.structure_label(board), font_size=16)
+    mined = OI.get_mined(board)
+    if mined:
+        menu.add.label(_mined_hint(mined), font_size=14)   # masters suggestion (one-line glance)
+    if d.get("notes"):                                     # full masters report (read-only, from G)
+        menu.add.button("View masters report (G)",
+                        lambda: glc.show_text_popup("Masters report", d["notes"]))
+    fields = {
+        "plans_white": menu.add.text_input("White plans (/): ", default=" / ".join(d.get("plans_white", [])), maxchar=220),
+        "plans_black": menu.add.text_input("Black plans (/): ", default=" / ".join(d.get("plans_black", [])), maxchar=220),
+    }
+    running = [True]
 
     def save():
-        nonlocal menu_running
-        result[0] = text_field.get_value()
-        menu_running = False
-
-    def cancel():
-        nonlocal menu_running
-        menu_running = False
+        # Only the plan lists are editable here; `notes` (the masters report, filled
+        # by G) and any other stored fields are preserved untouched.
+        keep = {k: v for k, v in d.items() if k not in ("plans_white", "plans_black")}
+        keep.update({
+            "plans_white": _split_items(fields["plans_white"].get_value()),
+            "plans_black": _split_items(fields["plans_black"].get_value()),
+        })
+        OI.set_dossier(board, keep)
+        running[0] = False
 
     menu.add.button("Save", save)
-    menu.add.button("Cancel", cancel)
+    menu.add.button("Cancel", lambda: running.__setitem__(0, False))
 
     surface = app.screen
-    while menu_running:
+    while running[0]:
         events = p.event.get()
         for ev in events:
             if ev.type == p.QUIT:
                 p.quit()
                 sys.exit()
             if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
-                result[0] = None  # cancel like the Cancel button
-                menu_running = False
+                running[0] = False
         surface.fill((0, 0, 0))
         menu.update(events)
         menu.draw(surface)
         p.display.flip()
-    return result[0]
 
 
 # Play a game against the engine or against another player, depending on the settings in playParameters
@@ -368,6 +434,7 @@ def playAGame():
     # mutate the same object the loop already uses -- no double state. Migrated so
     # far: undo (Left) / truncate (Del) / delete-variation (Backspace).
     session = BoardSession(AnalysisPolicy(), gs=gs, white_cpu=whiteCPU, black_cpu=blackCPU)
+    session.guard_transpositions = (not whiteCPU) and (not blackCPU)   # block duplicate analysis (analysis only)
 
     # View layer: the SHARED side-panel singletons (BoardScreen owns one instance
     # per box -- same render/clear interface as every other mode). play_game keeps
@@ -410,6 +477,9 @@ def playAGame():
     def _post_key(key, mod=0):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     _is_analysis = lambda: (not whiteCPU) and (not blackCPU)
+    # Transposition indicator: lit only when the current position has twins.
+    # Recomputed (in the loop) only when the node changes -- the lambda just reads it.
+    _twin_state = {"node": None, "twins": False}
     top_toolbar = IconToolbar([
         ToolbarAction("Open",       "Open / load game (O) -- analysis only", _post_key(p.K_o), enabled=_is_analysis, icon="open"),
         ToolbarAction("Save",       "Save game (S)",                   _post_key(p.K_s), icon="save"),
@@ -422,6 +492,9 @@ def playAGame():
         ToolbarAction("Variations", "Notation panel (V) -- analysis only", _post_key(p.K_v), enabled=_is_analysis, icon="variations"),
         ToolbarAction("Engine",     "Engine on/off (E)",               _post_key(p.K_e), active=UCIEngines.is_analysing, icon="engine"),
         ToolbarAction("Flip",       "Flip board (F)",                  _post_key(p.K_f), icon="flip"),
+        ToolbarAction("Plans",      "Analyze typical plans from masters (G) -- analysis only", _post_key(p.K_g), enabled=_is_analysis, icon="analyze"),
+        ToolbarAction("Ideas",      "Edit opening ideas (I) -- analysis only",                 _post_key(p.K_i), enabled=_is_analysis, icon="ideas"),
+        ToolbarAction("DB",         "Lichess database stats (D) -- analysis only",             _post_key(p.K_d), enabled=_is_analysis, icon="db"),
         ToolbarAction("Help",       "Show help (H)",                   _post_key(p.K_h), icon="help"),
     ], y=0, height=BS.TOOLBAR_HEIGHT)
     # Structure/edit group: a separate right-aligned cluster on the SAME top strip
@@ -443,6 +516,8 @@ def playAGame():
         ToolbarAction("Prev",  "Previous move (Left)", _post_key(p.K_LEFT),  icon="prev"),
         ToolbarAction("Next",  "Next move (Right)",    _post_key(p.K_RIGHT), icon="next"),
         ToolbarAction("Last",  "Last move (End)",      _post_key(p.K_END),   icon="last"),
+        ToolbarAction("Twins", "Go to the next transposition / twin of this position (N)",
+                      _post_key(p.K_n), enabled=lambda: _twin_state["twins"], icon="twins"),
         None,
         ToolbarAction("Annotate", "Annotate last move (A) -- analysis only", _post_key(p.K_a), enabled=_is_analysis, icon="annotate"),
         ToolbarAction("Comment",  "Comment last move (T) -- analysis only",  _post_key(p.K_t), enabled=_is_analysis, icon="comment"),
@@ -469,25 +544,60 @@ def playAGame():
             "- E Engine ON/OFF",
             "- B show/hide book",
             "- M show/hide moves",
+            "- C Coach: review current move",
         ]
     if not whiteCPU and not blackCPU:
         # These appear only without a computer (analysis mode)
         help_text.insert(7, "- O Open / load game ")
         help_text.insert(8, "- A Annotate move (! ? !? ...)")
-        help_text.insert(9, "- T Comment move (text)")
+        help_text.insert(9, "- T Comment move (multi-line: Enter=new line, Ctrl+Enter=save)")
         help_text.insert(10, "- V Notation panel (variations)")
         help_text.insert(11, "- P Promote variation to main line")
         help_text.append("- Del: truncate moves after current")
         help_text.append("- Backspace: delete the whole variation you are in")
+        help_text.append("- I Edit opening ideas (plans for this structure)")
+        help_text.append("- G Analyze plans (masters, background)")
+        help_text.append("- D Lichess database stats (current position)")
+        help_text.append("- Transpositions: N next twin / J original / Shift+J find FEN")
     show_help = False
     def do_show_help():
-        glc.draw_help_overlay(help_text, height=400)
+        glc.draw_help_overlay(help_text, height=470)
 
 
     while running:
         time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar/manager
         UCIEngines.poll()  # drains the engine info (no-op if analysis off)
         update = False
+        _plan_res = plan_analysis.poll()   # masters analysis ready? (background)
+        if _plan_res is not None:
+            _kind, _text = _plan_res
+            _on_digit = None
+            if _kind == "done":
+                BS.set_plan_arrows([])
+                _vb = plan_analysis.analyzed_board()
+                _mw = (_vb.turn == chess.WHITE) if _vb else True
+                _mcol = BS.PLAN_ARROW_WHITE if _mw else BS.PLAN_ARROW_BLACK
+                _rcol = BS.PLAN_ARROW_BLACK if _mw else BS.PLAN_ARROW_WHITE
+                _varr = ({i: _plan_arrows_for(_vb, v["mover"], v["resp"], _mcol, _rcol)
+                          for i, v in enumerate(plan_analysis.variants(), 1)} if _vb else {})
+
+                def _on_digit(n, _va=_varr):
+                    BS.set_plan_arrows(_va.get(n, []))   # 0 / unknown -> clear
+                    BS.draw_board_only(app.screen, gs)
+            if _kind == "done" and plan_analysis.dossier_saved():
+                glc.show_text_popup("Masters plans",
+                                    _text + "\n\n(saved to your ideas for this structure -- press I to edit)",
+                                    on_digit=_on_digit)
+            elif _kind == "done" and plan_analysis.dossier_pending():
+                glc.show_text_popup("Masters plans", _text,
+                                    action_label="Update my ideas from masters",
+                                    action=plan_analysis.apply_dossier_update, on_digit=_on_digit)
+            else:
+                glc.show_text_popup("Masters plans" if _kind == "done" else "Plan analysis failed", _text)
+            BS.set_plan_arrows([])     # clear the arrows once the popup closes
+            app.main_background()
+            BS.engine.clear(app.screen)
+            update = True
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
             engine_move:Optional[chess.Move] = UCIEngines.bestMove(gs.board(), elo=elo)  #validMoves is not used at the moment
@@ -550,6 +660,7 @@ def playAGame():
 
                 elif e.type == p.KEYDOWN:
                     update = True
+                    session.message = None          # any key dismisses a lingering status banner
                     if e.key == p.K_RIGHT:
                         moved = session.next_move(
                             pick_variation=lambda mv, bd: _variation_picker(mv, bd, nav_toolbar=nav_toolbar))
@@ -579,6 +690,31 @@ def playAGame():
                         moveMade = True
                         animate = False
                         gameOver = False
+
+                    if e.key == p.K_c:
+                        # Coach: review the move that reached the CURRENT position
+                        # (gs.node) and show the comment in a side popup.
+                        import move_review
+                        node = gs.node
+                        if node is None or node.move is None or node.parent is None:
+                            glc.show_text_popup("Coach",
+                                "No move to review yet. Step forward to a move (Right arrow) first.")
+                        elif not UCIEngines.is_engine_ready():
+                            glc.show_text_popup("Coach",
+                                "No engine configured -- Tools > Setup > Choose engine.")
+                        else:
+                            # The review runs its own synchronous engine.analyse;
+                            # pause any live background analysis to avoid contention.
+                            if UCIEngines.is_analysing():
+                                UCIEngines.stop_analysis()
+                            board_before = node.parent.board()
+                            san = board_before.san(node.move)
+                            comment = move_review.review_move(board_before, node.move, time=0.5)
+                            glc.show_text_popup(f"Coach -- {san}", comment)
+                        # Repaint the right panels over the popup area.
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        continue
 
                     if e.key == p.K_h:
                         # Toggle the help overlay (also shown while right mouse held).
@@ -669,6 +805,97 @@ def playAGame():
                         BS.engine.clear(app.screen)
                         continue
 
+                    if e.key == p.K_i and not whiteCPU and not blackCPU:
+                        # Opening IDEAS: edit the plans/ideas dossier of the
+                        # CURRENT pawn structure (authoring; analysis only).
+                        editOpeningIdeas(gs.node.board())
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        continue
+
+                    if e.key == p.K_g and not whiteCPU and not blackCPU:
+                        # Analyze typical plans from the Lichess MASTERS explorer
+                        # (background thread; the result pops up when ready).
+                        if not plan_analysis.token_ready():
+                            show_message(gs, "Set the Lichess token in Setup first")
+                            app.delay(2)
+                        elif plan_analysis.is_busy():
+                            show_message(gs, "Already analyzing plans...")
+                            app.delay(1)
+                        else:
+                            plan_analysis.start(gs.node.board())
+                            show_message(gs, "Analyzing masters plans...")
+                            app.delay(1)
+                        continue
+
+                    if e.key == p.K_d and not whiteCPU and not blackCPU:
+                        # Lichess GAMES database: a straight stats query for the
+                        # current position (all players, NOT masters; no plans).
+                        import lichess_plans as LP
+                        show_message(gs, "Querying Lichess database...")
+                        try:
+                            raw = LP.db_fetch(gs.node.board().fen())
+                            BS.draw_board_only(app.screen, gs)   # wipe the "Querying..." text first
+                            glc.show_text_popup("Lichess database", LP.format_db_stats(raw))
+                        except Exception as ex:
+                            BS.draw_board_only(app.screen, gs)
+                            glc.show_text_popup("Lichess database -- query failed", str(ex))
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        continue
+
+                    if e.key == p.K_j and not whiteCPU and not blackCPU:
+                        # J: go to the ORIGINAL (first) occurrence of the current
+                        # position (transpositions). Shift+J: search a FEN from the
+                        # clipboard and jump to that position in this game.
+                        if e.mod & p.KMOD_SHIFT:
+                            try:
+                                import pyperclip
+                                fen = (pyperclip.paste() or "").strip()
+                            except Exception:
+                                fen = ""
+                            target = gs.find_node_by_fen(fen) if fen else None
+                            if target is not None:
+                                gs.goToNode(target)
+                                show_message(gs, "Jumped to the position from the FEN")
+                            else:
+                                show_message(gs, "FEN not found in this game (copy a FEN first)")
+                        else:
+                            canon = gs.canonical_node()
+                            if canon is not None and canon is not gs.node:
+                                gs.goToNode(canon)
+                                show_message(gs, "Jumped to the original occurrence")
+                            else:
+                                show_message(gs, "No earlier occurrence of this position")
+                        app.delay(1)
+                        session.refresh()
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        moveMade = False
+                        animate = False
+                        validMoves = gs.stdValidMoves()
+                        session.reorient()
+                        continue
+
+                    if e.key == p.K_n and not whiteCPU and not blackCPU:
+                        # N (or the Twins button): cycle to the next occurrence of
+                        # this position (transpositions / twins).
+                        twin = gs.next_transposition()
+                        if twin is not None:
+                            gs.goToNode(twin)
+                            show_message(gs, "Moved to a twin (transposition)")
+                        else:
+                            show_message(gs, "No other occurrence of this position")
+                        app.delay(1)
+                        session.refresh()
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        moveMade = False
+                        animate = False
+                        validMoves = gs.stdValidMoves()
+                        session.reorient()
+                        continue
+
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
                         # Notation panel: whole game + variations + annotations
                         notation.show_notation(gs)
@@ -747,6 +974,8 @@ def playAGame():
             top_edit_toolbar.draw(app.screen)
             nav_toolbar.draw(app.screen)
             p.display.update()
+            if plan_analysis.is_busy():
+                glc.draw_progress_banner(plan_analysis.progress())
             continue
 
         if moveMade:
@@ -757,6 +986,11 @@ def playAGame():
                 BS.animateMove(gs.moveLog[-1], app.screen, gs)
                 animate = False
             session.reorient()   # re-apply orientation after the move (no-op when locked/CPU)
+
+        # Transposition indicator: refresh only when the node changed (cheap).
+        if gs.node is not _twin_state["node"]:
+            _twin_state["node"] = gs.node
+            _twin_state["twins"] = bool(gs.transpositions_of())
 
         gameOver = gs.checkMate() or gs.staleMate()
 
@@ -811,7 +1045,11 @@ def playAGame():
         top_toolbar.draw(app.screen)
         top_edit_toolbar.draw(app.screen)
         nav_toolbar.draw(app.screen)
+        if vm.message:                       # session status (e.g. transposition warnings)
+            glc.draw_message_banner(vm.message)
         BS.update()
+        if plan_analysis.is_busy():
+            glc.draw_progress_banner(plan_analysis.progress())
 
     top_toolbar.kill()
     top_edit_toolbar.kill()

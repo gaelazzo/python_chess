@@ -243,6 +243,7 @@ class BoardSession:
         self._clicks: List[Tuple[int, int]] = []
         self.validMoves = self.gs.stdValidMoves()
         self.message: Optional[str] = None
+        self.guard_transpositions = False   # analysis sets this -> block growing duplicate positions
         self.running = True
         self.policy.on_start(self)
 
@@ -303,8 +304,17 @@ class BoardSession:
         if len(self._clicks) == 2:
             move = self._completed_move(ask_promotion)
             if move in self.validMoves:
+                # Analysis: don't grow a DUPLICATE (transposed) position -- its
+                # continuations live on the canonical occurrence.
+                if getattr(self, "guard_transpositions", False) and self.gs.is_frozen():
+                    self.message = "Transposition (press J) - go to the original to continue"
+                    self.reset_selection()
+                    return None
                 self.gs.makeMove(move)
                 self.refresh()
+                if getattr(self, "guard_transpositions", False) and self.gs.transpositions_of():
+                    self.message = ("Transposition (press J) - also after "
+                                    + self.gs.node_line_san(self.gs.canonical_node()))
                 self.policy.after_user_move(self)
                 self.policy.reorient(self)
                 reply = self.policy.opponent_reply(self)

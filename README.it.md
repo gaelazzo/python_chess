@@ -509,10 +509,12 @@ mouse**, per vedere l'aiuto a schermo.
 
 **Toolbar a icone.** Tutto quanto segue è anche a un clic. La **barra in alto** ha a
 sinistra gli strumenti — apri/salva, copia FEN/PGN, i toggle di analisi e motore, i
-pannelli laterali (libro, mosse PGN, Personal Stats), ribalta e aiuto — e a destra il
+pannelli laterali (libro, mosse PGN, Personal Stats), i lookup **piani** / **idee** /
+**database** Lichess (in analisi), ribalta e aiuto — e a destra il
 **gruppo di modifica posizione** (edit posizione, salva-come-tattica, taglia, elimina
 variante) più 🏠 **Torna al menu**. La **barra in basso, sotto la scacchiera**, ha la
-navigazione tra le mosse — **⏮ prima / ◀ precedente / ▶ successiva / ⏭ ultima** — e le
+navigazione tra le mosse — **⏮ prima / ◀ precedente / ▶ successiva / ⏭ ultima** — il
+🔀 bottone **Twins** (salta tra le trasposizioni) e le
 azioni sulla mossa (annota / commenta / promuovi). I bottoni non applicabili al momento
 sono sbiaditi; passa il mouse su un bottone per il tooltip con nome e scorciatoia. Ogni
 bottone lancia semplicemente la sua scorciatoia da tastiera, quindi i tasti qui sotto
@@ -541,12 +543,17 @@ continuano a funzionare.
 |-------|--------|
 | **O** | Apri / carica una partita (parte dalla prima mossa, da scorrere con →) |
 | **A** | Annota l'ultima mossa con un glifo (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
-| **T** | Aggiungi un commento testuale all'ultima mossa |
+| **T** | Aggiungi un commento testuale **multi-riga** all'ultima mossa (Invio = a capo, Ctrl+Invio = salva) |
 | **V** | Apri il pannello **Notazione** (intera partita + varianti) |
 | **P** | **Promuovi** la variante corrente a linea principale nel punto in cui si dirama. Se la diramazione è sulla linea principale, la variante diventa la linea principale; se sei dentro una sotto-variante viene promossa nell'ambito della linea che la contiene — premi **P** di nuovo per salire di un altro livello. Non distruttivo (riordina solo le varianti). |
 | **U** | **Setup posizione**: editor visuale modale (vedi §3.3) |
 | **K** | **Salva come tattica**: la posizione + l'ultima mossa giocata vanno in una learning base (vedi §3.3) |
 | **Y** | Attiva/disattiva il pannello **Personal Stats**: W/D/L + continuazioni per la posizione corrente, dalle tue partite (vedi §3.3) |
+| **G** | Analizza i **piani** tipici dal database *masters* di Lichess (in background; un popup elenca i piani numerati con lo score — premi **1–9** per disegnare le mosse di una variante come **frecce** sulla scacchiera, **0** per togliere) |
+| **I** | Modifica il dossier **idee d'apertura** della struttura corrente (G lo precompila dal referto masters) |
+| **D** | Statistiche dal **database Lichess** per la posizione corrente (tutti i giocatori, non masters — una query secca W/D/L) |
+| **N** | Vai alla **trasposizione successiva** ("gemello") della posizione corrente; il bottone *Twins* si accende quando la posizione compare altrove nella partita |
+| **J** / **Shift+J** | Vai all'occorrenza **originale** di una posizione trasposta / cerca una posizione per **FEN** (incollato dalla clipboard) |
 
 > **Pannelli di analisi & layout.** In analisi attivi tre pannelli informativi
 > in modo indipendente: **B** libro d'apertura, **M** *PGN moves* (il proseguio
@@ -610,11 +617,42 @@ la rimuove. Glifi disponibili:
 | `!?` | interessante | `+−` / `−+` | Bianco / Nero vincente |
 | `?!` | dubbia | `□` | mossa forzata |
 
-**Commentare una mossa (tasto `T`).** Apre un campo di testo: scrivi il commento e
-premi **Save**. Il commento appare nella lista mosse (in giallo) e nel pannello Notazione.
+**Commentare una mossa (tasto `T`).** Apre un editor **multi-riga**: scrivi il commento
+(**Invio** = a capo), poi conferma con **Ctrl+Invio** (o il bottone **Save**), annulla con
+**Esc**. Il commento appare nella lista mosse (in giallo) e nel pannello Notazione; gli a-capo
+sono preservati nel PGN.
 
 **Persistenza.** Glifi e commenti sono salvati nel PGN: con **S** (salva) o **Shift+P** (copia
 PGN) restano nella partita e si ritrovano riaprendola, anche in altri programmi di scacchi.
+
+**Piani d'apertura dai maestri (tasto `G`).** Da una posizione d'apertura, una query in
+background al database *masters* di Lichess estrae i **piani tipici** per ciascun lato — gruppi
+di mosse che ricorrono insieme — e li mostra in un popup: i piani numerati del lato al tratto con
+uno score, e per ognuno la risposta tipica dell'avversario con il suo W/D/L. Premi **1–9** per
+disegnare le mosse di un piano come **frecce** sulla scacchiera (bianche per il Bianco, nere per
+il Nero), **0** per togliere. Il risultato è salvato anche nel dossier **idee** della struttura
+(modificalo con **I**).
+
+<p align="center">
+  <img src="docs/img/plan_arrows.png" alt="Le mosse di un piano come frecce sulla scacchiera (bianche = Bianco, nere = Nero)" width="700"><br>
+  <img src="docs/img/plans.png" alt="Popup dei piani dai master: piani numerati con score e risposte tipiche dell'avversario" width="700">
+</p>
+
+**Statistiche database Lichess (tasto `D`).** Una query secca — senza analisi dei piani — al
+database completo di Lichess (tutti i giocatori): la distribuzione delle mosse per la posizione
+corrente con W/D/L. Utile per vedere cosa affronti davvero al livello amatoriale (complementa il
+motore e i tuoi libri).
+
+<p align="center"><img src="docs/img/database.png" alt="Statistiche del database Lichess per la posizione corrente" width="700"></p>
+
+**Trasposizioni.** Analizzando un'apertura con varianti, la stessa posizione si raggiunge spesso
+per inversione di mosse. Il programma le rileva (posizione esatta):
+- quando una mossa **traspone** in una posizione già presente, un banner avvisa e indica dove
+  compare la prima volta;
+- da una posizione **duplicata** la scacchiera non ti fa aggiungere nuove mosse (così l'analisi
+  non si duplica) — premi **J** per andare all'originale e continuare lì;
+- il bottone **Twins** (barra in basso) si accende quando la posizione compare altrove; cliccalo
+  (o premi **N**) per ciclare tra i gemelli. **Shift+J** cerca una posizione da un FEN incollato.
 
 ---
 

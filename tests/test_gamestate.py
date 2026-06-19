@@ -11,6 +11,24 @@ def _game(ucis):
     return gs
 
 
+def test_transposition_detection_and_freeze():
+    # Mainline 1.Nf3 d5 2.d4 and variation 1.d4 d5 2.Nf3 reach the SAME position.
+    gs = _game(["g1f3", "d7d5", "d2d4"])
+    node_main = gs.node
+    gs.gotoFirstMove()
+    for u in ["d2d4", "d7d5", "g1f3"]:          # a transposing variation off the root
+        gs.makeChessMove(chess.Move.from_uci(u))
+    node_var = gs.node
+
+    assert node_var is not node_main
+    assert node_main in gs.transpositions_of(node_var)        # they are transpositions
+    assert gs.canonical_node(node_var) is node_main           # mainline came first
+    assert gs.is_frozen(node_var) is True                     # the variation node is the duplicate
+    assert gs.is_frozen(node_main) is False                   # the canonical is not frozen
+    assert gs.find_node_by_fen(node_var.board().fen()) is node_main   # FEN search -> canonical
+    assert gs.transpositions_of(gs.pgn) == []                 # the root position is unique
+
+
 def test_annotate_last_move():
     gs = _game(["e2e4", "e7e5", "g1f3"])
     assert gs.setMoveNag(1) is True              # mark Nf3 as good "!"

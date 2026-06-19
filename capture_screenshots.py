@@ -21,9 +21,35 @@ import chess
 
 import safe_font
 import BoardScreen as BS
+import game_loop_common as glc
 from app_context import app
 from GameState import GameState
 from toolbar import IconToolbar, ToolbarAction
+
+# Representative popup texts for the masters-plans (G) and Lichess-database (D)
+# screens -- hand-written so a screenshot needs no network.
+PLANS_TEXT = (
+    "Masters: 5043 games, Black to move, White 56%  (50 lines)\n"
+    "Black plans typically:\n"
+    "  [1] Bg7 + O-O + c5 + Na6   (24%, Black 44%)\n"
+    "  [2] Bg7 + O-O + Nc6        (24%, Black 43%)\n"
+    "  [3] Bg7 + O-O + dxe5       (21%, Black 41%)\n"
+    "\n"
+    "On [1], Black plays: Bg7 + O-O, then Bg4 (W31/D46/L23) or Nc7 (W30/D44/L26) or Rb8\n"
+    "   Black does best with Bg4 (Black 47%)\n"
+    "On [2], Black plays: Bg7 + O-O, then Nc6 + Bg4 or c6 + Nbd7 or c6 + Qc7\n"
+    "On [3], Black plays: Bg7 + O-O + dxe5, then Nc6 + e5 or Qe7\n"
+    "\n"
+    "[1-3] show arrows on the board   -   [0] clear")
+DB_TEXT = (
+    "Lichess database: 3,792,835 games   White 53% / Draw 4% / Black 43%\n"
+    "\n"
+    "  Qd2    38.4%  (1,457,778 games)   W54/D3/B43\n"
+    "  f3     35.1%  (1,331,679 games)   W55/D4/B42\n"
+    "  Bd3     7.1%  (270,728 games)    W47/D3/B49\n"
+    "  Nf3     5.2%  (195,999 games)    W50/D4/B46\n"
+    "  h3      3.7%  (141,919 games)    W51/D4/B45\n"
+    "  Be2     3.7%  (139,982 games)    W53/D4/B43")
 
 # Icon toolbars, as (label, icon) specs that MIRROR the live modes. A screenshot
 # only needs the buttons drawn, so the handlers are no-ops. `None` is a separator.
@@ -32,11 +58,13 @@ from toolbar import IconToolbar, ToolbarAction
 ANALYSIS_MAIN = [("Open", "open"), ("Save", "save"), ("CopyFEN", "copyfen"),
                  ("CopyPGN", "copypgn"), ("Lock", "lock"), ("Openings", "openings"),
                  ("PGN", "pgn"), ("Statistics", "statistics"), ("Variations", "variations"),
-                 ("Engine", "engine"), ("Flip", "flip"), ("Help", "help")]
+                 ("Engine", "engine"), ("Flip", "flip"), ("Plans", "analyze"),
+                 ("Ideas", "ideas"), ("DB", "db"), ("Help", "help")]
 ANALYSIS_EDIT = [("EditPos", "editpos"), ("AddTactic", "addtac"), ("Truncate", "truncate"),
                  ("DeleteVar", "delvar"), None, ("Menu", "home")]
 ANALYSIS_NAV = [("First", "first"), ("Prev", "prev"), ("Next", "next"), ("Last", "last"),
-                None, ("Annotate", "annotate"), ("Comment", "comment"), ("Promote", "promote")]
+                ("Twins", "twins"), None,
+                ("Annotate", "annotate"), ("Comment", "comment"), ("Promote", "promote")]
 # Training modes (one top toolbar each), mirroring modes/{replay,openings,endgames}.py.
 SOLVE_TB = [("Solution", "hint"), ("MoreMoves", "moremoves"), ("Next", "nextitem"),
             ("CopyFEN", "copyfen"), ("CopyPGN", "copypgn"), ("Openings", "openings"),
@@ -275,11 +303,45 @@ def capture_advisor(screen, path):
     capture_modal(path, lambda: _show_results(stats, header, "hires", None, "pgn/all.pgn"))
 
 
+def capture_plan_arrows(screen, path):
+    """Analysis board with the masters-plan ARROWS (key G then 1-9): White's plan
+    in white, Black's reply in black. Pirc 150-Attack after 4.Be3."""
+    gs = GameState()
+    for u in ["e2e4", "d7d6", "d2d4", "g8f6", "b1c3", "g7g6", "c1e3"]:
+        gs.makeChessMove(chess.Move.from_uci(u))
+    W, Bk, sq = BS.PLAN_ARROW_WHITE, BS.PLAN_ARROW_BLACK, chess.parse_square
+    BS.set_plan_arrows([
+        (sq("d1"), sq("d2"), W), (sq("f2"), sq("f3"), W), (sq("e1"), sq("c1"), W),   # Qd2 f3 O-O-O
+        (sq("f8"), sq("g7"), Bk), (sq("e8"), sq("g8"), Bk),                          # ...Bg7 ...O-O
+    ])
+    screen.fill(p.Color("black"))
+    BS.drawGameState(screen, gs, [], [], ())
+    BS.book.visible = True;    BS.book.render(screen, SAMPLE_BOOK)
+    BS.pgn.visible = True;     BS.pgn.render(screen, BS.pgn_lines(gs))
+    BS.dbstats.visible = True; BS.dbstats.render(screen, SAMPLE_STATS)
+    BS.engine.visible = True;  BS.engine.render(screen, SAMPLE_ENGINE)
+    draw_analysis_toolbars(screen)
+    p.image.save(screen, path)
+    BS.set_plan_arrows([])
+    print("wrote", path)
+
+
+def capture_plans(screen, path):
+    capture_modal(path, lambda: glc.show_text_popup("Masters plans", PLANS_TEXT))
+
+
+def capture_database(screen, path):
+    capture_modal(path, lambda: glc.show_text_popup("Lichess database", DB_TEXT))
+
+
 def main():
     preview = "--preview" in sys.argv
     screen = boot()
     prefix = "docs/img/_preview_" if preview else "docs/img/"
     capture_analysis(screen, f"{prefix}stats.png")
+    capture_plan_arrows(screen, f"{prefix}plan_arrows.png")
+    capture_plans(screen, f"{prefix}plans.png")
+    capture_database(screen, f"{prefix}database.png")
     capture_solve(screen, f"{prefix}solve.png")
     capture_openings(screen, f"{prefix}openings.png")
     capture_endgame(screen, f"{prefix}endgame.png")

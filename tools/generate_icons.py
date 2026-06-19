@@ -44,10 +44,14 @@ ICONS = {
     "hint":       "\U0001F4A1",  # light bulb (show solution / correct move)
     "nextitem":   "⏩",      # fast-forward (next exercise / game / question)
     "moremoves":  "➕",      # heavy plus (show more continuation moves)
-    "engine":     "\U0001F5A5",  # desktop computer
+    # "engine" is drawn (a classic CPU chip), not an emoji -- see _render_cpu_icon.
     "flip":       "\U0001F503",  # clockwise vertical arrows (Segoe maps 1F504 to "END")
     "lock":       "\U0001F512",  # closed padlock (Lock side: fix the board orientation)
     "help":       "❓",      # question mark
+    "ideas":      "\U0001F4AD",  # thought balloon (edit opening ideas / plans)
+    "analyze":    "\U0001F50E",  # magnifier (analyze typical plans from masters)
+    "db":         "\U0001F441",  # eye (Lichess games database: straight stats lookup)
+    "twins":      "\U0001F500",  # twisted arrows / shuffle (cycle to a transposed twin)
     # top toolbar -- mode launchers (generated now, wired in a later iteration)
     "learning":   "\U0001F9E0",  # brain
     "openings":   "\U0001F4D6",  # open book
@@ -99,6 +103,30 @@ def _bold_font(size: int) -> ImageFont.FreeTypeFont:
         _FONT_CACHE[key] = (ImageFont.truetype(path, size) if path
                             else ImageFont.load_default())
     return _FONT_CACHE[key]
+
+
+def _render_cpu_icon() -> Image.Image:
+    """A classic CPU / processor chip: a square body with pins on all four sides
+    and a coloured core. Drawn here because there is no clean 'CPU chip' emoji
+    (the engine button used the desktop-computer emoji before)."""
+    img = Image.new("RGBA", (CANVAS, CANVAS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    body = (58, 70, 92, 255)       # slate chip body
+    core = (74, 144, 226, 255)     # blue core (matches the app's accent)
+    pin = (150, 158, 172, 255)     # metallic pins
+    b0, b1 = 34, 94                # body square, leaving room for the pins
+    pin_len, pin_w, n = 14, 10, 4
+    span = b1 - b0
+    for i in range(n):
+        c = int(b0 + span * (i + 1) / (n + 1))
+        d.rectangle([c - pin_w // 2, b0 - pin_len, c + pin_w // 2, b0], fill=pin)   # top
+        d.rectangle([c - pin_w // 2, b1, c + pin_w // 2, b1 + pin_len], fill=pin)   # bottom
+        d.rectangle([b0 - pin_len, c - pin_w // 2, b0, c + pin_w // 2], fill=pin)   # left
+        d.rectangle([b1, c - pin_w // 2, b1 + pin_len, c + pin_w // 2], fill=pin)   # right
+    d.rounded_rectangle([b0, b0, b1, b1], radius=10, fill=body)
+    m = 15
+    d.rounded_rectangle([b0 + m, b0 + m, b1 - m, b1 - m], radius=6, fill=core)
+    return img
 
 
 def _render_badge(label: str, bg) -> Image.Image:
@@ -156,7 +184,12 @@ def main() -> None:
         _render_badge(label, bg).save(path)
         print(f"  {name:11s} -> {path}")
 
-    print(f"Done: {len(ICONS) + len(TEXT_BADGES)} icons in {out_dir}")
+    # Drawn icons (no suitable emoji).
+    engine_path = os.path.join(out_dir, "engine.png")
+    _render_cpu_icon().save(engine_path)
+    print(f"  {'engine':11s} -> {engine_path}")
+
+    print(f"Done: {len(ICONS) + len(TEXT_BADGES) + 1} icons in {out_dir}")
 
 
 if __name__ == "__main__":

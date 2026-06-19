@@ -509,11 +509,12 @@ the on-screen help.
 
 **Icon toolbars.** Everything below is also one click away. The **top bar** has the
 tools on the left — open/save, copy FEN/PGN, analysis & engine toggles, the side
-panels (opening book, PGN moves, Personal Stats), flip and help — and on the right
+panels (opening book, PGN moves, Personal Stats), the **plans** / **ideas** / Lichess
+**database** lookups (analysis), flip and help — and on the right
 the **position-editing group** (edit position, save-as-tactic, truncate, delete
 variation) plus 🏠 **Back to menu**. The **bottom bar, under the board**, has move
-navigation — **⏮ first / ◀ previous / ▶ next / ⏭ last** — and the move actions
-(annotate / comment / promote). Buttons that don't apply right now are greyed out;
+navigation — **⏮ first / ◀ previous / ▶ next / ⏭ last** — the 🔀 **Twins** button
+(jump between transpositions) and the move actions (annotate / comment / promote). Buttons that don't apply right now are greyed out;
 hover any button for a tooltip with its name and shortcut. Each button simply fires
 its keyboard shortcut, so the keys below keep working in parallel.
 
@@ -540,12 +541,17 @@ its keyboard shortcut, so the keys below keep working in parallel.
 |-----|--------|
 | **O** | Open / load a game (starts from the first move; step through with →) |
 | **A** | Annotate the last move with a glyph (`!`, `?`, `!!`, `??`, `!?`, `?!`, `±`, …) |
-| **T** | Add a text comment to the last move |
+| **T** | Add a **multi-line** text comment to the last move (Enter = new line, Ctrl+Enter = save) |
 | **V** | Open the **Notation** panel (whole game + variations) |
 | **P** | **Promote** the current variation to the main line at its branch point. If the branch is on the main line, the variation becomes the main line; if you are nested in a sub-variation it is promoted within the enclosing line — press **P** again to promote up another level. Non-destructive (only reorders variations). |
 | **U** | **Position setup**: modal visual editor (see §3.3) |
 | **K** | **Save as tactic**: current position + last move played → learning base (see §3.3) |
 | **Y** | Toggle the **Personal Stats** panel: W/D/L + continuations for the current position, from your own games (see §3.3) |
+| **G** | Analyze typical **plans** from the Lichess *masters* database (runs in the background; a popup lists the numbered plans with scores — press **1–9** to draw a variation's moves as arrows on the board, **0** to clear) |
+| **I** | Edit the **opening ideas** dossier for the current pawn structure (G pre-fills it from the masters report) |
+| **D** | **Lichess database** stats for the current position (all players, not masters — a plain W/D/L query) |
+| **N** | Go to the **next transposition** ("twin") of the current position; the *Twins* button lights up when the position occurs elsewhere in the game |
+| **J** / **Shift+J** | Go to the **original** occurrence of a transposed position / find a position by **FEN** (pasted from the clipboard) |
 
 > **Analysis side panels & layout.** In analysis you toggle three info panels
 > independently: **B** opening book, **M** *PGN moves* (the continuation of the
@@ -608,12 +614,42 @@ choosing another one replaces the previous; *(remove all)* clears it. Available 
 | `!?` | interesting | `+−` / `−+` | White / Black winning |
 | `?!` | dubious | `□` | only move |
 
-**Commenting a move (key `T`).** Opens a text field: type the comment and press **Save**.
-The comment appears in the move list (in yellow) and in the Notation panel.
+**Commenting a move (key `T`).** Opens a **multi-line** editor: type the comment
+(**Enter** = new line), then commit with **Ctrl+Enter** (or the **Save** button), cancel
+with **Esc**. The comment appears in the move list (in yellow) and in the Notation panel;
+the line breaks are preserved in the PGN.
 
 **Persistence.** Glyphs and comments are stored in the PGN: with **S** (save) or **Shift+P**
 (copy PGN) they stay in the game and are restored when you reopen it, even in other chess
 programs.
+
+**Opening plans from the masters (key `G`).** From any opening position, a background query
+to the Lichess *masters* explorer mines the **typical plans** for each side — groups of moves
+that recur together — and shows them in a popup: the side-to-move's numbered plans with a
+score, and for each one the opponent's typical reply with its W/D/L. Press **1–9** to draw a
+plan's moves as **arrows on the board** (white for White's moves, black for Black's), **0** to
+clear. The result is also saved to the structure's **ideas** dossier (edit it with **I**).
+
+<p align="center">
+  <img src="docs/img/plan_arrows.png" alt="A plan's moves shown as arrows on the board (white = White's moves, black = Black's)" width="700"><br>
+  <img src="docs/img/plans.png" alt="Masters-plans popup: numbered plans with scores and the opponent's typical replies" width="700">
+</p>
+
+**Lichess database stats (key `D`).** A straight query — no plan analysis — to the full Lichess
+games database (all players): the move distribution for the current position with W/D/L. Useful
+to see what you'll actually face at amateur level (complements the engine and your books).
+
+<p align="center"><img src="docs/img/database.png" alt="Lichess database stats for the current position" width="700"></p>
+
+**Transposition awareness.** While analysing an opening with variations, the same position is
+often reached by different move orders. The app detects this by exact position:
+- when a move **transposes** into a position already in the game, a banner warns you and points
+  to where it first occurs;
+- from a **duplicate** position the board won't let you add new moves (so the analysis isn't
+  duplicated) — press **J** to jump to the original and continue there;
+- the **Twins** button (bottom bar) lights up whenever the current position occurs elsewhere;
+  click it (or press **N**) to cycle through the twins. **Shift+J** finds any position by a FEN
+  pasted from the clipboard.
 
 ---
 

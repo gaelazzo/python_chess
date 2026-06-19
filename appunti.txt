@@ -1,12 +1,19 @@
+Per compilare il programma in un eseguibile.
 
-Per compilare il programma in un eseguibile, usa il comando:
-pyinstaller --onefile chessMain.py
+Modo consigliato (usa lo spec; NON impacchetta i libri):
+    pyinstaller chessMain.spec
 
-
-pyinstaller --onedir chessMain.py --add-data "images/*.png;images" --add-data "pic-chess.png;."
-
-
-pyinstaller --onedir chessMain.py --add-data "d:\\progetti\\python\\chess\\images\\*.png;images" --add-data "D:\\progetti\\python\\chess\\pic-chess.png;."
+Oppure a riga di comando (one-dir):
+    pyinstaller --onedir chessMain.py --add-data "images/*.png;images" --add-data "pic-chess.png;."
 
 
-pyinstaller --onedir chessMain.py --add-data "images/*.png;images" --add-data "pic-chess.png;." --add-data "books/*.bin;books"
+!!! IMPORTANTE — NON impacchettare MAI la cartella books/ !!!
+La cartella books/ contiene libri d'apertura COMMERCIALI (Fritz14.bin,
+PowerBook2022.bin, StrongBook2022.bin, CorrBook2022.bin -- ChessBase/Fritz)
+che NON possono essere ridistribuiti. Tenerli in locale per uso personale e'
+lecito; includerli nel pacchetto distribuito NO.
+
+Quindi NON usare mai l'opzione:   --add-data "books/*.bin;books"
+
+L'utente finale scarica da solo un libro Polyglot gratuito (vedi INSTALL.md, §2
+"Libro d'apertura Polyglot"). La cartella books/ viene creata vuota al bisogno.
