@@ -56,16 +56,38 @@ jobs:
       contents: write
 
     steps:
+      - name: Check out repository (with tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0      # full history + tags, so the annotated tag object is available
+          fetch-tags: true
+
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
           merge-multiple: true
 
+      - name: Resolve tag name
+        id: tag
+        run: echo "name=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build release notes from the tag annotation
+        # The release body is the annotated tag's message (`git tag -a vX -m ...`),
+        # so the notes have a single source. Falls back to a one-liner for a
+        # lightweight tag (no annotation) so the release step never gets an empty body.
+        run: |
+          TAG='${{ steps.tag.outputs.name }}'
+          git tag -l --format='%(contents)' "$TAG" > release_body.md
+          if [ ! -s release_body.md ]; then echo "Release $TAG" > release_body.md; fi
+          echo "----- release_body.md -----"
+          cat release_body.md
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_tag || github.ref_name }}
+          tag_name: ${{ steps.tag.outputs.name }}
+          body_path: release_body.md
           # draft:false -> non nasconde mai una release pubblica gia' esistente
           # (con draft:true questo step trasformava v1.0.0 in bozza = 404 pubblico).
           draft: false
