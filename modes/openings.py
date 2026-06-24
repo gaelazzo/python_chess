@@ -500,3 +500,155 @@ def playOpeningLine(filename, humanColor):
     p.event.clear()
     UCIEngines.stop_analysis()
     app.main_menu.enable()
+
+
+# --- Repertoire gap analysis ----------------------------------------------
+# Walks the chosen repertoire and shows, on the positions you reach, the STRONG
+# opponent replies (played by masters) that occur in your own games but have no
+# answer in the repertoire -- transpositions excluded. Read-only: it only points
+# at the holes, you decide whether to add a line. See repertoire_gaps.py.
+
+import repertoire_gaps  # noqa: E402  (kept near its only user)
+
+
+def _gaps_message(text, secs=3):
+    app.main_background()
+    BS.drawEndGameText(app.screen, None, text, size=22)
+    BS.update()
+    app.delay(secs)
+
+
+def _gap_overlay_lines(node, position_1based, total_known):
+    """Text panel for one gap node: the path to reach it, then the strong gaps
+    (the ones to act on) and the covered replies, with your-games counts."""
+    path = " ".join(node.path_san) or "(start)"
+    lines = [f"Gap {position_1based}{'' if total_known is None else f'/{total_known}'}"
+             f"   after: {path}",
+             "Strong replies you face with NO answer in your repertoire:"]
+    for r in node.report.gaps:
+        share = f"{r.masters_share*100:.0f}%" if r.masters_share is not None else "?"
+        lines.append(f"   [GAP] {r.san:7} masters {share:>4}   faced {r.games_count}x")
+    covered = [r for r in node.report.replies if r.status == repertoire_gaps.COVERED]
+    if covered:
+        lines.append("Already covered here:")
+        for r in covered[:4]:
+            lines.append(f"   [ok]  {r.san:7} faced {r.games_count}x")
+    lines.append("")
+    lines.append("[N] next gap   [P] previous   [F] flip   [Q] quit")
+    return lines
+
+
+def analyzeRepertoireGaps():
+    """Find strong, uncovered opponent replies in the selected repertoire."""
+    import os as _os
+    import config
+
+    filename = positionParameters.get("openings_filename")
+    if filename is None:
+        _gaps_message("Choose an opening PGN first.")
+        return
+    ref_db = (getattr(config, "reference_db", "") or "").strip()
+    if not ref_db or not _os.path.exists(ref_db):
+        _gaps_message("Set a reference DB (your games) in Setup > Reference DB first.", secs=4)
+        return
+
+    pgn_path = _os.path.join(OPENINGS_FOLDER, filename + ".pgn")
+    user_color = detect_user_color_from_pgn(pgn_path) or "w"
+    user_white = user_color == "w"
+
+    app.main_menu.disable()
+    app.main_menu.full_reset()
+    UCIEngines.stop_analysis()
+    BS.set_context_label(f"Gaps: {filename} ({'White' if user_white else 'Black'})")
+    BS.show_pgn = False
+    BS.show_book = False
+    BS.show_cpu = False
+    BS.setWhiteUp(app.screen, not user_white)
+
+    # Pre-flight: the strength filter needs the masters explorer. If it cannot be
+    # reached (no Lichess token / offline) the feature can't tell strong from
+    # weak, so warn and bail rather than silently report "no gaps".
+    if repertoire_gaps.masters_strong_ucis(chess.Board().fen()) is None:
+        _gaps_message("Masters lookup unavailable: set your Lichess token in Setup "
+                      "(same as key G) and check your connection.", secs=5)
+        BS.set_context_label(None)
+        app.main_menu.enable()
+        return
+
+    gs = GameState()
+
+    def _searching(_fen):
+        app.main_background()
+        BS.drawEndGameText(app.screen, None, "Searching for the next gap...", size=24)
+        p.event.pump()
+
+    start_move = int(positionParameters.get("gaps_start_move", 1) or 1)
+    gen = repertoire_gaps.iter_gap_nodes(pgn_path, ref_db, user_color=user_white,
+                                         start_move=start_move, on_visit=_searching)
+    found = []
+    idx = -1
+    exhausted = False
+
+    def advance():
+        nonlocal idx, exhausted
+        if idx + 1 < len(found):
+            idx += 1
+            return True
+        if exhausted:
+            return False
+        try:
+            found.append(next(gen))
+            idx = len(found) - 1
+            return True
+        except StopIteration:
+            exhausted = True
+            return False
+
+    def render():
+        node = found[idx]
+        gs.setFen(node.fen)
+        BS.drawGameState(app.screen, gs, [], [], ())
+        total_known = len(found) if exhausted else None
+        glc.draw_help_overlay(_gap_overlay_lines(node, idx + 1, total_known))
+
+    if not advance():
+        _gaps_message("No strong gaps found -- your repertoire covers the strong "
+                      "replies you actually face. Well done!", secs=5)
+        BS.set_context_label(None)
+        app.main_menu.enable()
+        return
+    render()
+
+    running = True
+    while running:
+        app.clock.tick(60)
+        for e in p.event.get():
+            app.manager.process_events(e)
+            glc.stop_speech_on_input(e)
+            if e.type == p.QUIT:
+                running = False
+            elif e.type == p.KEYDOWN:
+                if e.key == p.K_q:
+                    running = False
+                elif e.key in (p.K_n, p.K_RIGHT):
+                    if advance():
+                        render()
+                    else:
+                        # no more gaps; keep the last one and tell the user
+                        node = found[idx]
+                        lines = _gap_overlay_lines(node, idx + 1, len(found))
+                        lines.append("(no more gaps -- end of repertoire)")
+                        gs.setFen(node.fen)
+                        BS.drawGameState(app.screen, gs, [], [], ())
+                        glc.draw_help_overlay(lines)
+                elif e.key in (p.K_p, p.K_LEFT):
+                    if idx > 0:
+                        idx -= 1
+                        render()
+                elif e.key == p.K_f:
+                    BS.flipBoard(app.screen)
+                    render()
+
+    BS.set_context_label(None)
+    p.event.clear()
+    app.main_menu.enable()
