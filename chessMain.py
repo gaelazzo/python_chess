@@ -307,7 +307,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     # full-move on (the opening's defining moves are not "gaps"; see analyzeRepertoireGaps).
     openingsMenu.add.selector('Gaps from move: ', [(str(i), i) for i in range(1, 11)],
                               default=max(0, int(positionParameters.get("gaps_start_move", 1)) - 1),
-                              onchange=make_selector_updater("gaps_start_move"))
+                              onchange=make_selector_updater("gaps_start_move", positionParameters))
     openingsMenu.add.button('Find gaps', analyzeRepertoireGaps)
 
     endgamesMenu = pygame_menu.Menu(
