@@ -207,6 +207,7 @@ class GapNode:
     fen: str
     path_san: List[str]          # SAN moves from the root to this node
     report: NodeReport
+    node: object = None          # the chess.pgn.GameNode (for in-memory navigation)
 
 
 def iter_gap_nodes(repertoire_path: str, reference_db: str, *,
@@ -265,3 +266,75 @@ def iter_gap_nodes(repertoire_path: str, reference_db: str, *,
 def find_gaps(repertoire_path: str, reference_db: str, **kwargs) -> List[GapNode]:
     """Eager sweep: all gap nodes as a list (see `iter_gap_nodes` for the args)."""
     return list(iter_gap_nodes(repertoire_path, reference_db, **kwargs))
+
+
+# --- in-memory analysis (the analysis screen edits a live game tree) -------
+
+def detect_user_color(game: chess.pgn.Game) -> Optional[bool]:
+    """Guess the trained side from a live repertoire tree: the OPPONENT is the
+    side with the branching (a repertoire keeps one move for the user and lists
+    the opponent's alternatives). Counts nodes that have >1 child, by side to
+    move; the majority side is the opponent. Returns True=White / False=Black /
+    None (no branching or a tie -> caller decides the fallback)."""
+    white_branch = black_branch = 0
+    for game_node in _walk(game):
+        if len(game_node.variations) > 1:
+            if game_node.board().turn == chess.WHITE:
+                white_branch += 1
+            else:
+                black_branch += 1
+    if white_branch == black_branch:
+        return None
+    # more White-to-move branching -> the opponent is White -> user plays Black
+    return False if white_branch > black_branch else True
+
+
+def find_gaps_in_game(game: chess.pgn.Game, reference_db: str, *,
+                      user_color: bool,
+                      start_move: int = 1,
+                      lookup: Callable = position_stats.lookup_position,
+                      masters: Callable = masters_strong_ucis,
+                      min_share: float = DEFAULT_MIN_SHARE,
+                      min_total: int = DEFAULT_MIN_TOTAL,
+                      on_visit: Optional[Callable[[str], None]] = None):
+    """Analyze a LIVE game tree (the one open in the analysis screen, edits
+    included) and return ``(gaps, order, masters_ok)``:
+      - ``gaps``: list of GapNode in DFS pre-order, each carrying the real
+        ``node`` so the UI can ``goToNode`` it;
+      - ``order``: ``{id(node): preorder_index}`` for EVERY node, so the UI can
+        pick "the next gap after the current position";
+      - ``masters_ok``: False if the masters lookup failed anywhere (so the UI
+        can say "offline" instead of a misleading "no gaps").
+    Same gap definition as `iter_gap_nodes` (root skipped, transposition-safe,
+    strong-only, from `start_move` on)."""
+    covered = covered_positions([game])
+    seen: Set[int] = set()
+    order: dict = {}
+    gaps: List[GapNode] = []
+    masters_ok = True
+    counter = 0
+
+    def visit(node: chess.pgn.GameNode, path: List[str]) -> None:
+        nonlocal counter, masters_ok
+        order[id(node)] = counter
+        counter += 1
+        board = node.board()
+        z = chess.polyglot.zobrist_hash(board)
+        if (board.turn != user_color and node.parent is not None
+                and board.fullmove_number >= start_move and z not in seen):
+            seen.add(z)
+            if on_visit is not None:
+                on_visit(board.fen())
+            report = analyze_node(board, covered=covered, reference_db=reference_db,
+                                  lookup=lookup, masters=masters,
+                                  min_share=min_share, min_total=min_total)
+            if not report.masters_ok:
+                masters_ok = False
+            if report.has_gap:
+                gaps.append(GapNode(fen=board.fen(), path_san=list(path),
+                                    report=report, node=node))
+        for child in node.variations:
+            visit(child, path + [board.san(child.move)])
+
+    visit(game, [])
+    return gaps, order, masters_ok

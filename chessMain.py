@@ -134,7 +134,7 @@ from save_load import save_menu, load_menu
 from modes.play_game import playGame
 from modes.replay import solvePositions
 from modes.brainmaster import playBrainMasterBase
-from modes.openings import playOpening, analyzeRepertoireGaps, OPENINGS_FOLDER
+from modes.openings import playOpening, OPENINGS_FOLDER
 from modes.improve import buildImproveMenu
 from modes.study_advisor import buildAdvisorMenu
 from modes.endgames import playEndgames, ENDGAMES_FOLDER
@@ -303,12 +303,6 @@ def mainMenu(width,height, test: bool = False) -> None:
     addChoosePGNFromFolder(openingsMenu, folder=OPENINGS_FOLDER, key="openings_filename", title='Choose opening PGN')
     openingsMenu.add.selector('Lead-in moves', [("Skip", 1), ("Replay", 0)], default=(0 if state.play_position else 1), onchange=make_selector_updater("play_position"))
     openingsMenu.add.button('Play', playOpening)
-    # Gap analysis: look for strong, uncovered opponent replies only from this
-    # full-move on (the opening's defining moves are not "gaps"; see analyzeRepertoireGaps).
-    openingsMenu.add.selector('Gaps from move: ', [(str(i), i) for i in range(1, 11)],
-                              default=max(0, int(positionParameters.get("gaps_start_move", 1)) - 1),
-                              onchange=make_selector_updater("gaps_start_move", positionParameters))
-    openingsMenu.add.button('Find gaps', analyzeRepertoireGaps)
 
     endgamesMenu = pygame_menu.Menu(
         height=height,

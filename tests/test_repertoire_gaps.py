@@ -158,3 +158,37 @@ def test_start_move_pushes_the_threshold(tmp_path):
     gaps = rg.find_gaps(str(rep), "x", user_color=False, start_move=3,
                         lookup=lookup, masters=masters)
     assert gaps == []                              # the move-2 node is below the threshold
+
+
+def _game(pgn):
+    return chess.pgn.read_game(io.StringIO(pgn))
+
+
+def test_detect_user_color_from_branching():
+    # White repertoire: one user move, several Black alternatives -> branching on
+    # Black-to-move nodes -> user is White.
+    white_rep = _game('[Event "W"]\n\n1. e4 e5 (1... c5) (1... e6) 2. Nf3 *\n')
+    assert rg.detect_user_color(white_rep) is True
+    # Black repertoire vs 1.e4: branching on White-to-move nodes -> user is Black.
+    black_rep = _game('[Event "B"]\n\n1. e4 (1. d4) (1. c4) 1... c6 2. d4 d5 *\n')
+    assert rg.detect_user_color(black_rep) is False
+
+
+def test_find_gaps_in_game_returns_navigable_nodes():
+    # In-memory tree (as the analysis screen holds it). White Ruy stub; at
+    # "after 1.e4" the opponent's c5/g6 are uncovered, only c5 is strong.
+    game = _game('[Event "R"]\n\n1. e4 e5 2. Nf3 Nc6 *\n')
+    fen_e4 = _board_after("e4").fen()
+    lookup = _fake_lookup({fen_e4: {"e7e5": 10, "c7c5": 8, "g7g6": 1}})
+    masters = _fake_masters({fen_e4: {"c7c5": 0.30}})   # e5 covered, g6 weak
+
+    gaps, order, masters_ok = rg.find_gaps_in_game(game, "x", user_color=True,
+                                                   lookup=lookup, masters=masters)
+    assert masters_ok is True
+    assert len(gaps) == 1
+    g = gaps[0]
+    assert {r.uci for r in g.report.gaps} == {"c7c5"}
+    # the carried node is the real tree node and is navigable / ordered
+    assert g.node is not None
+    assert g.node.board().fen() == fen_e4
+    assert id(g.node) in order

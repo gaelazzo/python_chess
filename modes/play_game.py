@@ -505,6 +505,7 @@ def playAGame():
         ToolbarAction("AddTactic", "Save position as tactic (K) -- analysis only",       _post_key(p.K_k),         enabled=_is_analysis, icon="addtac"),
         ToolbarAction("Truncate",  "Truncate moves after here (Del) -- analysis only",   _post_key(p.K_DELETE),    enabled=_is_analysis, icon="truncate"),
         ToolbarAction("DeleteVar", "Delete this variation (Backspace) -- analysis only", _post_key(p.K_BACKSPACE), enabled=_is_analysis, icon="delvar"),
+        ToolbarAction("Gaps",      "Jump to the next repertoire gap (X) -- analysis only", _post_key(p.K_x),       enabled=_is_analysis, icon="gaps"),
         None,                                                                            # separator before the exit button
         ToolbarAction("Menu",      "Back to menu (Q)",                                   _post_key(p.K_q), icon="home"),
     ], y=0, height=BS.TOOLBAR_HEIGHT, x0=_edit_x0,
@@ -559,7 +560,12 @@ def playAGame():
         help_text.append("- G Analyze plans (masters, background)")
         help_text.append("- D Lichess database stats (current position)")
         help_text.append("- Transpositions: N next twin / J original / Shift+J find FEN")
+        help_text.append("- X Next repertoire gap (jumps the board there; Shift+X rescan)")
     show_help = False
+    # Repertoire gap navigation (X): cached scan of the open tree + a preorder
+    # index so X can jump to the gap after the current position. Recomputed on
+    # Shift+X (after you edit lines). See repertoire_gaps.find_gaps_in_game.
+    _gap_state = {"gaps": None, "order": {}}
     def do_show_help():
         glc.draw_help_overlay(help_text, height=470)
 
@@ -769,6 +775,7 @@ def playAGame():
                         # the right arrow (Next / variation picker), exploring the variations.
                         # Against the computer, loading is disabled.
                         load_menu(gs)
+                        _gap_state["gaps"] = None   # new tree -> stale gap scan
                         # Clear the screen: pygame_menu draws full-screen, and
                         # on close the text (the "Load Game" title) remains under
                         # the panels if we don't refresh the background before the redraw.
@@ -896,6 +903,54 @@ def playAGame():
                         session.reorient()
                         continue
 
+                    if e.key == p.K_x and not whiteCPU and not blackCPU:
+                        # X: jump to the next REPERTOIRE GAP -- a strong opponent
+                        # reply seen in your own games that this repertoire has no
+                        # answer to. Shift+X rescans (after you add lines). The
+                        # board is moved onto the gap node so you can edit there.
+                        import os as _os
+                        from config import config as _cfg
+                        _ref = (getattr(_cfg, "reference_db", "") or "").strip()
+                        if not _ref or not _os.path.exists(_ref):
+                            show_message(gs, "Set a reference DB (your games) in Setup first")
+                            app.delay(2)
+                            continue
+                        if _gap_state["gaps"] is None or (e.mod & p.KMOD_SHIFT):
+                            import repertoire_gaps as _RG
+                            ucol = _RG.detect_user_color(gs.pgn)
+                            if ucol is None:
+                                ucol = True   # no variations to infer from -> assume White
+                            show_message(gs, "Scanning for repertoire gaps...")
+                            gaps, order, mok = _RG.find_gaps_in_game(
+                                gs.pgn, _ref, user_color=ucol,
+                                on_visit=lambda _f: p.event.pump())
+                            _gap_state["gaps"] = gaps
+                            _gap_state["order"] = order
+                            if not gaps:
+                                show_message(gs, "No strong gaps found in this repertoire." if mok
+                                             else "Masters lookup unavailable (set Lichess token in Setup).")
+                                app.delay(3)
+                                continue
+                        gaps = _gap_state["gaps"]
+                        order = _gap_state["order"]
+                        cur = order.get(id(gs.node), -1)
+                        nxt = next((g for g in gaps if order.get(id(g.node), -1) > cur), gaps[0])
+                        gs.goToNode(nxt.node)
+                        top = nxt.report.gaps[0]
+                        share = f"{int((top.masters_share or 0) * 100)}%"
+                        path = " ".join(nxt.path_san) or "start"
+                        extra = f" +{len(nxt.report.gaps) - 1}" if len(nxt.report.gaps) > 1 else ""
+                        show_message(gs, f"Gap @ {path}: {top.san} (masters {share}, {top.games_count}x){extra}")
+                        app.delay(2)
+                        session.refresh()
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        moveMade = False
+                        animate = False
+                        validMoves = gs.stdValidMoves()
+                        session.reorient()
+                        continue
+
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
                         # Notation panel: whole game + variations + annotations
                         notation.show_notation(gs)
@@ -951,6 +1006,7 @@ def playAGame():
 
                     if e.key == p.K_r:
                         gs = session.new_game()    # fresh game, controller stays in sync
+                        _gap_state["gaps"] = None  # new tree -> stale gap scan
                         validMoves = session.validMoves
                         sqSelected = ()
                         playerClicks = []
