@@ -445,11 +445,14 @@ def _run_focused_analysis(eco: str, user: str, color: Optional[str],
     for nick, nick_total in zip(nicks, totals):
         def progress_cb(n, base=done):
             app.main_background()
-            BS.drawEndGameText(app.screen, None, f"{eco}: analyzing {base + n}/{total}", size=24)
-            p.event.pump()
-        analyzer.analyzePgn(pgn_name, nick, lb, progress=progress_cb, eco=eco,
-                            use_analyzed_range=True)
+            BS.drawEndGameText(app.screen, None,
+                               f"{eco}: analyzing {base + n}/{total}   (ESC to stop)", size=24)
+            return BS.stop_requested()   # also drains events to keep the window alive
+        stopped = analyzer.analyzePgn(pgn_name, nick, lb, progress=progress_cb, eco=eco,
+                                      use_analyzed_range=True)
         done += nick_total
+        if stopped:        # user interrupted: stop before the next nick
+            break
     lb.save()
 
     if not lb.positions:

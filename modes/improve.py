@@ -18,6 +18,7 @@ import os
 import sys
 from collections import namedtuple
 
+import chess.pgn
 import pygame as p
 import pygame_menu
 
@@ -104,9 +105,34 @@ def _progress_cb(label, total):
     def cb(n):
         app.main_background()
         msg = f"{label}: analyzing {n}/{total}" if total else f"{label}: analyzing game {n}"
-        BS.drawEndGameText(app.screen, None, msg, size=24)
-        p.event.pump()  # keeps the window alive (prevents "not responding")
+        BS.drawEndGameText(app.screen, None, msg + "   (ESC to stop)", size=24)
+        # stop_requested() also drains events, keeping the window responsive.
+        return BS.stop_requested()
     return cb
+
+
+def _count_new_games(path, player, lb: LearningBase):
+    """Games for `player` that analyzePgn(use_analyzed_range=True) will actually
+    process: matching player AND whose date is not already inside the base's
+    per-nick analyzed window. This is the right N/M denominator after an
+    incremental download -- the previously-analyzed games are skipped, not redone."""
+    n = 0
+    try:
+        with open(path, encoding="utf-8") as fh:
+            while True:
+                h = chess.pgn.read_headers(fh)
+                if h is None:
+                    break
+                if not (analyzer._same_player(h.get("White"), player)
+                        or analyzer._same_player(h.get("Black"), player)):
+                    continue
+                gdate = analyzer._game_date(h)
+                if gdate is not None and lb.isInAnalyzedRange(player, gdate):
+                    continue
+                n += 1
+    except OSError:
+        return 0
+    return n
 
 
 def _count_games(path):
@@ -169,7 +195,6 @@ def runImproveWizard(user, color, focus, effort, limit=None):
             _message(f"No games for '{user}' (user does not exist or has no games).")
             return
 
-        total = _count_games(path)
         focuses = ["tactics", "openings"] if focus == "both" else [focus]
 
         results = []   # (focus, baseName, nPositions)
@@ -177,9 +202,15 @@ def runImproveWizard(user, color, focus, effort, limit=None):
             prm = PRESETS[f][effort]
             baseName = f"{user}_{f}"
             lb = _ensure_base(baseName, prm)
-            analyzer.analyzePgn(pgn, user, lb, progress=_progress_cb(_FOCUS_LABEL[f], total))
+            # Per-base count: each focus has its own analyzed window, so a base
+            # already built skips the games it covers and only the new ones count.
+            to_do = _count_new_games(path, user, lb)
+            stopped = analyzer.analyzePgn(pgn, user, lb, progress=_progress_cb(_FOCUS_LABEL[f], to_do),
+                                          use_analyzed_range=True)
             lb.save()
             results.append((f, baseName, len(lb.positions)))
+            if stopped:        # user interrupted: don't roll on into the next focus
+                break
 
         _show_results_and_practice(results, color)
     finally:

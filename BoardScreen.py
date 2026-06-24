@@ -177,6 +177,23 @@ def update():
     assert(clock is not None)
     clock.tick(MAX_FPS)
 
+
+def stop_requested() -> bool:
+    """True if the user asked to interrupt a long-running work loop (e.g. PGN
+    analysis): ESC key or the window close button. Drains the pending events
+    (so it doubles as the event.pump() that keeps the window responsive), hence
+    call it ONLY from a blocking work loop, never from the normal game loop.
+    A QUIT is re-posted so the app can still close cleanly after the caller
+    has saved and returned."""
+    stop = False
+    for e in p.event.get():
+        if e.type == p.QUIT:
+            p.event.post(p.event.Event(p.QUIT))
+            stop = True
+        elif e.type == p.KEYDOWN and e.key == p.K_ESCAPE:
+            stop = True
+    return stop
+
 def setWhiteUp(screen, up):
     global whiteUp
     whiteUp = up

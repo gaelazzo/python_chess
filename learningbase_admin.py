@@ -33,11 +33,12 @@ def _count_games_in_pgn(path: str) -> int:
 def _make_progress_cb(label: str, total: int):
     """Callback for `analyzer.analyzePgn(progress=...)`: redraws the screen
     with N/M and calls event.pump() to avoid Windows' "not responding"."""
-    def cb(n: int) -> None:
+    def cb(n: int) -> bool:
         app.main_background()
         msg = f"{label}: analyzing {n}/{total}" if total else f"{label}: analyzing game {n}"
-        BS.drawEndGameText(app.screen, None, msg, size=24)
-        p.event.pump()
+        BS.drawEndGameText(app.screen, None, msg + "   (ESC to stop)", size=24)
+        # stop_requested() also drains events, keeping the window responsive.
+        return BS.stop_requested()
     return cb
 
 

@@ -176,13 +176,15 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
     board.push(moveMade) # restores the move
     
    
-def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None, use_analyzed_range:bool=False):
+def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None, use_analyzed_range:bool=False) -> bool:
     """`eco` (e.g. "B01"): if not None, filters to only the games with that ECO header.
     `use_analyzed_range`: when True, skip games whose date is already inside the
     base's per-nick analyzed window and grow that window with the games processed
-    (Study Advisor re-run dedup). Off by default -> other callers are unchanged."""
+    (Study Advisor re-run dedup). Off by default -> other callers are unchanged.
+    Returns True if the user interrupted the analysis (see `progress`), so a
+    caller looping over focuses/nicks can stop the whole pipeline too."""
     pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco, use_analyzed_range=use_analyzed_range)
-    pg.analyzeDataBase(start_from,skip_player, progress=progress)
+    return pg.analyzeDataBase(start_from,skip_player, progress=progress)
 
 
 def _same_player(header_name: Optional[str], player: Optional[str]) -> bool:
@@ -239,7 +241,10 @@ class PgnAnalyzer:
         pass
 
  
-    def analyzeDataBase(self, start_from:int=0, skip_player:Optional[str]=None, progress=None):
+    def analyzeDataBase(self, start_from:int=0, skip_player:Optional[str]=None, progress=None) -> bool:
+        """Returns True if interrupted by the user (the `progress` callback
+        returned truthy). On interrupt the current game is finished and the base
+        is saved before breaking, so nothing analyzed so far is lost."""
         n_games = 0
         if start_from>0:
             while n_games < start_from:
@@ -256,26 +261,34 @@ class PgnAnalyzer:
                     if _same_player(game.headers.get("Black"), skip_player):
                         break
 
+        stopped = False
         while True:
             game, colorToAnalyze = self.loadNextGame()
 
             if game is None:
                 break
             n_games +=1
-            if progress is not None:
-                progress(n_games)
+            stop = bool(progress(n_games)) if progress is not None else False
             self.analyzeGame(game, colorToAnalyze)
             if self.use_analyzed_range and self.player is not None:
                 gdate = _game_date(game.headers)
                 if gdate is not None:
                     self.learningBase.extendAnalyzedRange(self.player, gdate)
+            # Clean stop: the current game is fully analyzed and the range
+            # extended above, so saving here loses nothing already processed.
+            if stop:
+                self.learningBase.save()
+                print(f"{n_games} analyzed (stopped by user)")
+                stopped = True
+                break
             if n_games % 50 == 0:
                 self.learningBase.save()
                 print(f"{n_games} analyzed")
-            
+
 
         self.pgn.close()
         self.learningBase.save()
+        return stopped
 
     def loadNextGame(self)->Tuple[Optional[chess.pgn.Game],bool]:
         while True:
