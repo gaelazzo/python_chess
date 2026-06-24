@@ -541,13 +541,13 @@ def _gap_overlay_lines(node, position_1based, total_known):
 def analyzeRepertoireGaps():
     """Find strong, uncovered opponent replies in the selected repertoire."""
     import os as _os
-    import config
+    from config import config as _cfg   # the _Config OBJECT (module has no such attr)
 
     filename = positionParameters.get("openings_filename")
     if filename is None:
         _gaps_message("Choose an opening PGN first.")
         return
-    ref_db = (getattr(config, "reference_db", "") or "").strip()
+    ref_db = (getattr(_cfg, "reference_db", "") or "").strip()
     if not ref_db or not _os.path.exists(ref_db):
         _gaps_message("Set a reference DB (your games) in Setup > Reference DB first.", secs=4)
         return
