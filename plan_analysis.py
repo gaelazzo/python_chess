@@ -457,6 +457,16 @@ def format_suggestions(tree: dict, board: chess.Board) -> str:
     out = [f"Masters: {s['total']} games, {mover} to move, White {s['white_score']*100:.0f}%  ({s['n_lines']} lines)"]
     if not s["conditional"]:
         out.append("(not enough data for a clear plan)")
+        # Fallback: at least show the masters' moves with their frequency at this
+        # position, like the Lichess-DB stats (D). The root fen was already fetched
+        # by explore(), so this is a cache hit.
+        try:
+            raw = LP.http_fetch(board.fen())
+            stats = LP.format_db_stats(raw, title="Masters -- moves played here")
+            out.append("")
+            out.append(stats)
+        except Exception:
+            pass
         return "\n".join(out)
     if s.get("diffuse"):    # had to relax the support threshold to surface a plan
         out.append("(search diffuse: plans below your support threshold -- try a lower depth/branch)")

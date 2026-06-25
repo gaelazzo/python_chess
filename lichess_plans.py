@@ -159,14 +159,15 @@ def db_fetch(fen: str, moves: int = 15, timeout: float = 20.0, token: Optional[s
     return raw
 
 
-def format_db_stats(raw: dict) -> str:
-    """Plain stats for the Lichess games DB: total + overall W/D/B, then per move
-    the share, game count and W/D/B (White POV). A straight query, no plans."""
+def format_db_stats(raw: dict, title: str = "Lichess database") -> str:
+    """Plain stats for an explorer response (Lichess DB or masters): total +
+    overall W/D/B, then per move the share, game count and W/D/B (White POV).
+    A straight query, no plans. `title` labels the source."""
     w, d, b = raw.get("white", 0), raw.get("draws", 0), raw.get("black", 0)
     total = w + d + b
     if not total:
-        return "Lichess database: no games for this position."
-    out = [f"Lichess database: {total:,} games   "
+        return f"{title}: no games for this position."
+    out = [f"{title}: {total:,} games   "
            f"White {w*100/total:.0f}% / Draw {d*100/total:.0f}% / Black {b*100/total:.0f}%", ""]
     for m in raw.get("moves", []):
         mw, md, mb = m.get("white", 0), m.get("draws", 0), m.get("black", 0)
