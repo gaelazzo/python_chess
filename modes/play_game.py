@@ -413,8 +413,11 @@ def playAGame():
     blackCPU = playParameters["blackCPU"]
 
     # Window caption / context label: tell analysis apart from play-vs-computer.
-    BS.set_context_label("Analysis / Human Play" if (not whiteCPU and not blackCPU)
-                         else "Play vs computer")
+    # Kept in a variable so the gap navigator (X) can temporarily show the gap in
+    # the persistent top strip and Esc can restore it.
+    _base_ctx_label = ("Analysis / Human Play" if (not whiteCPU and not blackCPU)
+                       else "Play vs computer")
+    BS.set_context_label(_base_ctx_label)
 
     # Play vs computer needs an engine: bail out with a clear message rather than
     # crashing later when the engine has to move (none configured).
@@ -560,7 +563,7 @@ def playAGame():
         help_text.append("- G Analyze plans (masters, background)")
         help_text.append("- D Lichess database stats (current position)")
         help_text.append("- Transpositions: N next twin / J original / Shift+J find FEN")
-        help_text.append("- X Next repertoire gap (jumps the board there; Shift+X rescan)")
+        help_text.append("- X Next repertoire gap (jumps the board there; Shift+X rescan, Esc close)")
     show_help = False
     # Repertoire gap navigation (X): cached scan of the open tree + a preorder
     # index so X can jump to the gap after the current position. Recomputed on
@@ -939,9 +942,13 @@ def playAGame():
                         top = nxt.report.gaps[0]
                         share = f"{int((top.masters_share or 0) * 100)}%"
                         path = " ".join(nxt.path_san) or "start"
-                        extra = f" +{len(nxt.report.gaps) - 1}" if len(nxt.report.gaps) > 1 else ""
-                        show_message(gs, f"Gap @ {path}: {top.san} (masters {share}, {top.games_count}x){extra}")
-                        app.delay(2)
+                        extra = f" +{len(nxt.report.gaps) - 1} more" if len(nxt.report.gaps) > 1 else ""
+                        # Persistent banner in the top strip (does NOT cover the board and
+                        # does NOT auto-vanish): read it while you add the line, press X for
+                        # the next gap, Esc to close.
+                        BS.set_context_label(
+                            f"GAP {gaps.index(nxt) + 1}/{len(gaps)} @ {path}: {top.san}  "
+                            f"masters {share} ({top.games_count}x){extra}   -   X next, Esc close")
                         session.refresh()
                         app.main_background()
                         BS.engine.clear(app.screen)
@@ -949,6 +956,11 @@ def playAGame():
                         animate = False
                         validMoves = gs.stdValidMoves()
                         session.reorient()
+                        continue
+
+                    if e.key == p.K_ESCAPE:
+                        # Close the gap banner: restore the normal context label.
+                        BS.set_context_label(_base_ctx_label)
                         continue
 
                     if e.key == p.K_v and not whiteCPU and not blackCPU:
