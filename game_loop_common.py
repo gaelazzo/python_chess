@@ -25,6 +25,83 @@ _HELP_BG = (100, 100, 0)
 _HELP_FG = (0, 0, 0)
 
 
+# --- unsaved-PGN guard -----------------------------------------------------
+# The analysis screen registers a getter for the PGN it is editing plus a
+# baseline (the clean text, taken at load / save / new). A QUIT then confirms
+# when the two differ, so an accidental window-close while editing a repertoire
+# does not silently discard the work. Other loops never register a getter, so
+# quit stays immediate for them.
+_pgn_getter = None          # callable -> current PGN string, or None when not editing
+_pgn_baseline = None        # PGN string at the last load / save / new
+
+
+def begin_pgn_edit(getter) -> None:
+    """Start guarding an editable PGN. `getter()` returns its current text; the
+    clean baseline is captured now (call again, or mark_pgn_saved(), to reset it)."""
+    global _pgn_getter, _pgn_baseline
+    _pgn_getter = getter
+    try:
+        _pgn_baseline = getter()
+    except Exception:
+        _pgn_baseline = None
+
+
+def mark_pgn_saved() -> None:
+    """Reset the baseline to the current text (after a successful save / load / new)."""
+    global _pgn_baseline
+    if _pgn_getter is not None:
+        try:
+            _pgn_baseline = _pgn_getter()
+        except Exception:
+            pass
+
+
+def end_pgn_edit() -> None:
+    """Stop guarding (when leaving the analysis screen)."""
+    global _pgn_getter, _pgn_baseline
+    _pgn_getter = None
+    _pgn_baseline = None
+
+
+def has_unsaved_pgn() -> bool:
+    """True if an editable PGN is registered and differs from its baseline."""
+    if _pgn_getter is None:
+        return False
+    try:
+        return _pgn_getter() != _pgn_baseline
+    except Exception:
+        return False
+
+
+def confirm_quit() -> bool:
+    """True if it is OK to terminate the app: nothing unsaved, or the user said
+    yes. Blocking Y/N prompt drawn over the board when there are unsaved edits."""
+    if not has_unsaved_pgn():
+        return True
+    app.main_background()
+    BS.drawEndGameText(app.screen, None,
+                       "Unsaved changes to the PGN -- quit anyway?  (Y / N)", size=22)
+    BS.update()
+    while True:
+        for e in p.event.get():
+            if e.type == p.KEYDOWN:
+                if e.key == p.K_y:
+                    return True
+                if e.key in (p.K_n, p.K_ESCAPE):
+                    return False
+            elif e.type == p.QUIT:
+                return True            # a second window-close -> let it through
+        app.clock.tick(30)
+
+
+def quit_app() -> None:
+    """Centralised app exit: guard unsaved analysis edits, then terminate. If the
+    user cancels at the prompt, returns without quitting (the caller's loop goes on)."""
+    if confirm_quit():
+        p.quit()
+        sys.exit()
+
+
 def engine_callback(text) -> None:
     """Draw the engine evaluation lines through the shared engine panel.
 
@@ -177,8 +254,7 @@ def show_text_popup(title: str, text: str, copy: bool = True,
 
         for e in p.event.get():
             if e.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                quit_app()                 # guards unsaved PGN edits before exiting
             elif e.type == p.KEYDOWN:
                 if e.key in (p.K_ESCAPE, p.K_RETURN, p.K_KP_ENTER):
                     closed = True
@@ -247,8 +323,7 @@ def edit_text_multiline(title: str, initial: str = "") -> Optional[str]:
 
         for e in p.event.get():
             if e.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                quit_app()                 # guards unsaved PGN edits before exiting
             elif e.type == p.KEYDOWN:
                 ctrl = e.mod & p.KMOD_CTRL
                 if e.key == p.K_ESCAPE:

@@ -39,8 +39,7 @@ def _confirm(prompt: str) -> bool:
     while True:
         for e in p.event.get():
             if e.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                glc.quit_app()              # guards unsaved PGN edits before exiting
             if e.type == p.KEYDOWN:
                 if e.key == p.K_y:
                     return True
@@ -159,8 +158,7 @@ def _choose_panel(items, title: str, row_h: int = 32, font_size: int = 18,
 
         for ev in p.event.get():
             if ev.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                glc.quit_app()              # guards unsaved PGN edits before exiting
             elif ev.type == p.KEYDOWN:
                 if ev.key == p.K_ESCAPE or (cancel_on_left and ev.key == p.K_LEFT):
                     result = None
@@ -368,8 +366,7 @@ def editOpeningIdeas(board):
         events = p.event.get()
         for ev in events:
             if ev.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                glc.quit_app()              # guards unsaved PGN edits before exiting
             if ev.type == p.KEYDOWN and ev.key == p.K_ESCAPE:
                 running[0] = False
         surface.fill((0, 0, 0))
@@ -438,6 +435,11 @@ def playAGame():
     # far: undo (Left) / truncate (Del) / delete-variation (Backspace).
     session = BoardSession(AnalysisPolicy(), gs=gs, white_cpu=whiteCPU, black_cpu=blackCPU)
     session.guard_transpositions = (not whiteCPU) and (not blackCPU)   # block duplicate analysis (analysis only)
+    # Guard accidental app-close while editing a PGN: register the current game
+    # as an editable PGN (analysis only). begin/save/new reset the clean baseline;
+    # end_pgn_edit() on exit stops the guard. See game_loop_common.quit_app().
+    if not whiteCPU and not blackCPU:
+        glc.begin_pgn_edit(lambda: gs.to_PgnString())
 
     # View layer: the SHARED side-panel singletons (BoardScreen owns one instance
     # per box -- same render/clear interface as every other mode). play_game keeps
@@ -765,7 +767,8 @@ def playAGame():
                         
                    
                     if e.key== p.K_s: # save the game
-                        save_menu(gs)
+                        if save_menu(gs):
+                            glc.mark_pgn_saved()   # saved -> current game is the new clean baseline
                         app.main_background()  # see the note on K_l
 
                     if e.key == p.K_e:  # Engine on /off
@@ -777,7 +780,8 @@ def playAGame():
                         # the game starts from the first move and you scroll forward with
                         # the right arrow (Next / variation picker), exploring the variations.
                         # Against the computer, loading is disabled.
-                        load_menu(gs)
+                        if load_menu(gs):
+                            glc.mark_pgn_saved()    # loaded game is the new clean baseline
                         _gap_state["gaps"] = None   # new tree -> stale gap scan
                         # Clear the screen: pygame_menu draws full-screen, and
                         # on close the text (the "Load Game" title) remains under
@@ -1018,6 +1022,7 @@ def playAGame():
 
                     if e.key == p.K_r:
                         gs = session.new_game()    # fresh game, controller stays in sync
+                        glc.mark_pgn_saved()       # empty new game is the clean baseline
                         _gap_state["gaps"] = None  # new tree -> stale gap scan
                         validMoves = session.validMoves
                         sqSelected = ()
@@ -1122,6 +1127,7 @@ def playAGame():
     top_toolbar.kill()
     top_edit_toolbar.kill()
     nav_toolbar.kill()
+    glc.end_pgn_edit()          # stop guarding: the game is no longer being edited
     BS.set_context_label(None)
     p.event.clear()
     UCIEngines.stop_analysis()

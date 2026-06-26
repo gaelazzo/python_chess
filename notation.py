@@ -172,8 +172,8 @@ def show_notation(gs):
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                import game_loop_common as glc
+                glc.quit_app()             # guards unsaved PGN edits before exiting
             elif e.type == p.KEYDOWN:
                 if e.key in (p.K_v, p.K_ESCAPE):
                     running = False

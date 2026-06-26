@@ -16,6 +16,7 @@ import BoardScreen as BS
 import pgngamelist
 from GameState import GameState
 from menu_helpers import addChoosePGNFile, make_updater, make_selector_updater
+import game_loop_common as glc
 
 
 def header_from_playparameters(params):
@@ -170,13 +171,17 @@ def load_game(gs:GameState):
         BS.update()
         app.delay(2)
 
-def load_menu(GS:GameState):
+def load_menu(GS:GameState) -> bool:
+    """Returns True if a game was actually loaded (False on Cancel), so the
+    caller can reset its unsaved-edits baseline only when something changed."""
     menu_running = True
+    loaded = False
     surface = app.screen
     def load_game_wrapper():
-        nonlocal menu_running
+        nonlocal menu_running, loaded
         menu_running = False
         load_game(GS)
+        loaded = True
 
     def cancel_load():
         nonlocal menu_running
@@ -191,26 +196,30 @@ def load_menu(GS:GameState):
         events = p.event.get()
         for ev in events:
             if ev.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                glc.quit_app()             # guards unsaved PGN edits before exiting
 
         surface.fill((0, 0, 0))
         _load_menu.update(events)
         _load_menu.draw(surface)
         p.display.flip()
+    return loaded
 
 
-def save_menu(GS:GameState):
+def save_menu(GS:GameState) -> bool:
+    """Returns True if the game was actually saved (False on Cancel), so the
+    caller can mark the PGN clean only when a save really happened."""
     menu_running = True
+    saved = False
     surface = app.screen
     prev_pgn = positionParameters["filename"]
     def save_game_wrapper():
-        nonlocal menu_running
+        nonlocal menu_running, saved
         GS.setHeader(header_from_playparameters(playParameters))
         today_str = datetime.today().strftime("%Y.%m.%d")
         if prev_pgn != positionParameters["filename"]:
             positionParameters["gameid"]= None
         save_game(GS)
+        saved = True
         menu_running = False
 
     def cancel_save():
@@ -253,10 +262,10 @@ def save_menu(GS:GameState):
         events = p.event.get()
         for ev in events:
             if ev.type == p.QUIT:
-                p.quit()
-                sys.exit()
+                glc.quit_app()             # guards unsaved PGN edits before exiting
 
         surface.fill((0, 0, 0))
         _save_menu.update(events)
         _save_menu.draw(surface)
         p.display.flip()
+    return saved
