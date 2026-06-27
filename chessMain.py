@@ -226,12 +226,21 @@ def mainMenu(width,height, test: bool = False) -> None:
     )
     add_menu_intro(playComputerMenu,
         "Play a full game against the engine. Choose your colour and the "
-        "engine's strength (ELO), then press Play. This is a normal game and "
-        "ends when the game does.")
+        "engine's strength (ELO), then press Play. Optionally pick an Opening "
+        "book: the engine then follows that repertoire (a random booked reply, "
+        "with an occasional deviation) until it runs out, then plays normally -- "
+        "so you train your openings into a real game.")
     playColorSelector = playComputerMenu.add.selector('You play', [("White", 0), ("Black", 1), ("Random", 2)], onchange=setPlayColor)
     playComputerMenu.add.range_slider('ELO', range_values=(1350, 2850), onchange=setPlayElo, default=2000, increment=50)
     playComputerMenu.add.toggle_switch("ELO MAX", state_text=("Off", "On"), state_values=(False, True),
                                        onchange=make_updater("elomax",bool,playParameters))
+    # Optional opening repertoire the engine should follow (None = engine only).
+    _opening_files = sorted(f[:-4] for f in os.listdir(OPENINGS_FOLDER) if f.lower().endswith(".pgn"))
+    _guide_options = [("None (engine only)", None)] + [(f, f) for f in _opening_files]
+    _stored_guide = playParameters.get("guide_opening")
+    _guide_default = next((i for i, (_lab, _val) in enumerate(_guide_options) if _val == _stored_guide), 0)
+    playComputerMenu.add.selector('Opening book: ', _guide_options, default=_guide_default,
+                                  onchange=make_selector_updater("guide_opening", playParameters))
     # playComputerMenu.add.range_slider('Num Moves to Show', range_values=(0, 10), increment = 1,
     #                                   onchange=make_updater("num_moves_to_show",int),
     #             default=state.num_moves_to_show)  # Add this line

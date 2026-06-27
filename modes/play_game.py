@@ -16,6 +16,7 @@ from state import playParameters, positionParameters, CIRCLE_COLOR
 from GameState import Move, GameState, NAG_CHOICES
 import UCIEngines
 import plan_analysis
+import guide_book
 import BoardScreen as BS
 from toolbar import IconToolbar, ToolbarAction
 import analyzer
@@ -409,6 +410,12 @@ def playAGame():
     whiteCPU = playParameters["whiteCPU"]
     blackCPU = playParameters["blackCPU"]
 
+    # Optional "play from my opening book": on the computer's turn it follows the
+    # chosen repertoire (a random booked move, with an occasional engine deviation),
+    # then the engine once off-book. Only loaded when playing vs the computer.
+    guide_index = (guide_book.load_index_for(playParameters.get("guide_opening"))
+                   if (whiteCPU or blackCPU) else {})
+
     # Window caption / context label: tell analysis apart from play-vs-computer.
     # Kept in a variable so the gap navigator (X) can temporarily show the gap in
     # the persistent top strip and Esc can restore it.
@@ -611,7 +618,10 @@ def playAGame():
             update = True
         if not gameOver and \
                 ((gs.whiteToMove() and whiteCPU) or (blackCPU and not gs.whiteToMove())):
-            engine_move:Optional[chess.Move] = UCIEngines.bestMove(gs.board(), elo=elo)  #validMoves is not used at the moment
+            # Book first (if a repertoire is loaded), engine otherwise / on deviation.
+            _book_uci = guide_book.book_move(guide_index, gs.board())
+            engine_move:Optional[chess.Move] = (chess.Move.from_uci(_book_uci) if _book_uci is not None
+                                                else UCIEngines.bestMove(gs.board(), elo=elo))  #validMoves is not used at the moment
             if engine_move is not None:
                 move:Optional[Move] = Move.fromChessMove(engine_move, gs)
                 gs.makeMove(move)
