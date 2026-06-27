@@ -231,7 +231,7 @@ def playOpeningLine(filename, humanColor):
         return lambda: p.event.post(p.event.Event(p.KEYDOWN, key=key, mod=mod))
     # NB: Undo is NOT exposed as a button in Study Openings: the mode is a
     # "find the correct move" exercise, not free play, and gs.undoMove()
-    # interacts in a non-intuitive way with the sequence (stopCondition /
+    # interacts in a non-intuitive way with the sequence (continuation /
     # opponent auto-moves), causing solution steps to be skipped. The
     # keyboard shortcut Z/Left remains available for manual use.
     # Icon toolbar: only the buttons that apply to this mode (Copy FEN/PGN stay on
@@ -306,20 +306,37 @@ def playOpeningLine(filename, humanColor):
 
         currentMove = 0
         validMoves = gs.stdValidMoves()
-        engineMove = 0
+        # Post-solution continuation ("Num Moves to Show"): once the user has
+        # solved their part -- one move in Skip mode, the whole line in Replay --
+        # `continuation` half-moves are played out: along the stored line while it
+        # lasts, then by the engine past the end of the book. This is independent
+        # of the Skip/Replay lead-in choice (which only governs the INITIAL moves).
+        continuation = 0
+        continuation_started = False
         mustSkip = False
         terminated = False
         gameOver = False
         errors = 0
-        stopCondition = False
         while running and not mustSkip:
             time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar
             UCIEngines.poll()  # drain engine info (no-op if analysis is off)
-            humanCanPlay = gs.colorToMove() == humanColor
+            # Once the continuation is running the user must not interfere: force
+            # "not your turn" so the line/engine plays it out on its own.
+            humanCanPlay = gs.colorToMove() == humanColor and not continuation_started
             checkMove = False
             nextMove = gs.getNextMainMove()
             update= False
-            if nextMove is None or stopCondition:  # game is over anyway
+
+            # Replay mode reaches the end of the line by having the user play it
+            # all; that exhaustion is where its post-solution continuation begins.
+            # (Skip mode starts the continuation right after its single solved
+            # move, below.) Guarded so it triggers exactly once.
+            if not continuation_started and nextMove is None and len(gs.moveLog) > 0:
+                continuation = state.num_moves_to_show
+                continuation_started = True
+
+            if continuation_started and continuation == 0:
+                # The continuation is over (or "Num Moves to Show" is 0): done.
                 text = "Ok"
                 app.main_background()
                 BS.drawEndGameText(app.screen, gs, text)
@@ -328,12 +345,30 @@ def playOpeningLine(filename, humanColor):
                 gameOver = True
                 break
 
-            if nextMove is not None and not humanCanPlay:
+            if continuation_started and nextMove is None:
+                # Continuation past the end of the book: let the engine play the
+                # remaining half-moves so the user always sees the requested number.
+                chessmove = UCIEngines.bestMove(gs.board(), time=1.0)
+                emove = Move.fromChessMove(chessmove, gs) if chessmove is not None else None
+                if emove is None:
+                    continuation = 0   # terminal position (mate/stalemate): stop
+                else:
+                    gs.makeMove(emove)
+                    moveMade = True
+                    animate = True
+                    validMoves = gs.stdValidMoves()
+                    update = True
+                    continuation -= 1
+            elif nextMove is not None and not humanCanPlay:
+                    # Opponent's normal reply, or -- during the continuation -- the
+                    # next half-move of the stored line.
                     move = gs.makeNextMove()
                     moveMade = True
                     animate = True
                     validMoves = gs.stdValidMoves()
                     update = True
+                    if continuation_started:
+                        continuation -= 1
 
 
             for e in p.event.get():
@@ -387,7 +422,12 @@ def playOpeningLine(filename, humanColor):
                             animate = True
                             validMoves = gs.stdValidMoves()
                             if state.play_position:
-                                stopCondition=True
+                                # Skip mode is a one-move puzzle: begin the
+                                # post-solution continuation now so the user is not
+                                # asked to keep playing the line. (Replay mode lets
+                                # it start when the whole line has been played.)
+                                continuation = state.num_moves_to_show
+                                continuation_started = True
                         else:
                             # Wrong move: added or updated in the base.
                             _log_user_move_to_base(lb, game, _board_pre,
