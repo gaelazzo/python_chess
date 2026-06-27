@@ -212,6 +212,13 @@ Imposta i parametri e premi **Play**:
 - **You play**: White / Black / Random (con chi giochi tu);
 - **ELO**: forza del motore (1350–2850);
 - **ELO MAX**: se attivo, il motore gioca alla massima forza ignorando l'ELO.
+- **Opening book** *(opzionale)*: scegli un repertorio dalla cartella `openings/`
+  (oppure *None = solo motore*). Quando tocca al computer, segue quel libro
+  giocando una delle risposte previste **scelta a caso** (le trasposizioni sono
+  riconosciute), con una **deviazione occasionale** (~1 volta su 6 gioca da
+  motore per non essere prevedibile); finite/uscite le mosse di libro prosegue
+  **da motore** con la forza scelta. Così alleni la tua apertura dentro una
+  partita vera.
 
 Muovi con il mouse; il computer risponde automaticamente.
 
@@ -220,6 +227,22 @@ Due umani giocano a turno sulla stessa scacchiera. Poiché **non c'è un motore 
 risponde**, questa è la modalità giusta per **analizzare** *e* per **costruire
 manualmente posizioni** (vedi i due sub-mode più sotto): puoi tornare indietro,
 provare mosse alternative (varianti), annotarle e commentarle (vedi §5 e §6).
+
+> **Modifiche non salvate.** Se chiudi la finestra o torni al menu (`Q` / pulsante
+> Menu) mentre hai modifiche al PGN non salvate, l'app chiede conferma prima di
+> scartarle.
+
+#### Buchi di repertorio (tasto **X**)
+
+Mentre editi un PGN-repertorio in analisi, **X** salta al **prossimo "buco"**:
+una risposta avversaria **forte** (giocata dai master sopra una soglia) che
+compare nelle **tue partite** (il *DB di riferimento*, vedi §3.3 *Personal Stats*)
+ma a cui il repertorio **non ha una risposta** — escluse le trasposizioni. La
+scacchiera si posiziona sul nodo da sistemare e una riga in alto descrive il buco;
+premi di nuovo **X** per il successivo, **Shift+X** per riscansionare dopo aver
+aggiunto linee, **Esc** per chiudere l'avviso. Richiede un *reference DB*
+impostato (Setup) e il token Lichess (lo stesso del tasto **G**). Solo dalla 1ª
+mossa in poi: la scelta d'apertura dell'avversario non è un "buco".
 
 #### Sub-mode: Setup posizione (tasto **U** o bottone ✏️ *Edit position*)
 
@@ -535,7 +558,8 @@ continuano a funzionare.
 | **E** | Motore di analisi ON/OFF (mostra la valutazione) |
 | **B** | Mostra/nascondi il libro di aperture |
 | **M** | Mostra/nascondi il pannello **PGN moves** (il proseguio della linea corrente, in SAN) |
-| **Q** | Torna al menu principale |
+| **C** | **Coach**: commento sulla mossa che ha raggiunto la posizione corrente (richiede un motore) |
+| **Q** | Torna al menu principale (chiede conferma se il PGN ha modifiche non salvate) |
 
 **Solo in "Play between humans" (analisi):**
 
@@ -549,11 +573,14 @@ continuano a funzionare.
 | **U** | **Setup posizione**: editor visuale modale (vedi §3.3) |
 | **K** | **Salva come tattica**: la posizione + l'ultima mossa giocata vanno in una learning base (vedi §3.3) |
 | **Y** | Attiva/disattiva il pannello **Personal Stats**: W/D/L + continuazioni per la posizione corrente, dalle tue partite (vedi §3.3) |
-| **G** | Analizza i **piani** tipici dal database *masters* di Lichess (in background; un popup elenca i piani numerati con lo score — premi **1–9** per disegnare le mosse di una variante come **frecce** sulla scacchiera, **0** per togliere) |
+| **G** | Analizza i **piani** tipici dal database *masters* di Lichess (in background; un popup elenca i piani numerati con lo score — premi **1–9** per disegnare le mosse di una variante come **frecce** sulla scacchiera, **0** per togliere). Se i dati masters sono troppo pochi per un piano chiaro, mostra comunque le **mosse dei master con la frequenza** (come il tasto **D**) |
 | **I** | Modifica il dossier **idee d'apertura** della struttura corrente (G lo precompila dal referto masters) |
 | **D** | Statistiche dal **database Lichess** per la posizione corrente (tutti i giocatori, non masters — una query secca W/D/L) |
 | **N** | Vai alla **trasposizione successiva** ("gemello") della posizione corrente; il bottone *Twins* si accende quando la posizione compare altrove nella partita |
 | **J** / **Shift+J** | Vai all'occorrenza **originale** di una posizione trasposta / cerca una posizione per **FEN** (incollato dalla clipboard) |
+| **X** / **Shift+X** | Vai al **prossimo buco di repertorio** (vedi §3.3) / riscansiona dopo aver aggiunto linee |
+| **Canc** | **Tronca**: elimina le mosse dopo la posizione corrente |
+| **Backspace** | Elimina l'intera **variante** in cui ti trovi (fino al punto di diramazione) |
 
 > **Pannelli di analisi & layout.** In analisi attivi tre pannelli informativi
 > in modo indipendente: **B** libro d'apertura, **M** *PGN moves* (il proseguio

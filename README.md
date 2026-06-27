@@ -210,6 +210,12 @@ Set the parameters and press **Play**:
 - **You play**: White / Black / Random (which side you take);
 - **ELO**: engine strength (1350–2850);
 - **ELO MAX**: if on, the engine plays at full strength, ignoring the ELO setting.
+- **Opening book** *(optional)*: pick a repertoire from the `openings/` folder
+  (or *None = engine only*). On the computer's turn it then follows that book,
+  playing one of the prepared replies **at random** (transpositions are
+  recognised), with an **occasional deviation** (~1 in 6 it plays the engine, to
+  stay unpredictable); once the book runs out it continues **as the engine** at
+  the chosen strength. This lets you train your opening inside a real game.
 
 Move with the mouse; the computer replies automatically.
 
@@ -218,6 +224,21 @@ Two humans move in turn on the same board. Since **there is no engine replying**
 this is the right mode to **analyse** *and* to **manually build positions**
 (see the two sub-modes below): you can take moves back, try alternative moves
 (variations), annotate and comment them (see §5 and §6).
+
+> **Unsaved changes.** If you close the window or go back to the menu (`Q` / Menu
+> button) while the PGN has unsaved edits, the app asks for confirmation before
+> discarding them.
+
+#### Repertoire gaps (key **X**)
+
+While editing a repertoire PGN in analysis, **X** jumps to the **next "gap"**: a
+**strong** opponent reply (played by masters above a threshold) that occurs in
+**your own games** (the *reference DB*, see §3.3 *Personal Stats*) but for which
+the repertoire has **no answer** — transpositions excluded. The board moves onto
+the node to fix and a one-line banner describes the gap; press **X** again for the
+next one, **Shift+X** to rescan after adding lines, **Esc** to close the banner.
+Needs a *reference DB* set (Setup) and the Lichess token (same as key **G**). Only
+from move 1 on: the opponent's choice of opening is not a "gap".
 
 #### Sub-mode: Position setup (key **U** or the ✏️ *Edit position* button)
 
@@ -533,7 +554,8 @@ its keyboard shortcut, so the keys below keep working in parallel.
 | **E** | Analysis engine ON/OFF (shows the evaluation) |
 | **B** | Show/hide the opening book |
 | **M** | Show/hide the **PGN moves** panel (the continuation of the current line, in SAN) |
-| **Q** | Back to the main menu |
+| **C** | **Coach**: commentary on the move that reached the current position (needs an engine) |
+| **Q** | Back to the main menu (asks for confirmation if the PGN has unsaved edits) |
 
 **Only in "Play between humans" (analysis):**
 
@@ -547,11 +569,14 @@ its keyboard shortcut, so the keys below keep working in parallel.
 | **U** | **Position setup**: modal visual editor (see §3.3) |
 | **K** | **Save as tactic**: current position + last move played → learning base (see §3.3) |
 | **Y** | Toggle the **Personal Stats** panel: W/D/L + continuations for the current position, from your own games (see §3.3) |
-| **G** | Analyze typical **plans** from the Lichess *masters* database (runs in the background; a popup lists the numbered plans with scores — press **1–9** to draw a variation's moves as arrows on the board, **0** to clear) |
+| **G** | Analyze typical **plans** from the Lichess *masters* database (runs in the background; a popup lists the numbered plans with scores — press **1–9** to draw a variation's moves as arrows on the board, **0** to clear). When masters data is too thin for a clear plan, it still lists the **masters moves with their frequency** (like key **D**) |
 | **I** | Edit the **opening ideas** dossier for the current pawn structure (G pre-fills it from the masters report) |
 | **D** | **Lichess database** stats for the current position (all players, not masters — a plain W/D/L query) |
 | **N** | Go to the **next transposition** ("twin") of the current position; the *Twins* button lights up when the position occurs elsewhere in the game |
 | **J** / **Shift+J** | Go to the **original** occurrence of a transposed position / find a position by **FEN** (pasted from the clipboard) |
+| **X** / **Shift+X** | Go to the **next repertoire gap** (see §3.3) / rescan after adding lines |
+| **Del** | **Truncate**: delete the moves after the current position |
+| **Backspace** | Delete the whole **variation** you are in (back to its branch point) |
 
 > **Analysis side panels & layout.** In analysis you toggle three info panels
 > independently: **B** opening book, **M** *PGN moves* (the continuation of the
