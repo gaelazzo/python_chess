@@ -642,7 +642,10 @@ def playAGame():
                 cmd = game_input.translate(e)
                 if cmd is not None:
                     if cmd.kind == "quit":
-                        running = False
+                        # Window-close on the main analysis screen returns to the
+                        # menu; guard unsaved edits before discarding the game.
+                        if glc.confirm_unsaved("Unsaved changes to the PGN -- leave to menu anyway?  (Y / N)"):
+                            running = False
                     elif cmd.kind == "click":
                         if not gameOver and not _in_toolbars(e.pos):
                             moved = session.apply(cmd,
@@ -732,8 +735,10 @@ def playAGame():
                         show_help = not show_help
 
                     if e.key == p.K_q:
-                        #quit
-                        running = False
+                        #quit (Q key or the Menu toolbar button) -> back to menu;
+                        # guard unsaved edits before discarding the game.
+                        if glc.confirm_unsaved("Unsaved changes to the PGN -- leave to menu anyway?  (Y / N)"):
+                            running = False
 
 
                     if e.key == p.K_u and not whiteCPU and not blackCPU:

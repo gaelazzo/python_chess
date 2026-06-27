@@ -73,14 +73,14 @@ def has_unsaved_pgn() -> bool:
         return False
 
 
-def confirm_quit() -> bool:
-    """True if it is OK to terminate the app: nothing unsaved, or the user said
-    yes. Blocking Y/N prompt drawn over the board when there are unsaved edits."""
+def confirm_unsaved(prompt: str) -> bool:
+    """True if it is OK to proceed past a destructive action (quit, or leave the
+    analysis screen): nothing unsaved, or the user said yes. Blocking Y/N prompt
+    drawn over the board when there are unsaved edits."""
     if not has_unsaved_pgn():
         return True
     app.main_background()
-    BS.drawEndGameText(app.screen, None,
-                       "Unsaved changes to the PGN -- quit anyway?  (Y / N)", size=22)
+    BS.drawEndGameText(app.screen, None, prompt, size=22)
     BS.update()
     while True:
         for e in p.event.get():
@@ -92,6 +92,11 @@ def confirm_quit() -> bool:
             elif e.type == p.QUIT:
                 return True            # a second window-close -> let it through
         app.clock.tick(30)
+
+
+def confirm_quit() -> bool:
+    """True if it is OK to terminate the app (guards unsaved analysis edits)."""
+    return confirm_unsaved("Unsaved changes to the PGN -- quit anyway?  (Y / N)")
 
 
 def quit_app() -> None:
