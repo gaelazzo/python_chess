@@ -202,6 +202,12 @@ Parametri:
 - **Accuratezza** — *Quick / Balanced / Thorough*: preset di `ponderTime`, `blunderValue`,
   `movesToAnalyze` adatti a ciascun focus.
 
+Vedi una schermata `N/M` mentre il motore analizza. Dopo un download **incrementale**
+analizza **solo le partite nuove** (quelle già analizzate vengono saltate, niente
+doppi conteggi), quindi il contatore riflette le sole nuove. Puoi **interrompere
+con `ESC`**: finisce la partita in corso, salva e si ferma senza perdere il lavoro
+già fatto (lo stesso vale per *Suggestion for study*, §3.7).
+
 A fine analisi compaiono i pulsanti **Allena tattica / aperture** che entrano in
 *Solve positions* sulla base `<utente>_tactics` o `<utente>_openings` (vedi §3.4). Le basi
 restano persistenti in `data/`: nelle sessioni successive si entra direttamente da

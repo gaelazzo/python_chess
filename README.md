@@ -201,6 +201,12 @@ Parameters:
 - **Accuracy** — *Quick / Balanced / Thorough*: presets for `ponderTime`, `blunderValue`,
   `movesToAnalyze`, tuned per focus.
 
+You see an `N/M` screen while the engine analyses. After an **incremental** download
+it analyses **only the new games** (already-analysed ones are skipped, no double
+counting), so the counter reflects just the new ones. You can **interrupt with `ESC`**:
+it finishes the current game, saves and stops without losing the work already done
+(the same applies to *Suggestion for study*, §3.7).
+
 When the analysis ends you get **Train tactics / openings** buttons that drop you into
 *Solve positions* on the `<user>_tactics` or `<user>_openings` base (see §3.4). The bases
 persist in `data/`; later sessions resume directly from *Solve positions* by picking the base.

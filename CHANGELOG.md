@@ -4,6 +4,35 @@ Tutte le modifiche degne di nota a **Hires Chess Trainer**.
 Formato ispirato a [Keep a Changelog](https://keepachangelog.com/);
 versionamento [semantico](https://semver.org/lang/it/).
 
+## [1.5.0] - 2026-06-27
+
+### Aggiunte
+- **Analisi dei buchi di repertorio (tasto `X`)** in modalità analisi: mentre
+  editi un PGN-repertorio, `X` salta al prossimo "buco" — una risposta avversaria
+  **forte** (giocata dai master sopra una soglia) che compare nelle tue partite
+  (il *DB di riferimento*) ma a cui il repertorio **non ha una risposta**,
+  trasposizioni escluse. La scacchiera si posiziona sul nodo da sistemare,
+  `Shift+X` riscansiona dopo aver aggiunto linee, `Esc` chiude l'avviso.
+- **"Opening book" in *Play vs computer***: opzionalmente il motore segue un tuo
+  repertorio (cartella `openings/`), giocando una risposta prevista **a caso**
+  (trasposizioni riconosciute) con una **deviazione occasionale** (~1 volta su 6);
+  finite le mosse di libro prosegue **da motore** alla forza scelta. Alleni
+  l'apertura dentro una partita vera.
+- **Tasto `G`**: quando i dati masters sono troppo pochi per un piano chiaro,
+  mostra comunque le **mosse dei master con la frequenza** (come il tasto `D`).
+- **Interruzione con `ESC`** dell'analisi lunga nei wizard *Migliora dalle tue
+  partite* e *Suggestion for study* (finisce la partita in corso, salva e si ferma).
+
+### Modifiche
+- **Avviso modifiche non salvate**: chiudendo la finestra o tornando al menu
+  durante l'analisi con un PGN modificato, l'app chiede conferma prima di scartare.
+- Manuale d'uso (README IT/EN) allineato alle funzioni attuali.
+
+### Correzioni
+- *Migliora dalle tue partite*: dopo un download **incrementale** ora analizza
+  **solo le partite nuove** (prima rianalizzava l'intero file, gonfiando il
+  contatore N/M e ripetendo lavoro già fatto).
+
 ## [1.4.0] - 2026-06-19
 
 ### Aggiunte
