@@ -52,6 +52,7 @@ ICONS = {
     "analyze":    "\U0001F50E",  # magnifier (analyze typical plans from masters)
     "db":         "\U0001F441",  # eye (Lichess games database: straight stats lookup)
     "twins":      "\U0001F500",  # twisted arrows / shuffle (cycle to a transposed twin)
+    "watch":      "\U0001F4FA",  # television (follow a live board shown on screen)
     # top toolbar -- mode launchers (generated now, wired in a later iteration)
     "learning":   "\U0001F9E0",  # brain
     "openings":   "\U0001F4D6",  # open book

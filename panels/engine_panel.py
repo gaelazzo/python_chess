@@ -45,6 +45,11 @@ class EnginePanel(TextLinesPanel):
             es = big.render(eval_str, True, p.Color("white"))
             screen.blit(es, (x, rect.y + 2))
             x += es.get_width() + 12
+        best = UCIEngines.current_best_move()
+        if best:                                   # the move that eval belongs to
+            bs = big.render(best, True, p.Color(120, 235, 140))   # green: the best move
+            screen.blit(bs, (x, rect.y + 2))
+            x += bs.get_width() + 12
         name = UCIEngines.engine_name()
         if name:
             ns = font.render(name, True, p.Color(170, 200, 235))   # soft blue-grey

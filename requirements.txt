@@ -12,3 +12,5 @@ pygame_gui>=0.6,<0.6.9  # widget GUI: dialoghi, liste, input testuali
 pyperclip>=1.9     # copia/incolla di FEN e PGN dagli appunti
 pyttsx3>=2.99      # sintesi vocale offline delle mosse (TTS)
 requests>=2.32     # download partite Chess.com / lichess + servizio BrainMaster
+numpy>=1.26        # board-vision: template matching per riconoscere una board da immagine (watch mode)
+Pillow>=10         # board-vision / watch: cattura schermo (ImageGrab) + immagini (import: PIL)

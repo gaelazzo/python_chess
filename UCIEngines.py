@@ -122,11 +122,25 @@ def current_eval() -> str:
     return latest_eval_str
 
 
+def current_best_move() -> str:
+    """SAN of the engine's best move (the one the headline eval belongs to), or ''."""
+    return latest_best_move_str
+
+
 def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants=3) -> list[str]:
-    global latest_eval_str
+    global latest_eval_str, latest_best_move_str
     result_lines = []
-    # Headline eval = the best line (info_list[0]); shown big in the panel header.
+    # Headline eval = the best line (info_list[0]); shown big in the panel header,
+    # together with the move that eval belongs to (best line's first move, in SAN).
     latest_eval_str = _eval_str(info_list[0]) if info_list else ""
+    latest_best_move_str = ""
+    if info_list:
+        pv0 = info_list[0].get("pv") or []
+        if pv0:
+            try:
+                latest_best_move_str = _analyzed_board.san(pv0[0])
+            except Exception:
+                latest_best_move_str = str(pv0[0])    # fall back to UCI if SAN fails
 
     # Take the general data from the first info (e.g. time and nodes)
     if info_list:
@@ -168,6 +182,8 @@ def format_engine_info_list(info_list: list[chess.engine.InfoDict], max_variants
 analysis_results = []  # List of valid dictionaries with score + pv
 latest_status_line = ""  # Last line of the current status
 latest_eval_str = ""  # Headline eval of the best line (White POV), e.g. "+0.80"
+latest_best_move_str = ""  # SAN of the best line's FIRST move (the move that eval belongs to)
+_analyzed_board = None     # position currently under analysis (to render the pv in SAN)
 # A chess.Move when the LIVE analysis shows a single clearly-best move (only
 # move), else None. The board reads it to draw the blue "only move" arrow. It is
 # reset whenever analysis (re)starts or stops -- so it clears on every move.
@@ -279,9 +295,12 @@ def start_analysis(board, callback, interval_sec=1.0) -> None:
     Reopen the engine if dead. Does not raise exceptions to the caller."""
     global _active_analysis, _active_callback, _active_interval, _last_callback_time
     global analysis_results, latest_status_line, latest_eval_str, stopper, latest_only_move
+    global latest_best_move_str, _analyzed_board
 
     stop_analysis()
     latest_eval_str = ""   # clear the headline eval until the first score arrives
+    latest_best_move_str = ""
+    _analyzed_board = board.copy()   # so the pv's moves can be shown in SAN
     latest_only_move = None  # arrow off until the new position shows an only move
     if not _engine_alive():
         print("start_analysis: engine not alive, reopening...")

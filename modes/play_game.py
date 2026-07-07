@@ -31,6 +31,10 @@ import notation
 from modes.board_session import BoardSession, AnalysisPolicy
 from modes.pygame_input import PygameInput
 
+# Watch mode: set True to log every poll and save a crop per move (debug). Off by
+# default -- the watch then runs quietly and a bit faster.
+WATCH_DEBUG = True
+
 
 def _confirm(prompt: str) -> bool:
     """Blocking Yes/No prompt drawn over the board. Returns True only on 'Y'."""
@@ -501,9 +505,8 @@ def playAGame():
         ToolbarAction("Openings",   "Toggle opening book (B)",         _post_key(p.K_b), active=lambda: session.show_book, icon="openings"),
         ToolbarAction("PGN",        "Toggle PGN moves panel (M)",      _post_key(p.K_m), active=lambda: session.show_pgn, icon="pgn"),
         ToolbarAction("Statistics", "Toggle Personal Stats (Y)",       _post_key(p.K_y), active=lambda: session.show_dbstats, icon="statistics"),
-        ToolbarAction("Variations", "Notation panel (V) -- analysis only", _post_key(p.K_v), enabled=_is_analysis, icon="variations"),
         ToolbarAction("Engine",     "Engine on/off (E)",               _post_key(p.K_e), active=UCIEngines.is_analysing, icon="engine"),
-        ToolbarAction("Flip",       "Flip board (F)",                  _post_key(p.K_f), icon="flip"),
+        ToolbarAction("Variations", "Notation panel (V) -- analysis only", _post_key(p.K_v), enabled=_is_analysis, icon="variations"),
         ToolbarAction("Plans",      "Analyze typical plans from masters (G) -- analysis only", _post_key(p.K_g), enabled=_is_analysis, icon="analyze"),
         ToolbarAction("Ideas",      "Edit opening ideas (I) -- analysis only",                 _post_key(p.K_i), enabled=_is_analysis, icon="ideas"),
         ToolbarAction("DB",         "Lichess database stats (D) -- analysis only",             _post_key(p.K_d), enabled=_is_analysis, icon="db"),
@@ -518,6 +521,7 @@ def playAGame():
         ToolbarAction("Truncate",  "Truncate moves after here (Del) -- analysis only",   _post_key(p.K_DELETE),    enabled=_is_analysis, icon="truncate"),
         ToolbarAction("DeleteVar", "Delete this variation (Backspace) -- analysis only", _post_key(p.K_BACKSPACE), enabled=_is_analysis, icon="delvar"),
         ToolbarAction("Gaps",      "Jump to the next repertoire gap (X) -- analysis only", _post_key(p.K_x),       enabled=_is_analysis, icon="gaps"),
+        ToolbarAction("Watch",     "Follow a live board shown on screen (W) -- analysis only", _post_key(p.K_w),   enabled=_is_analysis, icon="watch"),
         None,                                                                            # separator before the exit button
         ToolbarAction("Menu",      "Back to menu (Q)",                                   _post_key(p.K_q), icon="home"),
     ], y=0, height=BS.TOOLBAR_HEIGHT, x0=_edit_x0,
@@ -525,6 +529,7 @@ def playAGame():
     # Bottom bar: navigation + the move-level actions, separated by a gap (`None`).
     # The move ops are analysis only.
     nav_toolbar = IconToolbar([
+        ToolbarAction("Flip",  "Flip board (F)",       _post_key(p.K_f),     icon="flip"),
         ToolbarAction("First", "First move (Home)",   _post_key(p.K_HOME),  icon="first"),
         ToolbarAction("Prev",  "Previous move (Left)", _post_key(p.K_LEFT),  icon="prev"),
         ToolbarAction("Next",  "Next move (Right)",    _post_key(p.K_RIGHT), icon="next"),
@@ -573,11 +578,18 @@ def playAGame():
         help_text.append("- D Lichess database stats (current position)")
         help_text.append("- Transpositions: N next twin / J original / Shift+J find FEN")
         help_text.append("- X Next repertoire gap (jumps the board there; Shift+X rescan, Esc close)")
+        help_text.append("- W Watch a live board on screen: reuses the saved theme if it recognizes")
+        help_text.append("    the board, else calibrates from the start (W again to stop)")
+        help_text.append("- Shift+W Force a fresh calibration (use when the board theme changed)")
     show_help = False
     # Repertoire gap navigation (X): cached scan of the open tree + a preorder
     # index so X can jump to the gap after the current position. Recomputed on
     # Shift+X (after you edit lines). See repertoire_gaps.find_gaps_in_game.
     _gap_state = {"gaps": None, "order": {}}
+    # Live-board watch (W): mirror a game shown elsewhere on screen. `session` is a
+    # board_watch.WatchSession once running; `accum` throttles screen captures so
+    # we grab a few times a second rather than every frame.
+    _watch = {"session": None, "accum": 0.0, "hb": 0.0}
     def do_show_help():
         glc.draw_help_overlay(help_text, height=470)
 
@@ -586,6 +598,76 @@ def playAGame():
         time_delta = app.clock.tick(60) / 1000.0   # pace + dt for the toolbar/manager
         UCIEngines.poll()  # drains the engine info (no-op if analysis off)
         update = False
+
+        # Live-board watch: a few times a second, grab the screen region and let
+        # the watch turn any change into a legal move, which we play here so the
+        # board/engine/book/PGN mirror the game shown elsewhere.
+        if _watch["session"] is not None:
+            _watch["accum"] += time_delta
+            if WATCH_DEBUG:
+                _watch["hb"] += time_delta
+                if _watch["hb"] >= 5.0:        # heartbeat (debug): prove we're alive
+                    _watch["hb"] = 0.0
+                    print(f"[watch] monitoring... tracked={gs.board().board_fen()} "
+                          f"last_seen={_watch['session'].last_seen}")
+                    if _watch["session"].last_frame is not None:
+                        try:
+                            import os as _os
+                            _wdir = _os.path.join("images", "watch")
+                            _os.makedirs(_wdir, exist_ok=True)
+                            _watch["session"].last_frame.save(_os.path.join(_wdir, "live.png"))
+                        except Exception:
+                            pass
+            if _watch["accum"] >= 0.12:         # poll ~8x/s so fast moves aren't missed
+                _watch["accum"] = 0.0
+                try:
+                    _watch_moves = _watch["session"].poll()
+                    if _watch["session"].take_resync():
+                        # The watch's board changed discontinuously: rebuild gs from
+                        # it. Seed gs at the watch board's ROOT (which is the start for
+                        # a normal game, but a mid-game position after a fell-behind
+                        # JUMP) and replay its move_stack -- replaying jump-moves onto
+                        # the standard start would be ILLEGAL and would corrupt the PGN
+                        # tree (add_variation does not validate) -> a later board()
+                        # replay crashes. Each move is legality-checked; on any problem
+                        # the except below re-syncs the watch to gs's last good state.
+                        _wboard = _watch["session"].board
+                        gs = session.new_game()
+                        _root = _wboard.root()
+                        if _root.board_fen() != chess.Board().board_fen():
+                            gs.setFen(_root.fen())
+                        for _mv in _wboard.move_stack:
+                            if not gs.board().is_legal(_mv):
+                                raise ValueError(f"resync move {_mv} illegal in gs")
+                            _wm = Move.fromChessMove(_mv, gs)
+                            if _wm is None:
+                                raise ValueError(f"resync move {_mv} not convertible")
+                            gs.makeMove(_wm)
+                        _gap_state["gaps"] = None
+                        moveMade = True
+                        animate = False
+                        validMoves = gs.stdValidMoves()
+                        update = True
+                    else:
+                        for _cmove in _watch_moves:
+                            # gs must accept the move the watch inferred; if it can't
+                            # (the two boards somehow diverged) resync gs<-watch
+                            # instead of crashing the whole app.
+                            _wmv = Move.fromChessMove(_cmove, gs)
+                            if _wmv is None or not gs.board().is_legal(_cmove):
+                                raise ValueError(f"move {_cmove} not applicable to gs")
+                            gs.makeMove(_wmv)
+                            moveMade = True
+                            animate = False   # NO blocking animation: it stalls polling
+                            validMoves = gs.stdValidMoves()
+                            update = True
+                except Exception as _wex:
+                    print(f"[watch] poll/apply failed: {_wex}; resyncing")
+                    try:
+                        _watch["session"].reseed(gs.board())   # keep watch aligned to gs
+                    except Exception:
+                        pass
+
         _plan_res = plan_analysis.poll()   # masters analysis ready? (background)
         if _plan_res is not None:
             _kind, _text = _plan_res
@@ -900,7 +982,10 @@ def playAGame():
                         session.refresh()
                         app.main_background()
                         BS.engine.clear(app.screen)
-                        moveMade = False
+                        # Position jumped (transposition / FEN search): re-point the
+                        # live engine at it (moveMade drives update_board after the
+                        # event loop), else it keeps reporting the eval we left.
+                        moveMade = True
                         animate = False
                         validMoves = gs.stdValidMoves()
                         session.reorient()
@@ -919,7 +1004,10 @@ def playAGame():
                         session.refresh()
                         app.main_background()
                         BS.engine.clear(app.screen)
-                        moveMade = False
+                        # Position jumped to a twin: re-point the live engine at it
+                        # (moveMade drives update_board after the event loop), else
+                        # it keeps reporting the eval of the position we left.
+                        moveMade = True
                         animate = False
                         validMoves = gs.stdValidMoves()
                         session.reorient()
@@ -971,9 +1059,223 @@ def playAGame():
                         session.refresh()
                         app.main_background()
                         BS.engine.clear(app.screen)
-                        moveMade = False
+                        # We jumped the board to the gap node: re-point the live
+                        # engine at THIS position (moveMade drives update_board
+                        # after the event loop), otherwise it keeps reporting the
+                        # eval of the position we left -- a mismatch on screen.
+                        moveMade = True
                         animate = False
                         validMoves = gs.stdValidMoves()
+                        session.reorient()
+                        continue
+
+                    if e.key == p.K_w and not whiteCPU and not blackCPU:
+                        # Watch: mirror a game shown elsewhere on screen. Toggle on
+                        # -> grab the screen, locate the board, calibrate from this
+                        # frame (which must be the INITIAL position) and follow every
+                        # move into a fresh game. Toggle off -> stop.
+                        if _watch["session"] is not None:
+                            # Persist what the watch learned: the highlighted-square
+                            # look accrues INTO the profile while following the game,
+                            # so saving it back makes the next W reuse start richer
+                            # (fewer misreads, faster lock-on). Same theme file.
+                            try:
+                                import board_vision as _bv
+                                _pp = _watch.get("profpath")
+                                if _pp:
+                                    _bv.save_profile(_watch["session"].profile, _pp)
+                                    print("[watch] profile updated (learned highlights saved)")
+                            except Exception as _sex:
+                                print(f"[watch] could not save profile: {_sex}")
+                            _watch["session"] = None
+                            print("[watch] STOPPED")
+                            BS.set_context_label(_base_ctx_label)
+                            show_message(gs, "Watch stopped")
+                            app.delay(1)
+                            app.main_background()
+                            continue
+                        # Plain W is SMART: first try to recognize the board with the
+                        # saved profile (so you needn't remember Shift); if that reads
+                        # a sane position, follow from there, otherwise calibrate a new
+                        # profile from the START position. Shift+W forces a fresh
+                        # calibration (use it when the board theme changed).
+                        _force_new = bool(e.mod & p.KMOD_SHIFT)
+                        # The watch needs numpy + Pillow (not required elsewhere at
+                        # runtime); tell the user plainly instead of a generic failure.
+                        try:
+                            import board_vision as _bv, board_watch as _bw
+                            from PIL import ImageGrab as _IG
+                        except Exception as _iex:
+                            print(f"watch: missing dependency: {_iex}")
+                            show_message(gs, "Watch needs numpy + Pillow -- run:  pip install numpy Pillow")
+                            app.delay(4)
+                            continue
+                        show_message(gs, "Watch: calibrating from the start position..." if _force_new
+                                     else "Watch: reading the board on screen...")
+                        BS.update()
+                        app.delay(0.15)
+                        _reuse = False
+                        _prof = _seed = _wb = None
+                        _fb_box = None                 # find_board result, computed at most once
+                        try:
+                            _shot = _IG.grab(all_screens=True)   # all monitors
+                            # Black out OUR OWN window in the SEARCH image so find_board
+                            # can't lock onto the app's own board (which would make the
+                            # watch mirror itself). Uses the real window rect (Windows
+                            # API) -- robust, unlike blanking which races the compositor.
+                            _search = _shot
+                            try:
+                                import ctypes
+                                from ctypes import wintypes
+                                from PIL import ImageDraw as _ImageDraw
+                                _hwnd = p.display.get_wm_info().get("window")
+                                _u = ctypes.windll.user32
+                                _vx = _u.GetSystemMetrics(76)   # SM_XVIRTUALSCREEN
+                                _vy = _u.GetSystemMetrics(77)   # SM_YVIRTUALSCREEN
+                                _rc = wintypes.RECT()
+                                _u.GetWindowRect(_hwnd, ctypes.byref(_rc))
+                                _search = _shot.copy()
+                                _ImageDraw.Draw(_search).rectangle(
+                                    [_rc.left - _vx, _rc.top - _vy,
+                                     _rc.right - _vx, _rc.bottom - _vy], fill=(0, 0, 0))
+                                if WATCH_DEBUG:
+                                    print(f"[watch] excluding own window rect "
+                                          f"({_rc.left},{_rc.top})-({_rc.right},{_rc.bottom})")
+                            except Exception as _ex:
+                                print(f"[watch] window-exclude failed ({_ex}); raw screenshot")
+                            import os as _os
+                            _profpath = _os.path.join("profiles", "watch_last.pkl")
+
+                            # 1. Unless forced-new, TRY to reuse the saved profile at the
+                            #    CURRENT position (any point in the game).
+                            if not _force_new and _os.path.exists(_profpath):
+                                try:
+                                    _prof = _bv.load_profile(_profpath)
+                                    # Fast path: if the board is still where it was last
+                                    # time, read it there directly -- skips the ~6s scan.
+                                    _hint = getattr(_prof, "last_region", None)
+                                    if _hint:
+                                        _bestq = 0.0
+                                        for _cwb in (True, False):
+                                            _cand = _bv.recognize_position(
+                                                _shot.crop(tuple(_hint)), _prof,
+                                                white_bottom=_cwb, trim=False)
+                                            _q = _bv._read_quality(_cand)
+                                            if _q > _bestq:
+                                                _bestq = _q
+                                                _seed, (_l, _t, _r, _b), _wb = _cand, tuple(_hint), _cwb
+                                    if _seed is None:
+                                        _fb_box = _bv.find_board(_search)
+                                        _seed, (_l, _t, _r, _b), _wb = _bv.read_with_profile(
+                                            _shot, _fb_box, _prof)
+                                    if _seed is not None:
+                                        _reuse = True
+                                        if _wb is None:
+                                            _wb = _prof.white_bottom
+                                        if WATCH_DEBUG:
+                                            from PIL import ImageDraw as _ID
+                                            _wdir = _os.path.join("images", "watch")
+                                            _os.makedirs(_wdir, exist_ok=True)
+                                            _shot.save(_os.path.join(_wdir, "reuse_full.png"))
+                                            _shot.crop((_l, _t, _r, _b)).save(_os.path.join(_wdir, "reuse.png"))
+                                            print(f"[watch] reuse box ({_l},{_t})-({_r},{_b}) "
+                                                  f"wb={_wb} seed={_seed.board_fen()}")
+                                except Exception as _rex:
+                                    print(f"[watch] reuse attempt failed ({_rex}); will calibrate")
+                                    _seed = None
+
+                            # 2. No reuse -> calibrate a NEW profile from the START position.
+                            if not _reuse:
+                                if _fb_box is None:
+                                    _fb_box = _bv.find_board(_search)
+                                _l, _t, _r, _b = _fb_box
+                                # Snap to the exact start-position board: fixes size/
+                                # offset and pulls the box off any player bar / clock.
+                                _l, _t, _r, _b = _bv.snap_to_startpos(_shot, (_l, _t, _r, _b))
+                                _crop = _shot.crop((_l, _t, _r, _b))
+                                _bx0, _by0, _bx1, _by1 = _bv._board_bbox(_crop)  # fix tight board once
+                                _l, _t, _r, _b = _l + _bx0, _t + _by0, _l + _bx1, _t + _by1
+                                _crop = _shot.crop((_l, _t, _r, _b))
+                                if WATCH_DEBUG:      # save what we captured, for the eye
+                                    from PIL import ImageDraw as _ID
+                                    _wdir = _os.path.join("images", "watch")
+                                    _os.makedirs(_wdir, exist_ok=True)
+                                    _crop.save(_os.path.join(_wdir, "setup.png"))
+                                    _boxed = _shot.copy()
+                                    _ID.Draw(_boxed).rectangle([_l, _t, _r, _b],
+                                                               outline=(255, 0, 0), width=5)
+                                    _boxed.save(_os.path.join(_wdir, "screen.png"))
+                                    print(f"[watch] found region ({_l},{_t})-({_r},{_b}) "
+                                          f"{_r - _l}x{_b - _t}; captures in {_os.path.abspath(_wdir)}")
+                                _prof = _bv.calibrate_profile(_crop)
+                                _wb = _prof.white_bottom
+                                _seed = _bv.recognize_board(_crop, _prof, white_bottom=_wb)
+                        except Exception as _wex:
+                            print(f"[watch] setup failed: {_wex}")
+                            show_message(gs, "Watch setup failed (screen capture / board not found)")
+                            app.delay(3)
+                            app.main_background()
+                            continue
+                        if _reuse:
+                            print(f"[watch] reusing saved profile; seeding at {_seed.fen()}")
+                        else:
+                            # We seed the tracker at the true start, so a couple of
+                            # misreads at calibration are ok.
+                            _match = sum(1 for _sq in chess.SQUARES
+                                         if _seed.piece_at(_sq) == chess.Board().piece_at(_sq))
+                            if WATCH_DEBUG:
+                                print(f"[watch] recognized {_seed.board_fen()} "
+                                      f"(matches start on {_match}/64, white_bottom={_wb})")
+                            if _match < 58:
+                                print("[watch] not the initial position -> not starting")
+                                show_message(gs, "Aim at a board in the INITIAL position, then press W"
+                                             if _force_new else
+                                             "Couldn't read with the saved profile -- aim at the INITIAL position (W), or Shift+W to relearn")
+                                app.delay(4)
+                                app.main_background()
+                                continue
+                            try:                       # save so a later W can reuse it
+                                _bv.save_profile(_prof, _profpath)
+                                print("[watch] profile saved (W reuses it automatically from any position)")
+                            except Exception as _pex:
+                                print(f"[watch] could not save profile: {_pex}")
+                            _seed = chess.Board()      # seed the tracker at the true start
+                        gs = session.new_game()
+                        if _reuse:
+                            gs.setFen(_seed.fen())
+                        glc.mark_pgn_saved()
+                        _gap_state["gaps"] = None
+                        _framesdir = None
+                        if WATCH_DEBUG:          # fresh screenshots/ folder, one crop per move
+                            _framesdir = "screenshots"
+                            try:
+                                import glob as _glob
+                                _os.makedirs(_framesdir, exist_ok=True)
+                                for _old in _glob.glob(_os.path.join(_framesdir, "*.png")):
+                                    _os.remove(_old)
+                            except Exception as _ex:
+                                print(f"[watch] could not clear {_framesdir} ({_ex})")
+                        _watch["session"] = _bw.WatchSession(
+                            _prof, region=(_l, _t, _r, _b),
+                            board=_seed, white_bottom=_wb,
+                            reseed_after=10**9,   # never auto-reseed in-app (would desync gs)
+                            max_depth=3,          # recover up to 3 plies of fast moves
+                            log=(lambda m: print(f"[watch] {m}")) if WATCH_DEBUG else None,
+                            frames_dir=_framesdir)
+                        _prof.last_region = (_l, _t, _r, _b)   # remember where the board is (fast reuse)
+                        _watch["profpath"] = _profpath   # save learned highlights here on stop
+                        _watch["accum"] = 0.0
+                        _watch["hb"] = 0.0
+                        print("[watch] STARTED -- following the board. Press W to stop.")
+                        BS.set_context_label("WATCHING a live board  -  W to stop")
+                        session.refresh()               # gs may have been set to a FEN
+                        validMoves = gs.stdValidMoves()
+                        sqSelected = ()
+                        playerClicks = []
+                        app.main_background()
+                        BS.engine.clear(app.screen)
+                        moveMade = True
+                        animate = False
                         session.reorient()
                         continue
 
