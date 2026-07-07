@@ -102,7 +102,7 @@ def _read_existing_state(path: str) -> Tuple[Set[str], Optional[int]]:
 
 
 def load(user_name: str, output_file: str, color: Optional[str] = None,
-         max_games: Optional[int] = None):
+         max_games: Optional[int] = None) -> Optional[int]:
     """Download the lichess games of `user_name` incrementally.
 
     - If the file exists, dedup by signature; append only the NEW ones.
@@ -110,7 +110,12 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
       after the last lichess one already present in the file.
     - `color`: 'w'/'b'/None (converted to 'white'/'black' for the API).
     - `max_games`: passed as `max` to the API.
+
+    Returns the number of games actually added, or None on error.
     """
+    if not user_name:
+        print("No lichess player set: fill in the 'player:' field first.")
+        return None
     output_path = os.path.join(pgngamelist.PGN_FOLDER, output_file)
     os.makedirs(pgngamelist.PGN_FOLDER, exist_ok=True)
 
@@ -123,6 +128,11 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
         print(msg)
 
     params = {"sort": "dateDesc"}
+    # Only download games up to yesterday (local time): the current day is
+    # still in progress, so fetching it could leave it permanently incomplete
+    # downstream (e.g. inclusive per-day watermarks).
+    today_start = datetime.now().astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    params["until"] = str(int(today_start.timestamp() * 1000) - 1)
     if since_ts is not None:
         # +1 ms to skip the game itself (dedup would catch the duplicates anyway).
         params["since"] = str(since_ts + 1)
@@ -140,15 +150,17 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
         response = requests.get(url, params=params, headers=req_headers, timeout=60)
     except requests.RequestException as e:
         print(f"Network error: {e}")
-        return
+        return None
     if not response.ok:
         print(f"lichess API error: {response.status_code} {response.reason}")
-        return
+        if response.status_code == 404:
+            print(f"  (lichess user '{user_name}' not found -- check the 'player:' field)")
+        return None
 
     pgn_text = response.text
     if not pgn_text.strip():
         print("Lichess returned no games.")
-        return
+        return 0
 
     # Split the response into individual PGN blocks (at each new [Event ...]).
     chunks = re.split(r'(?=\[Event\s+")', pgn_text)
@@ -165,7 +177,7 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
 
     if not kept:
         print("No new lichess games to add.")
-        return
+        return 0
 
     already_has_content = os.path.exists(output_path) and os.path.getsize(output_path) > 0
     with open(output_path, 'a' if already_has_content else 'w', encoding='utf-8') as f:
@@ -175,3 +187,4 @@ def load(user_name: str, output_file: str, color: Optional[str] = None,
             f.write(pgn)
             f.write('\n\n')
     print(f"Added {len(kept)} new lichess games to {output_file}.")
+    return len(kept)

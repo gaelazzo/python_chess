@@ -11,6 +11,7 @@ from shutil import rmtree  # For recursive deletion
 
 import requests as requests
 import pgngamelist
+from datetime import datetime
 from typing import Optional, Tuple, Set
 
 import re
@@ -152,7 +153,7 @@ def _archive_yyyymm(url: str) -> Optional[Tuple[int, int]]:
     return None
 
 
-def load(user_name: str, output_file: str, color: str, max_games: Optional[int] = None):
+def load(user_name: str, output_file: str, color: str, max_games: Optional[int] = None) -> Optional[int]:
     """Downloads chess.com games INCREMENTALLY.
 
     - If the file exists, dedup by signature (Link/Site URL or composite of
@@ -162,7 +163,12 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
       present (old months are immutable on the chess.com side).
     - `max_games` now means: at most N NEW games added.
     - Append-only on the file (does not overwrite).
+
+    Returns the number of games actually added, or None on error.
     """
+    if not user_name:
+        print("No chess.com player set: fill in the 'player:' field first.")
+        return None
     output_dir = os.path.join(pgngamelist.PGN_FOLDER, output_file)
     os.makedirs(pgngamelist.PGN_FOLDER, exist_ok=True)
 
@@ -178,13 +184,20 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
         archives = json_data.get('archives')
         if archives is None:
             print(f"User {user_name} does not exist")
-            return
+            return None
 
         # Skip months prior to the cutoff (old months do not change).
         if cutoff is not None:
             archives = [a for a in archives
                         if _archive_yyyymm(a) is None or _archive_yyyymm(a) >= cutoff]
             print(f"Archives to fetch: {len(archives)} (filtered by cutoff)")
+
+        # Only download games up to yesterday (local time): the current day is
+        # still in progress, so fetching it could leave it permanently
+        # incomplete downstream (e.g. inclusive per-day watermarks).
+        today_start_ts = int(datetime.now().astimezone()
+                             .replace(hour=0, minute=0, second=0, microsecond=0)
+                             .timestamp())
 
         # From the most recent month backwards -- dedup by signature, color
         # filter, max_games on the NEW ones.
@@ -193,6 +206,9 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
             print(archive)
             data = cached_json_get(archive, cache_path)
             for game in reversed(data.get('games', [])):
+                end_time = game.get('end_time')
+                if end_time is not None and end_time >= today_start_ts:
+                    continue
                 pgn = game['pgn']
                 sig = _signature_from_pgn_text(pgn)
                 if sig in existing_sigs:
@@ -208,7 +224,7 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
 
         if not kept:
             print("No new games to add.")
-            return
+            return 0
 
         # Append (or creation) -- ensures separation from games already present.
         already_has_content = os.path.exists(output_dir) and os.path.getsize(output_dir) > 0
@@ -219,4 +235,5 @@ def load(user_name: str, output_file: str, color: str, max_games: Optional[int] 
                 f.write(pgn)
                 f.write('\n' * 2)
         print(f"Added {len(kept)} new games to {output_file}.")
+        return len(kept)
 

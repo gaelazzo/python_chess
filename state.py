@@ -32,6 +32,8 @@ positionParameters = {
     "filename": None,
     "base": "openings",
     "player": None,
+    "lichess_player": None,   # lichess nick, separate from the chess.com one
+    "advisor_players": None,  # study advisor nick list, separate from downloads
     "movesToAnalyze": 16,
     "blunderValue": 80,
     "ponderTime": 0.5,
@@ -99,6 +101,8 @@ _PERSIST_SPEC = [
     ("pp", "endgames_filename"),  # Endgame training: per-mode last file (always in endgames/)
     ("pp", "base"),
     ("pp", "player"),
+    ("pp", "lichess_player"),
+    ("pp", "advisor_players"),
     ("pp", "movesToAnalyze"),
     ("pp", "blunderValue"),
     ("pp", "ponderTime"),

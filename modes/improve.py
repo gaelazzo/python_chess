@@ -111,11 +111,12 @@ def _progress_cb(label, total):
     return cb
 
 
-def _count_new_games(path, player, lb: LearningBase):
+def _count_new_games(path, player, lb: LearningBase, min_date=None):
     """Games for `player` that analyzePgn(use_analyzed_range=True) will actually
-    process: matching player AND whose date is not already inside the base's
-    per-nick analyzed window. This is the right N/M denominator after an
-    incremental download -- the previously-analyzed games are skipped, not redone."""
+    process: matching player, not older than `min_date` (the "last N games"
+    bound) AND whose date is not already inside the base's per-nick analyzed
+    window. This is the right N/M denominator after an incremental download --
+    the previously-analyzed games are skipped, not redone."""
     n = 0
     try:
         with open(path, encoding="utf-8") as fh:
@@ -127,12 +128,41 @@ def _count_new_games(path, player, lb: LearningBase):
                         or analyzer._same_player(h.get("Black"), player)):
                     continue
                 gdate = analyzer._game_date(h)
+                if min_date is not None and gdate is not None and gdate < min_date:
+                    continue
                 if gdate is not None and lb.isInAnalyzedRange(player, gdate):
                     continue
                 n += 1
     except OSError:
         return 0
     return n
+
+
+def _limit_cutoff_date(path, player, limit):
+    """Lower date bound that keeps only the most recent `limit` games of
+    `player` in the PGN (which accumulates the full history across runs).
+    None when limit is None or there are fewer dated games than the limit."""
+    if limit is None:
+        return None
+    dates = []
+    try:
+        with open(path, encoding="utf-8") as fh:
+            while True:
+                h = chess.pgn.read_headers(fh)
+                if h is None:
+                    break
+                if not (analyzer._same_player(h.get("White"), player)
+                        or analyzer._same_player(h.get("Black"), player)):
+                    continue
+                gdate = analyzer._game_date(h)
+                if gdate is not None:
+                    dates.append(gdate)
+    except OSError:
+        return None
+    if len(dates) <= limit:
+        return None
+    dates.sort(reverse=True)
+    return dates[limit - 1]
 
 
 def _count_games(path):
@@ -197,6 +227,11 @@ def runImproveWizard(user, color, focus, effort, limit=None):
 
         focuses = ["tactics", "openings"] if focus == "both" else [focus]
 
+        # "Games: last N" bounds the ANALYSIS too, not just the download: the
+        # PGN keeps the whole history, so without a date cutoff every run would
+        # grind through all the old games outside the analyzed window.
+        min_date = _limit_cutoff_date(path, user, limit)
+
         results = []   # (focus, baseName, nPositions)
         for f in focuses:
             prm = PRESETS[f][effort]
@@ -204,9 +239,9 @@ def runImproveWizard(user, color, focus, effort, limit=None):
             lb = _ensure_base(baseName, prm)
             # Per-base count: each focus has its own analyzed window, so a base
             # already built skips the games it covers and only the new ones count.
-            to_do = _count_new_games(path, user, lb)
+            to_do = _count_new_games(path, user, lb, min_date)
             stopped = analyzer.analyzePgn(pgn, user, lb, progress=_progress_cb(_FOCUS_LABEL[f], to_do),
-                                          use_analyzed_range=True)
+                                          use_analyzed_range=True, min_date=min_date)
             lb.save()
             results.append((f, baseName, len(lb.positions)))
             if stopped:        # user interrupted: don't roll on into the next focus

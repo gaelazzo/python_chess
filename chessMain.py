@@ -453,7 +453,7 @@ def mainMenu(width,height, test: bool = False) -> None:
     default_value_l = str(positionParameters.get("filename", "None selected"))
     label_l = lichessMenu.add.button(default_value_l, chooseNewPgn_l, font_size=20, background_color=None, selection_effect=pygame_menu.widgets.NoneSelection())
     labels_l.append(label_l)
-    lichessMenu.add.text_input('player:', default=positionParameters["player"] or "", onchange=make_updater("player", str, positionParameters))
+    lichessMenu.add.text_input('player:', default=positionParameters["lichess_player"] or "", onchange=make_updater("lichess_player", str, positionParameters))
     lichessMenu.add.selector('Player color', [("White", 0), ("Black", 1), ("Any", 2)], default=default_color_index, onchange=setColorIndex)
 
     lichessMenu.add.button('Download games', readLichessGames)

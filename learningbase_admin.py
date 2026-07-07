@@ -190,12 +190,21 @@ def readChessComGames():
         app.delay(2)
         return
     
-    chess_com_download.load(positionParameters.get("player", None), pgnFileName, positionParameters.get("color",None))
+    n = chess_com_download.load(positionParameters.get("player", None), pgnFileName, positionParameters.get("color",None))
 
     app.main_background()
-    BS.drawEndGameText(app.screen, None, "Games downloaded")
+    BS.drawEndGameText(app.screen, None, _download_result_text(n))
     BS.update()
     app.delay(2)
+
+
+def _download_result_text(n):
+    """Message for the end-of-download screen: real count of games added."""
+    if n is None:
+        return "Download failed (see console)"
+    if n == 0:
+        return "No new games: file already up to date"
+    return f"{n} new game{'s' if n != 1 else ''} downloaded"
 
 
 def readLichessGames():
@@ -213,14 +222,14 @@ def readLichessGames():
         app.delay(2)
         return
 
-    lichess_download.load(
-        positionParameters.get("player", None),
+    n = lichess_download.load(
+        positionParameters.get("lichess_player", None),
         pgnFileName,
         positionParameters.get("color", None),
     )
 
     app.main_background()
-    BS.drawEndGameText(app.screen, None, "Games downloaded")
+    BS.drawEndGameText(app.screen, None, _download_result_text(n))
     BS.update()
     app.delay(2)
 

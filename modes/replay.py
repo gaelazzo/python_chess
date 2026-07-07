@@ -223,6 +223,10 @@ def solvePositionsFromBase(learningBase:LearningBase):
         # no longer writes. For the new position we show the info if and only if
         # analysis is actually running.
         BS.show_cpu = UCIEngines.is_analysing()
+        # Re-attach the running analysis to the new position as well (no-op if
+        # off): otherwise the panel keeps evaluating the previous position and
+        # proposes moves for the wrong side until the first move is made.
+        UCIEngines.update_board(gs.board(), glc.engine_callback)
 
         currentMove = 0
         validMoves = gs.stdValidMoves()

@@ -300,6 +300,12 @@ def playOpeningLine(filename, humanColor):
             gs.undoMove()
         
 
+        # Re-attach a running analysis to the NEW exercise's position (no-op if
+        # off): the lead-in is played outside the moveMade machinery, so the
+        # engine would otherwise keep analyzing the previous game's last
+        # position and suggest moves for the wrong side to move.
+        UCIEngines.update_board(gs.board(), glc.engine_callback)
+
         BS.setWhiteUp(app.screen, humanColor == "b")
         BS.drawGameState(app.screen, gs, [], [], ())
         BS.update()

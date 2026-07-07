@@ -176,14 +176,15 @@ def updatePosition(game:chess.pgn.Game, board:chess.Board,  learningBase:Learnin
     board.push(moveMade) # restores the move
     
    
-def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None, use_analyzed_range:bool=False) -> bool:
+def analyzePgn(pgnFileName:str, playerName:str, learningBase:LearningBase, start_from:int=0, skip_player:Optional[str]=None, progress=None, eco:Optional[str]=None, use_analyzed_range:bool=False, min_date:Optional[date]=None) -> bool:
     """`eco` (e.g. "B01"): if not None, filters to only the games with that ECO header.
     `use_analyzed_range`: when True, skip games whose date is already inside the
     base's per-nick analyzed window and grow that window with the games processed
     (Study Advisor re-run dedup). Off by default -> other callers are unchanged.
+    `min_date`: if not None, skip games older than this date ("last N games" bound).
     Returns True if the user interrupted the analysis (see `progress`), so a
     caller looping over focuses/nicks can stop the whole pipeline too."""
-    pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco, use_analyzed_range=use_analyzed_range)
+    pg = PgnAnalyzer(playerName, pgnFileName, learningBase, eco=eco, use_analyzed_range=use_analyzed_range, min_date=min_date)
     return pg.analyzeDataBase(start_from,skip_player, progress=progress)
 
 
@@ -212,7 +213,7 @@ class PgnAnalyzer:
         Analyze games of  a player, using and updating a specified learningBase, that contains positions found
     '''
 
-    def __init__(self, playerName:str, filename:str, learningBase:LearningBase, eco:Optional[str]=None, use_analyzed_range:bool=False):
+    def __init__(self, playerName:str, filename:str, learningBase:LearningBase, eco:Optional[str]=None, use_analyzed_range:bool=False, min_date:Optional[date]=None):
         '''
             Args:
             playerName: the name of the player to analyze
@@ -221,6 +222,9 @@ class PgnAnalyzer:
             eco: if not None, filters to only the games with that ECO (case-insensitive)
             use_analyzed_range: skip games already inside the base's per-nick
                 analyzed date window, and extend it with processed games
+            min_date: if not None, skip games older than this date (lets the
+                caller bound the analysis to the most recent N games even when
+                the PGN accumulates the whole history)
         '''
         # make_file_selector saves the filename without extension, but on disk the
         # PGN files have it -- we append .pgn if it is missing (mirroring PgnGameList,
@@ -232,6 +236,7 @@ class PgnAnalyzer:
         self.player = playerName
         self.eco_filter = eco.upper() if eco else None
         self.use_analyzed_range = use_analyzed_range
+        self.min_date = min_date
         self.movesToAnalyze = learningBase.movesToAnalyze
         self.engine = None
         self.blunderValue = learningBase.blunderValue
@@ -308,6 +313,11 @@ class PgnAnalyzer:
                 color = False
             else:
                 continue
+            # "Last N games" bound: skip games older than min_date.
+            if self.min_date is not None:
+                gdate = _game_date(game.headers)
+                if gdate is not None and gdate < self.min_date:
+                    continue
             # Re-run dedup: skip games already inside the per-nick analyzed window
             # (inclusive), so a rebuild neither double-counts them nor revives their
             # "Learned" positions. Undated games fall through and are analyzed.

@@ -424,8 +424,12 @@ def _playOneEndgame(game: chess.pgn.Game, filename: str, idx: int, total: int) -
 
     BS.show_pgn = False
     BS.show_book = False
-    BS.show_cpu = False
+    # Follow the E toggle across positions: the panel is visible iff analysis
+    # is actually running, and a running analysis is re-attached to the new
+    # endgame (no-op if off) instead of being left on the previous position.
+    BS.show_cpu = UCIEngines.is_analysing()
     BS.engine.clear(app.screen)
+    UCIEngines.update_board(gs.board(), glc.engine_callback)
     BS.setWhiteUp(app.screen, not human_color_chess)
     BS.drawGameState(app.screen, gs, [], [], ())
     BS.update()

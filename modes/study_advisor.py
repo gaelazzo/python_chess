@@ -154,7 +154,8 @@ def buildAdvisorMenu(width, height) -> pygame_menu.Menu:
     add_menu_intro(menu,
         "Analyse your games to find out what to study next: the advisor "
         "reports your weakest openings and recurring tactical themes.")
-    user_w = menu.add.text_input("User(s): ", default=positionParameters.get("player") or "")
+    user_w = menu.add.text_input("User(s): ", default=positionParameters.get("advisor_players") or "",
+                                 onchange=make_updater("advisor_players", str, positionParameters))
     menu.add.label("(several nicks: separate with , or ;)", font_size=14)
     color_w = menu.add.selector(
         "Color: ",
