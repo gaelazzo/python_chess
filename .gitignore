@@ -37,3 +37,17 @@ HiresChess-*.dmg
 
 # Position-stats disk cache (auto-rebuilt da position_stats.py)
 *.idx
+
+# Watch-mode (vision) debug artifacts: runtime captures written by
+# tools/watch_diag.py, tools/watch_probe.py and WATCH_DEBUG in play_game.
+# Regenerated on every run, never versioned.
+/screen.png
+/found_board.png
+/probe_*.png
+/watch_live.png
+/watch_setup.png
+/screenshots/
+/images/watch/
+/profiles/
+# chess.com reference screenshots grabbed while developing board_vision
+/docs/img/pos_*.png
