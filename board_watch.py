@@ -18,8 +18,11 @@ rendered frames; the default grabs a screen region via PIL.ImageGrab.
 
 Typical wiring (the game loop calls poll() once per frame):
 
-    l, t, r, b = board_vision.find_board(screenshot)          # once, at setup
-    profile = board_vision.calibrate_profile(first_frame_crop)
+    box = board_vision.find_board(screenshot)                 # once, at setup
+    box = board_vision.snap_to_startpos(screenshot, box)      # occupancy snap
+    l, t, r, b = board_vision.refine_start_grid(screenshot, box)  # pixel-exact
+    crop = screenshot.crop((l, t, r, b))
+    profile = board_vision.calibrate_profile(crop, trim=False)
     watch = WatchSession(profile, region=(l, t, r, b))
     ...
     for move in watch.poll():        # each frame
@@ -32,7 +35,8 @@ from typing import Callable, List, Optional
 import chess
 
 from board_vision import (Profile, recognize_board, tiles_by_square,
-                          highlighted_squares_learned, _composite, _square_colour)
+                          highlighted_squares, highlighted_squares_learned,
+                          _composite, _square_colour)
 
 
 def _expand(board_fen: str) -> str:
@@ -42,6 +46,26 @@ def _expand(board_fen: str) -> str:
         for ch in row:
             out.append("." * int(ch) if ch.isdigit() else ch)
     return "".join(out)
+
+
+def _fen_index_square(i: int) -> chess.Square:
+    """The chess square at position `i` of an _expand()ed board_fen (a8 first)."""
+    return chess.square(i % 8, 7 - i // 8)
+
+
+def mouse_button_down() -> bool:
+    """True while a PHYSICAL mouse button is held down anywhere on the system
+    (Windows; other platforms report False). The watch skips capture then: the
+    user is mid-drag, and a frame taken now shows a piece in flight, a hover
+    highlight or a half-drawn arrow -- exactly the reads that fake moves and,
+    worse, poison the learned highlight templates. Left and right buttons both
+    gate (right-drag draws arrows on chess.com)."""
+    try:
+        import ctypes
+        u = ctypes.windll.user32
+        return bool((u.GetAsyncKeyState(0x01) | u.GetAsyncKeyState(0x02)) & 0x8000)
+    except Exception:
+        return False
 
 
 def _placement_diff(a: str, b: str) -> int:
@@ -108,7 +132,8 @@ class WatchSession:
                  board: chess.Board = None, white_bottom: bool = None,
                  stable_frames: int = 2, reseed_after: int = 6, max_depth: int = 2,
                  tol: int = 5, jump_diff: int = 6, log: Callable[[str], None] = None,
-                 frames_dir: str = None):
+                 frames_dir: str = None,
+                 capture_gate: Callable[[], bool] = None):
         self.profile = profile
         self.region = region
         self.board = board.copy() if board is not None else chess.Board()
@@ -122,6 +147,11 @@ class WatchSession:
         #                                        stable read -> we fell behind; jump to it
         self.frames_dir = frames_dir           # if set, save one crop per move / per stall
         self._grab = grab or self._grab_screen
+        self._sct = None                       # lazy mss screen-capturer (False = unusable)
+        # None -> the module-level mouse check, looked up at poll time (late
+        # binding, so tests can neutralize it -- it reads the SYSTEM mouse, and
+        # a test run would otherwise flake whenever the human touches theirs).
+        self._capture_gate = capture_gate
         self._log = log
         self._seq = 0
         self._resync = False                   # a rollback happened -> caller should re-mirror
@@ -137,11 +167,58 @@ class WatchSession:
             profile.hl_templates = {}
         self.hl_templates: dict = profile.hl_templates   # alias (same dict object)
 
+    def _default_gate(self) -> bool:
+        """Skip capture only when a mouse button is held AND the pointer is
+        over the watched region (with a margin): that is the user dragging a
+        piece on the board being followed. A hold anywhere else (scrollbar,
+        text selection, another window) says nothing about the board and must
+        not blind the watch -- plies missed during a long unrelated hold can
+        only be recovered by a lossy jump-reseed. Without a region to test
+        (embedders that crop in `grab`), any hold gates, conservatively."""
+        if not mouse_button_down():
+            return False
+        if not self.region:
+            return True
+        try:
+            import ctypes
+            from ctypes import wintypes
+            u = ctypes.windll.user32
+            pt = wintypes.POINT()
+            u.GetCursorPos(ctypes.byref(pt))
+            # region is in virtual-desktop image coordinates; the cursor comes
+            # in screen coordinates -- shift by the virtual-screen origin.
+            x = pt.x - u.GetSystemMetrics(76)      # SM_XVIRTUALSCREEN
+            y = pt.y - u.GetSystemMetrics(77)      # SM_YVIRTUALSCREEN
+            l, t, r, b = self.region
+            m = (r - l) // 4
+            return l - m <= x <= r + m and t - m <= y <= b + m
+        except Exception:
+            return True                            # can't tell -> stay safe
+
     def _grab_screen(self):
-        # Grab the whole virtual desktop and crop in IMAGE coordinates -- identical
-        # to the setup crop by construction. (A bbox grab with virtual-screen
-        # coordinates can be offset under multi-monitor/DPI, and PIL grabs the full
-        # screen either way, so it wouldn't even be faster.)
+        # Fast path: mss grabs JUST the board's rectangle (~16 ms vs ~60 for a
+        # full-desktop PIL grab -- the capture is the poll's dominant cost).
+        # `region` is in the coordinates of an all_screens image, whose origin
+        # is the virtual screen's top-left; that is exactly mss's monitors[0],
+        # so adding its left/top yields the right screen rectangle on any
+        # multi-monitor layout (verified pixel-identical to the PIL crop,
+        # including a monitor with a negative offset).
+        if self.region and self._sct is not False:
+            try:
+                if self._sct is None:
+                    import mss as _mss
+                    self._sct = getattr(_mss, "MSS", _mss.mss)()
+                mon0 = self._sct.monitors[0]
+                l, t, r, b = self.region
+                raw = self._sct.grab({"left": mon0["left"] + l,
+                                      "top": mon0["top"] + t,
+                                      "width": r - l, "height": b - t})
+                from PIL import Image
+                return Image.frombytes("RGB", raw.size, raw.rgb)
+            except Exception:
+                self._sct = False              # mss missing/broken: PIL from now on
+        # Fallback: grab the whole virtual desktop and crop in IMAGE coordinates
+        # -- identical pixels to the setup crop by construction, just slower.
         from PIL import ImageGrab
         shot = ImageGrab.grab(all_screens=True)
         return shot.crop(self.region) if self.region else shot
@@ -152,15 +229,25 @@ class WatchSession:
         return recognize_board(frame, self.profile, white_bottom=self.white_bottom,
                                extra=self.hl_templates, trim=False).board_fen()
 
-    def _learn_highlight(self, move: chess.Move) -> None:
+    def _learn_highlight(self, move: chess.Move, pre_read: str = None) -> None:
         """Learn the highlighted-square look from a just-applied move: its from/to
         squares are highlighted on this frame, so future last-move squares read
         right. The from-square is now empty+highlighted (gives the highlight for
         that colour, from which every piece is synthesized); the to-square holds
-        the moved piece on a highlighted square (captured exactly)."""
+        the moved piece on a highlighted square (captured exactly).
+
+        VALIDATED before it sticks: re-read this same frame with the enriched
+        set -- every square other than the move's own from/to must read at least
+        as well as before (`pre_read`, the frame's read with the old set). A
+        frame that was not a clean post-move view (a piece mid-drag still on its
+        square, an arrow, an overlay) teaches templates that misread squares
+        BOARD-WIDE and forever -- one such template once made a pawn read as
+        empty on every subsequent frame, killing exact matching for the whole
+        session. On any degradation the new entries are rolled back."""
         if self.last_frame is None or self.profile.tile is None:
             return
         try:
+            snapshot = dict(self.hl_templates)
             tiles = tiles_by_square(self.last_frame, self.profile, self.white_bottom,
                                     trim=False)
             frm, to = move.from_square, move.to_square
@@ -175,7 +262,41 @@ class WatchSession:
                             self.hl_templates[(sym, fc)] = _composite(tmpl, normal_empty, hl_empty)
             piece = self.board.piece_at(to)              # capture the moved piece exactly
             if piece is not None and to in tiles:
-                self.hl_templates[(piece.symbol(), _square_colour(to))] = tiles[to]
+                # ... but only if the to-square actually LOOKS occupied. On a
+                # frame caught mid-animation the piece has not landed yet, and
+                # storing the tinted-empty tile as the PIECE's template is a
+                # poison the validation below cannot see -- it only bites on
+                # highlighted squares, which the check must exclude. Verify
+                # against the highlighted-empty of the same colour when known.
+                import numpy as _np
+                tc = _square_colour(to)
+                ref = self.hl_templates.get((".", tc))
+                if ref is not None and float(_np.mean((tiles[to] - ref) ** 2)) > 200.0:
+                    self.hl_templates[(piece.symbol(), tc)] = tiles[to]
+            degraded = None                              # None = validation failed
+            try:
+                expect = _expand(self.board.board_fen())
+                got = _expand(self._recognize(self.last_frame))
+                pre = _expand(pre_read) if pre_read else None
+                # PER SQUARE, not an aggregate count: a poisoned template that
+                # fixes one square while breaking another would tie a count
+                # comparison and survive. Degraded = a square (beyond the
+                # move's own from/to) that read RIGHT before learning and
+                # WRONG after -- the difference can only come from what was
+                # just learned, since both reads are of this same frame.
+                degraded = [chess.square_name(_fen_index_square(i))
+                            for i in range(64)
+                            if _fen_index_square(i) not in (frm, to)
+                            and expect[i] != got[i]
+                            and (pre is None or expect[i] == pre[i])]
+            except Exception:
+                pass                                     # can't validate -> don't keep
+            if degraded is None or degraded:
+                self.hl_templates.clear()                # in place: it aliases the
+                self.hl_templates.update(snapshot)       # profile's persisted dict
+                if self._log:
+                    self._log(f"highlight learning rolled back for {move.uci()} "
+                              f"(frame not clean: degraded {degraded})")
         except Exception:
             pass
 
@@ -207,6 +328,12 @@ class WatchSession:
 
     def poll(self) -> List[chess.Move]:
         """Grab one frame and return the move(s) newly detected (usually 0 or 1)."""
+        if (self._capture_gate or self._default_gate)():
+            # The user is holding a mouse button over the watched board --
+            # mid-drag. Whatever is on screen right now is transient (piece in
+            # flight, hover tints); don't even capture it. The move is read
+            # after the release.
+            return []
         self.last_frame = self._grab()          # kept for debugging (save to disk)
         placement = self._recognize(self.last_frame)
         self.last_seen = placement
@@ -233,22 +360,34 @@ class WatchSession:
         else:
             self._pending, self._pending_count = placement, 1
         if self._pending_count < self.stable_frames:
-            return []
-
-        # First try an EXACT match (also recovers a move missed mid-animation:
-        # the clean frame after is then two plies ahead -> advance_to catches up).
-        # Guard: a K-move catch-up must be justified by the board change -- K real
-        # moves alter at least K+1 squares. Without this, a persistent 1-square
-        # misread (e.g. a piece on a highlighted square) makes advance_to invent an
-        # absurd multi-move sequence to "explain" it, wrecking the game.
-        moves = advance_to(self.board, placement, self.max_depth)
-        if moves and diff_stay < len(moves) + 1:
-            moves = None
+            # Fast lane: an EXACT single-move match commits WITHOUT waiting out
+            # the debounce -- a frame that reproduces a legal move's resulting
+            # position to the square can only be a finished move (a piece in
+            # flight reads as missing, so an animation frame never matches
+            # exactly, and the user's own mid-drag frames are gated by the
+            # mouse check before capture). This is the path >95% of live moves
+            # take, and skipping the debounce here saves a full poll period of
+            # reaction time per move. Everything uncertain (catch-up, tolerant,
+            # highlight, recovery, jump) still waits for a stable layout.
+            quick = match_move(self.board, placement)
+            if quick is None:
+                return []
+            moves = [quick]
+        else:
+            # First try an EXACT match (also recovers a move missed mid-animation:
+            # the clean frame after is then two plies ahead -> advance_to catches up).
+            # Guard: a K-move catch-up must be justified by the board change -- K real
+            # moves alter at least K+1 squares. Without this, a persistent 1-square
+            # misread (e.g. a piece on a highlighted square) makes advance_to invent an
+            # absurd multi-move sequence to "explain" it, wrecking the game.
+            moves = advance_to(self.board, placement, self.max_depth)
+            if moves and diff_stay < len(moves) + 1:
+                moves = None
         if moves:
             self._snap("_".join(m.uci() for m in moves))
             for move in moves:
                 self.board.push(move)
-            self._learn_highlight(moves[-1])       # this frame's last-move highlight
+            self._learn_highlight(moves[-1], placement)   # this frame's last-move highlight
             if self._log:
                 self._log(f"move {' '.join(m.uci() for m in moves)} -> {self.board.board_fen()}")
             self._pending, self._pending_count, self._dead = None, 0, None
@@ -264,7 +403,9 @@ class WatchSession:
         if move is not None and diff <= self.tol and diff < diff_stay:
             self._snap(f"{move.uci()}_tol{diff}")
             self.board.push(move)
-            self._learn_highlight(move)            # learn even from a noisy read
+            self._learn_highlight(move, placement)   # learn even from a noisy read
+            #                                          (validated: rolls back if the
+            #                                          noise was IN the templates)
             if self._log:
                 self._log(f"move {move.uci()} (tolerant, {diff} sq off) "
                           f"-> {self.board.board_fen()}")
@@ -280,7 +421,7 @@ class WatchSession:
         if hlmove is not None:
             self._snap(f"{hlmove.uci()}_hl")
             self.board.push(hlmove)
-            self._learn_highlight(hlmove)
+            self._learn_highlight(hlmove, placement)
             if self._log:
                 self._log(f"move {hlmove.uci()} (by highlight) -> {self.board.board_fen()}")
             self._pending, self._pending_count, self._dead = None, 0, None
@@ -348,14 +489,24 @@ class WatchSession:
         """Identify the played move from the LAST-MOVE HIGHLIGHT: the legal move
         whose from AND to squares are both highlighted on this frame. Both squares
         are pinned by the tint regardless of what piece the read puts there, so a
-        misread destination (the common failure) no longer hides the move. Only
-        fires once the highlight look has been learned (fresh profile: no-op until
-        the first move teaches it; a reused profile knows it from the start).
+        misread destination (the common failure) no longer hides the move.
+        Prefers the LEARNED highlight templates; ONLY on a fresh profile
+        (nothing learned yet -- and nothing CAN be learned until a first move
+        commits, a chicken-and-egg that used to stall the watch on move one)
+        it falls back to the untrained corner-tint detector, whose hit then
+        lets the move commit and the real highlight look be learned. Once
+        anything is learned the fallback stays off: the learned detector
+        returning nothing may be a deliberate "this frame is unreliable"
+        verdict (over-firing cap), and the crude corner detector overriding
+        it is how phantom moves get committed.
         Returns the move, or None if the highlight is absent/ambiguous."""
         if self.last_frame is None:
             return None
         hl = highlighted_squares_learned(self.last_frame, self.profile,
                                          self.white_bottom, trim=False)
+        if len(hl) < 2 and not self.hl_templates:
+            hl = highlighted_squares(self.last_frame, self.profile,
+                                     self.white_bottom, trim=False)
         if len(hl) < 2:
             return None
         cands = [m for m in self.board.legal_moves

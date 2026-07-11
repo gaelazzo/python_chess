@@ -194,14 +194,18 @@ def _brighter_end(tiles) -> str:
 
 
 def calibrate_profile(start_image: ImageLike, white_bottom: bool = None,
-                      tile: int = TILE) -> Profile:
+                      tile: int = TILE, trim: bool = True) -> Profile:
     """Learn a board theme from ONE image of the standard start position.
 
     `white_bottom` may be left None: the orientation is then read from the image
     (the back rank with the lighter pieces is White's), so a board shown flipped
     calibrates correctly without being told.
+    Pass trim=False when the crop is ALREADY the exact board (e.g. pinned by
+    refine_start_grid): the default per-image trim could shift the grid a few px
+    here, and the watch later reads frames with trim=False -- calibration must
+    sample the very same grid or every template starts life misaligned.
     """
-    tiles = list(_tiles(_as_image(start_image), tile))
+    tiles = list(_tiles(_as_image(start_image), tile, trim=trim))
     if white_bottom is None:
         white_bottom = _brighter_end(tiles) == "bottom"
 
@@ -522,6 +526,168 @@ def snap_to_startpos(image: ImageLike, box: Tuple[int, int, int, int]
     return l, t, l + size, t + size
 
 
+def refine_start_grid(image: ImageLike, box: Tuple[int, int, int, int]
+                      ) -> Tuple[int, int, int, int]:
+    """Pin the START-position grid to the pixel, given a `box` already within
+    ~half a square of the truth (snap_to_startpos gets it that close).
+
+    Why another pass: snap_to_startpos scores INTEGER occupancy hits (0..64),
+    which saturates -- a whole range of boxes classifies all 64 cells right, and
+    whichever the scan visits first wins. A few px of offset plus a slightly
+    short size look harmless there, but they ruin CALIBRATION: the four same-
+    colour pawns then sit at four different offsets inside their cells, and
+    their mean template is a smeared ghost that later matches nothing crisply
+    (this is exactly what broke the watch on textured wood themes).
+
+    The objective is twofold, because each half is blind to something:
+
+    * GHOST term (pins the size): under the known start grouping, tiles that
+      calibration will AVERAGE together must be identical -- each pawn row
+      split by square colour (4 identical pawns per group), the empty middle
+      split by colour. A size error makes same-group members drift apart by
+      different amounts, which is exactly the template-ghosting failure. But a
+      pure TRANSLATION shifts all members equally and leaves this term flat.
+    * UNIFORMITY term (pins the offset): each of the 32 empty middle squares,
+      sampled edge-to-edge (no inset), must be a single-colour patch. Any
+      offset drags a strip of the neighbouring square into the window -- a
+      light/dark step edge whose variance dwarfs the wood-texture baseline
+      from the very first pixel.
+
+    Neither term is anchored globally though: a grid shifted by a WHOLE cell
+    into uniform surroundings stays self-consistent (the fake outer column is
+    uniform, the pawn groups still hold four identical pawns), and the seed can
+    be off by more than a cell on a small board. So the descent is preceded by
+    a COMB anchor: the 9 evenly spaced file boundaries are fitted to the edge
+    projection of the empty middle band (ranks 3-6 -- no pieces, no player
+    bars, only the light|dark steps), and likewise the 9 rank boundaries to
+    the projection across the fitted board width. Comb strength alone can be
+    faked by ONE stray UI edge (a player bar above the board donates exactly
+    the ninth line a one-cell-shifted comb needs), so each axis keeps a small
+    SHORTLIST of its strongest combs and the variance objective picks among
+    them -- a shifted grid drops piece rows into "identical" groups and pays
+    immediately. The descent then runs on a short leash (under half a cell)
+    around the anchor, which also keeps the degenerate one-full-square shift
+    out of reach.
+
+    Orientation-independent (a flipped board just swaps which colour's pawns
+    fill a row); back ranks are left out of the ghost term (R/N/B mirror-pairs
+    land on opposite square colours, so their groups would be singletons).
+    """
+    img = _as_image(image).convert("RGB")
+    arr = np.asarray(img, dtype=np.float32)
+    ih, iw = arr.shape[:2]
+    l0, t0, r0, b0 = box
+    size0 = (r0 - l0 + b0 - t0) // 2
+    cell0 = size0 / 8.0
+
+    # (row, parity) cell groups: pawn rows 1 and 6, empty rows 2..5.
+    groups = [[(r, c) for c in range(8) if (r + c) % 2 == p]
+              for r in (1, 6) for p in (0, 1)]
+    groups += [[(r, c) for r in (2, 3, 4, 5) for c in range(8) if (r + c) % 2 == p]
+               for p in (0, 1)]
+    n = TILE
+
+    def cost(l, t, size):
+        if l < 0 or t < 0 or l + size > iw or t + size > ih or size < 64:
+            return 1e18
+        cell = size / 8.0
+        total = 0.0
+        for cells in groups:
+            tiles = []
+            for r, c in cells:
+                ys = np.linspace(t + (r + _INSET) * cell,
+                                 t + (r + 1 - _INSET) * cell - 1, n).astype(int)
+                xs = np.linspace(l + (c + _INSET) * cell,
+                                 l + (c + 1 - _INSET) * cell - 1, n).astype(int)
+                tiles.append(arr[np.ix_(ys, xs)])
+            stack = np.stack(tiles)
+            total += float(((stack - stack.mean(axis=0)) ** 2).mean()) * len(cells)
+        for r in (2, 3, 4, 5):                       # uniformity of empty squares,
+            for c in range(8):                       # sampled edge-to-edge
+                ys = np.linspace(t + r * cell, t + (r + 1) * cell - 1, n).astype(int)
+                xs = np.linspace(l + c * cell, l + (c + 1) * cell - 1, n).astype(int)
+                tile_px = arr[np.ix_(ys, xs)]
+                total += float(((tile_px - tile_px.mean(axis=(0, 1))) ** 2).mean())
+        return total
+
+    # --- comb anchor -------------------------------------------------------
+    grey = np.asarray(img.convert("L"), dtype=np.float64)
+
+    def comb_candidates(proj, off, start0, size00, span, size_search):
+        """The strongest few (start, size) combs: 9 lines start + k*size/8, each
+        on a projection peak (windowed +/-2 px), scored by the WEAKEST line like
+        find_board's _fit_axis. Returns a spatially-distinct top-5 shortlist --
+        the caller disambiguates with `cost`, because one stray UI edge can fake
+        the ninth line of a shifted comb, but it can't fake board content."""
+        cands = []
+        # Step 2 on both axes: each line is scored as a +/-2 px window max, so
+        # a peak cannot slip between steps, and the variance descent (leash >=
+        # 4 px) refines the last pixel anyway. Halving both loops keeps the
+        # enumeration (~cell^2 candidates) affordable on big boards.
+        for size in range(size00 - size_search, size00 + size_search + 1, 2):
+            for start in range(start0 - span, start0 + span + 1, 2):
+                s = start - off
+                if s - 2 < 0 or s + size + 3 > len(proj):
+                    continue
+                weakest = min(proj[int(s + k * size / 8.0) - 2:
+                                   int(s + k * size / 8.0) + 3].max()
+                              for k in range(9))
+                cands.append((weakest, start, size))
+        cands.sort(key=lambda c: -c[0])
+        picked = []
+        for w, s, z in cands:
+            if all(abs(s - ps) > 6 or abs(z - pz) > 6 for _w, ps, pz in picked):
+                picked.append((w, s, z))
+            if len(picked) == 5:
+                break
+        return picked
+
+    pad = int(1.6 * cell0)
+    yb0, yb1 = max(0, int(t0 + 2.15 * cell0)), min(ih, int(t0 + 5.85 * cell0))
+    xb0, xb1 = max(0, l0 - pad), min(iw, r0 + pad)
+    v_proj = np.abs(np.diff(grey[yb0:yb1, xb0:xb1], axis=1)).sum(axis=0)
+    xc = comb_candidates(v_proj, xb0, l0, size0, pad, int(cell0))
+    if xc:
+        _w, l0, size0 = min(xc, key=lambda c: cost(c[1], t0, c[2]))
+        cell0 = size0 / 8.0
+        # rank boundaries: project across the now-known board width only, with
+        # the size forced to the x fit's (a board is square, and the x band is
+        # piece-free, so it is the axis to trust on size)
+        ybt0, ybt1 = max(0, t0 - pad), min(ih, b0 + pad)
+        xs0, xs1 = max(0, l0 + 2), min(iw, l0 + size0 - 2)
+        h_proj = np.abs(np.diff(grey[ybt0:ybt1, xs0:xs1], axis=0)).sum(axis=1)
+        yc = comb_candidates(h_proj, ybt0, t0, size0, pad, 0)
+        if yc:
+            _w, t0, _z = min(yc, key=lambda c: cost(l0, c[1], size0))
+
+    cl, ct, cs = l0, t0, size0
+    leash = max(4, size0 // 32)                  # ~1/4 cell AROUND THE ANCHOR --
+    #                                              refine only, never re-decide
+    lo = (l0 - leash, t0 - leash, size0 - leash)
+    hi = (l0 + leash, t0 + leash, size0 + leash)
+    for step, span in ((3, leash), (1, 4)):      # coarse over the whole leash,
+        for _ in range(2):                       # then fine only NEAR the winner
+            best = (cost(cl, ct, cs), cl)
+            for v in range(max(lo[0], cl - span), min(hi[0], cl + span) + 1, step):
+                cc = cost(v, ct, cs)
+                if cc < best[0]:
+                    best = (cc, v)
+            cl = best[1]
+            best = (cost(cl, ct, cs), ct)
+            for v in range(max(lo[1], ct - span), min(hi[1], ct + span) + 1, step):
+                cc = cost(cl, v, cs)
+                if cc < best[0]:
+                    best = (cc, v)
+            ct = best[1]
+            best = (cost(cl, ct, cs), cs)
+            for v in range(max(lo[2], cs - span), min(hi[2], cs + span) + 1, step):
+                cc = cost(cl, ct, v)
+                if cc < best[0]:
+                    best = (cc, v)
+            cs = best[1]
+    return cl, ct, cl + cs, ct + cs
+
+
 def snap_to_board(image: ImageLike, box: Tuple[int, int, int, int]
                   ) -> Tuple[int, int, int, int]:
     """Refine `box` to sit tight on the 8x8 board by hill-climbing the checker
@@ -728,7 +894,8 @@ def _infer_castling(board: chess.Board) -> int:
 
 
 def recognize_position(image: ImageLike, profile: Profile,
-                       white_bottom: bool = None, trim: bool = True) -> chess.Board:
+                       white_bottom: bool = None, trim: bool = True,
+                       extra: dict = None) -> chess.Board:
     """Full position from an image (for mid-game tune-in with a saved profile):
     placement PLUS side-to-move and castling rights inferred from the board.
 
@@ -737,10 +904,17 @@ def recognize_position(image: ImageLike, profile: Profile,
     Castling = assumed available unless the king/rook are off their home squares.
     `trim=False` when the crop is ALREADY the tight board (e.g. a framing pinned by
     read_with_profile): re-trimming an exact crop shifts the grid and wrecks a rank.
+    The read includes the profile's LEARNED highlight templates by default, so it
+    agrees square-for-square with the watch's own reads -- the watch compares the
+    two when deciding a re-seed jump, and a mismatched template set there once
+    kept a stuck session from ever re-attaching. Pass extra={} to read without.
     """
     if white_bottom is None:
         white_bottom = detect_orientation(image, profile)
-    board = recognize_board(image, profile, white_bottom=white_bottom, trim=trim)
+    if extra is None:
+        extra = getattr(profile, "hl_templates", None)
+    board = recognize_board(image, profile, white_bottom=white_bottom, trim=trim,
+                            extra=extra)
 
     board.turn = chess.WHITE
     for sq in highlighted_squares(image, profile, white_bottom, trim=trim):
@@ -794,6 +968,30 @@ def _residual_at(arr: np.ndarray, left: int, top: int, size: int,
                 continue
             tot += float(((sub[np.ix_(ys, xs)][None] - st) ** 2).mean(axis=(1, 2, 3)).min())
     return tot / 64.0
+
+
+def framing_sharpness(image: ImageLike, box: Tuple[int, int, int, int],
+                      profile: Profile) -> float:
+    """How decisively the grid at `box` beats its 4-px-shifted neighbours:
+    min(residual of the four shifts) / residual at the box. > 1 means every
+    shift reads worse -- the grid is pinned on the board; <= 1 means some shift
+    reads BETTER, i.e. the box is stale/misaligned (the board moved or zoomed
+    since it was saved). Quality gates cannot tell this apart -- a slightly-off
+    grid still reads the tall back-rank pieces fine -- but the residual can.
+    Five _residual_at evaluations (~0.2s), so the reuse fast path can afford it
+    on every start, reserving the full ~2-3s re-pin for when it fails."""
+    arr = np.asarray(_as_image(image).convert("RGB"), dtype=np.float32)
+    stacks = {c: np.stack([np.asarray(t, dtype=np.float32)
+                           for (s, cc), t in profile.templates.items() if cc == c])
+              for c in ("l", "d") if any(cc == c for (_s, cc) in profile.templates)}
+    l, t, r, b = box
+    size = min(r - l, b - t)
+    at_fit = _residual_at(arr, l, t, size, profile.tile, stacks)
+    if at_fit <= 0:
+        return 99.0
+    shifted = min(_residual_at(arr, l + dx, t + dy, size, profile.tile, stacks)
+                  for dx, dy in ((4, 0), (-4, 0), (0, 4), (0, -4)))
+    return shifted / at_fit
 
 
 def _refine_framing(image: ImageLike, box: Tuple[int, int, int, int],

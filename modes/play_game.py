@@ -618,7 +618,9 @@ def playAGame():
                             _watch["session"].last_frame.save(_os.path.join(_wdir, "live.png"))
                         except Exception:
                             pass
-            if _watch["accum"] >= 0.12:         # poll ~8x/s so fast moves aren't missed
+            if _watch["accum"] >= 0.08:         # poll ~12x/s so fast moves aren't missed
+                #                                 (affordable since mss region-grab cut
+                #                                  the poll cost to ~55 ms)
                 _watch["accum"] = 0.0
                 try:
                     _watch_moves = _watch["session"].poll()
@@ -1155,10 +1157,27 @@ def playAGame():
                                     # time, read it there directly -- skips the ~6s scan.
                                     _hint = getattr(_prof, "last_region", None)
                                     if _hint:
+                                        # Never trust the saved box blindly: the page may
+                                        # have scrolled/zoomed a little since, and a
+                                        # slightly-off grid reads the START fine (tall
+                                        # back-rank pieces survive it) yet misreads
+                                        # low-contrast pawns mid-game -- the watch then
+                                        # stalls on move one. A cheap sharpness probe
+                                        # (~0.2s) tells an intact box from a stale one;
+                                        # only the stale case pays the ~2-3s re-pin.
+                                        # Everything here works on _search (own window
+                                        # blacked out): the re-pin SEARCHES for board-like
+                                        # content around the box, and on the raw shot it
+                                        # can lock onto the app's OWN board and mirror it.
+                                        _hint = tuple(_hint)
+                                        if _bv.framing_sharpness(_search, _hint, _prof) <= 1.15:
+                                            if WATCH_DEBUG:
+                                                print("[watch] saved region reads blurry -> re-pinning")
+                                            _hint = _bv._refine_framing(_search, _hint, _prof)
                                         _bestq = 0.0
                                         for _cwb in (True, False):
                                             _cand = _bv.recognize_position(
-                                                _shot.crop(tuple(_hint)), _prof,
+                                                _search.crop(tuple(_hint)), _prof,
                                                 white_bottom=_cwb, trim=False)
                                             _q = _bv._read_quality(_cand)
                                             if _q > _bestq:
@@ -1166,8 +1185,11 @@ def playAGame():
                                                 _seed, (_l, _t, _r, _b), _wb = _cand, tuple(_hint), _cwb
                                     if _seed is None:
                                         _fb_box = _bv.find_board(_search)
+                                        # _search here too: read_with_profile refines the
+                                        # framing by SEARCHING around the box -- on the raw
+                                        # shot that search can wander onto the app's own board.
                                         _seed, (_l, _t, _r, _b), _wb = _bv.read_with_profile(
-                                            _shot, _fb_box, _prof)
+                                            _search, _fb_box, _prof)
                                     if _seed is not None:
                                         _reuse = True
                                         if _wb is None:
@@ -1191,10 +1213,15 @@ def playAGame():
                                 _l, _t, _r, _b = _fb_box
                                 # Snap to the exact start-position board: fixes size/
                                 # offset and pulls the box off any player bar / clock.
-                                _l, _t, _r, _b = _bv.snap_to_startpos(_shot, (_l, _t, _r, _b))
-                                _crop = _shot.crop((_l, _t, _r, _b))
-                                _bx0, _by0, _bx1, _by1 = _bv._board_bbox(_crop)  # fix tight board once
-                                _l, _t, _r, _b = _l + _bx0, _t + _by0, _l + _bx1, _t + _by1
+                                # On _search (own window blacked): snap and refine both
+                                # SEARCH around the box and must never wander onto the
+                                # app's own board.
+                                _l, _t, _r, _b = _bv.snap_to_startpos(_search, (_l, _t, _r, _b))
+                                # Snap gets within ~half a square -- enough to classify
+                                # occupancy, NOT to calibrate: a few px of size error
+                                # ghosts every averaged template (this is what broke
+                                # the watch on wood themes). Pin the grid to the pixel.
+                                _l, _t, _r, _b = _bv.refine_start_grid(_search, (_l, _t, _r, _b))
                                 _crop = _shot.crop((_l, _t, _r, _b))
                                 if WATCH_DEBUG:      # save what we captured, for the eye
                                     from PIL import ImageDraw as _ID
@@ -1207,9 +1234,13 @@ def playAGame():
                                     _boxed.save(_os.path.join(_wdir, "screen.png"))
                                     print(f"[watch] found region ({_l},{_t})-({_r},{_b}) "
                                           f"{_r - _l}x{_b - _t}; captures in {_os.path.abspath(_wdir)}")
-                                _prof = _bv.calibrate_profile(_crop)
+                                # trim=False everywhere: the box is already exact, and
+                                # the watch reads frames untrimmed -- calibration must
+                                # sample the very same grid.
+                                _prof = _bv.calibrate_profile(_crop, trim=False)
                                 _wb = _prof.white_bottom
-                                _seed = _bv.recognize_board(_crop, _prof, white_bottom=_wb)
+                                _seed = _bv.recognize_board(_crop, _prof, white_bottom=_wb,
+                                                            trim=False)
                         except Exception as _wex:
                             print(f"[watch] setup failed: {_wex}")
                             show_message(gs, "Watch setup failed (screen capture / board not found)")

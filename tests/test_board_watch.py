@@ -46,6 +46,14 @@ def test_match_move_returns_none_for_unreachable():
 
 # --- WatchSession: following a game frame by frame ------------------------------
 
+@pytest.fixture(autouse=True)
+def _no_mouse_gate(monkeypatch):
+    """The default capture gate reads the SYSTEM mouse (skip grabs mid-drag);
+    a human touching the mouse during a test run would flake every poll test.
+    Neutralize it -- the gate has its own dedicated test with an injected gate."""
+    monkeypatch.setattr(bw, "mouse_button_down", lambda: False)
+
+
 class _Feeder:
     """A grab() stand-in that returns scripted frames, then repeats the last."""
     def __init__(self, frames):
@@ -78,6 +86,22 @@ def test_watch_follows_a_game(profile):
     frames = [_render(p) for p in positions for _ in range(2)]
     watch = bw.WatchSession(profile, grab=_Feeder(frames), stable_frames=2)
 
+    emitted = []
+    for _ in range(len(frames)):
+        emitted += [m.uci() for m in watch.poll()]
+    assert emitted == game
+    assert watch.board.board_fen() == positions[-1].board_fen()
+
+
+def test_watch_commits_exact_move_on_first_frame(profile):
+    """Reactivity: a frame that EXACTLY matches a legal move's result commits
+    immediately, without waiting out the debounce -- each position shown only
+    once must still yield the full game. (Uncertain reads still debounce; see
+    test_watch_skips_a_transient_frame.)"""
+    game = ["e2e4", "e7e5", "g1f3", "b8c6", "f1c4", "f8c5", "e1g1", "g8f6"]
+    positions = _play(game)
+    frames = [_render(p) for p in positions]          # ONE frame per position
+    watch = bw.WatchSession(profile, grab=_Feeder(frames), stable_frames=2)
     emitted = []
     for _ in range(len(frames)):
         emitted += [m.uci() for m in watch.poll()]
@@ -264,6 +288,27 @@ def test_watch_matches_move_by_highlight_when_destination_unreadable():
     assert watch.board.board_fen() == after.board_fen()
 
 
+def test_first_move_commits_via_untrained_highlight_fallback():
+    """The move-one stall: on a FRESH profile nothing has been learned about the
+    highlight look yet, and the first move's piece lands on a highlighted square
+    it can't be read from -- so no layout matches, and learning can never start
+    (it only happens after a committed move). The untrained corner-tint detector
+    must break that chicken-and-egg: the move commits by its highlighted from/to
+    squares, which in turn teaches the highlight look."""
+    prof = bv.calibrate_profile(_render(chess.Board()))
+    assert prof.hl_templates == {}                     # truly fresh: nothing learned
+    after = chess.Board(); after.push_san("e4")
+    blind = after.copy(); blind.remove_piece_at(chess.E4)   # destination unreadable
+    frame = _render(blind, highlight=[chess.E2, chess.E4])
+    watch = bw.WatchSession(prof, grab=_Feeder([frame] * 4), stable_frames=2)
+    emitted = []
+    for _ in range(4):
+        emitted += [m.uci() for m in watch.poll()]
+    assert emitted == ["e2e4"]
+    assert watch.board.board_fen() == after.board_fen()
+    assert (".", "l") in prof.hl_templates             # ...and learning has begun
+
+
 def test_watch_jumps_when_it_falls_behind(profile):
     """Missing more moves than the catch-up depth (fast play) must NOT freeze: the
     watch jumps to the live position and signals a resync so the caller re-mirrors."""
@@ -322,3 +367,105 @@ def test_reseed(profile):
     endgame = chess.Board("8/8/4k3/8/8/4K3/4P3/8 w - - 0 1")
     watch.reseed(endgame)
     assert watch.board.board_fen() == endgame.board_fen()
+
+
+# --- capture gating + learning hygiene (the "lost the thread" fixes) -------------
+
+def _noise(img):
+    """A fixed pattern added to every square identically, so equal squares stay
+    pixel-identical to each other but nothing is pixel-identical to the clean
+    calibration templates -- real captures never are, and several failure modes
+    (a poisoned template out-scoring a clean one) only exist off that knife-edge."""
+    import numpy as np
+    a = np.asarray(img).astype(int)
+    yy, xx = np.mgrid[0:a.shape[0], 0:a.shape[1]]
+    a += (((xx * 7 + yy * 13) % 3) - 1)[..., None] * 4
+    from PIL import Image
+    return Image.fromarray(a.clip(0, 255).astype("uint8"))
+
+
+def test_poll_skips_capture_while_mouse_button_down(profile):
+    """While the user holds a mouse button (dragging a piece on the watched
+    board), poll must not even capture: mid-drag frames show pieces in flight
+    and are the main source of fake moves and poisoned highlight learning."""
+    seed = chess.Board()
+    after = seed.copy(); after.push_san("e4")
+    feeder = _Feeder([_render(after)] * 4)
+    gate = {"down": True}
+    watch = bw.WatchSession(profile, board=seed, grab=feeder, stable_frames=2,
+                            capture_gate=lambda: gate["down"])
+    for _ in range(3):
+        assert watch.poll() == []
+    assert feeder.i == 0                          # nothing grabbed while held
+    assert watch.last_frame is None
+    gate["down"] = False                          # button released -> resume
+    emitted = []
+    for _ in range(3):
+        emitted += [m.uci() for m in watch.poll()]
+    assert emitted == ["e2e4"]
+
+
+def test_learn_highlight_rolls_back_a_poisonous_frame():
+    """Learning from a frame that was NOT a clean post-move view must not stick.
+    Here the from-square still shows the moved pawn (classic mid-drag capture):
+    the 'highlighted empty' template learned from it contains a pawn, which then
+    makes every pawn on that square colour read as empty -- the exact board-wide
+    poisoning that once killed a whole session. The validation re-read must
+    detect the damage and roll the new templates back."""
+    prof = bv.calibrate_profile(_render(chess.Board()))
+    board = chess.Board(); board.push_san("e4")
+    frame = _render(board, highlight=[chess.E2, chess.E4])
+    dirty = frame.copy()                          # pawn still sitting on e2
+    a2_box = (0 * 48, 6 * 48, 1 * 48, 7 * 48)     # a2 tile (col 0, row 6)
+    dirty.paste(frame.crop(a2_box), (4 * 48, 6 * 48))
+    dirty = _noise(dirty)
+    watch = bw.WatchSession(prof, board=board)
+    watch.last_frame = dirty
+    pre_read = bv.recognize_board(dirty, prof, white_bottom=True,
+                                  trim=False).board_fen()
+    watch._learn_highlight(chess.Move.from_uci("e2e4"), pre_read)
+    assert prof.hl_templates == {}                # rolled back, nothing kept
+    got = bv.recognize_board(_noise(_render(board)), prof, white_bottom=True,
+                             extra=prof.hl_templates, trim=False)
+    assert got.piece_at(chess.A2) == chess.Piece.from_symbol("P")
+
+
+def test_learn_highlight_keeps_a_clean_frame():
+    """The same validation must NOT reject learning from a genuine post-move
+    frame (noise on every capture, but the from-square really is empty)."""
+    prof = bv.calibrate_profile(_render(chess.Board()))
+    board = chess.Board(); board.push_san("e4")
+    frame = _noise(_render(board, highlight=[chess.E2, chess.E4]))
+    watch = bw.WatchSession(prof, board=board)
+    watch.last_frame = frame
+    pre_read = bv.recognize_board(frame, prof, white_bottom=True,
+                                  trim=False).board_fen()
+    watch._learn_highlight(chess.Move.from_uci("e2e4"), pre_read)
+    assert (".", "l") in prof.hl_templates
+
+
+def test_jump_survives_a_divergent_learned_template():
+    """The re-seed jump compares the frame read against recognize_position's
+    read; those must use the SAME template set. With a learned template that
+    changes some square's reading, the old extra-less recognize_position could
+    never equal the placement, so a session that fell behind stayed stuck
+    forever (observed live: 3 minutes frozen after a game ended). The jump must
+    re-attach regardless."""
+    prof = bv.calibrate_profile(_render(chess.Board()))
+    game = ["e2e4", "e7e5", "g1f3", "b8c6", "f1b5", "a7a6", "b5a4", "g8f6"]
+    far = _play(game)[8]
+    frame = _noise(_render(far))
+    # a learned template that alters reads: black-pawn-on-light tile stored as
+    # "highlighted empty" -- with extras a6 reads empty, without extras it reads p
+    prof.hl_templates[(".", "l")] = bv.tiles_by_square(
+        frame, prof, True, trim=False)[chess.A6]
+    watch = bw.WatchSession(prof, grab=_Feeder([frame] * 4),
+                            stable_frames=2, max_depth=2)
+    resynced = False
+    for _ in range(4):
+        watch.poll()
+        resynced = watch.take_resync() or resynced
+    assert resynced                               # re-attached, not frozen
+    assert watch.board.piece_at(chess.E4) == chess.Piece.from_symbol("P")
+
+

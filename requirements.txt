@@ -14,3 +14,5 @@ pyttsx3>=2.99      # sintesi vocale offline delle mosse (TTS)
 requests>=2.32     # download partite Chess.com / lichess + servizio BrainMaster
 numpy>=1.26        # board-vision: template matching per riconoscere una board da immagine (watch mode)
 Pillow>=10         # board-vision / watch: cattura schermo (ImageGrab) + immagini (import: PIL)
+mss>=9             # watch: fast region-only screen capture (~16ms vs ~60); optional at
+                   # runtime -- without it the watch falls back to Pillow, just slower

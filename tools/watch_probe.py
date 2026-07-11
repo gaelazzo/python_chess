@@ -36,11 +36,14 @@ def grab(region=None):
 print("Aim at the board in the START position, then press Enter...")
 input()
 shot = ImageGrab.grab(all_screens=True)
+# same chain as the in-app watch: locate, occupancy snap, pixel-exact grid pin
 region = bv.find_board(shot)
+region = bv.snap_to_startpos(shot, region)
+region = bv.refine_start_grid(shot, region)
 crop = shot.crop(region)
 crop.save("probe_start.png")
-prof = bv.calibrate_profile(crop)
-board = bv.recognize_board(crop, prof, white_bottom=prof.white_bottom)
+prof = bv.calibrate_profile(crop, trim=False)
+board = bv.recognize_board(crop, prof, white_bottom=prof.white_bottom, trim=False)
 start_ok = board.board_fen() == chess.Board().board_fen()
 print(f"board at {region}  white_bottom={prof.white_bottom}")
 print(f"start FEN: {board.board_fen()}   start position? {'YES' if start_ok else 'NO'}")
@@ -54,7 +57,7 @@ while True:
     n += 1
     crop = grab(region)
     crop.save(f"probe_move{n}.png")
-    seen = bv.recognize_board(crop, prof, white_bottom=prof.white_bottom)
+    seen = bv.recognize_board(crop, prof, white_bottom=prof.white_bottom, trim=False)
     print(f"read FEN: {seen.board_fen()}")
     move = bw.match_move(tracked, seen.board_fen())
     if move is not None:

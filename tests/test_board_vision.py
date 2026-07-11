@@ -132,6 +132,30 @@ def test_snap_to_board_pulls_off_a_bar():
     assert abs((r - l) - board.width) < board.width * 0.15
 
 
+@pytest.mark.parametrize("dl,dt,dsize", [
+    (11, -9, 14),      # the typical snap_to_startpos error: offset + wrong size
+    (-8, 6, -20),      # short box (the template-ghosting case seen on wood themes)
+    (48, 5, 0),        # a WHOLE cell off: the degenerate self-consistent shift
+])
+def test_refine_start_grid_recovers_misframed_box(dl, dt, dsize):
+    """A calibration box that is off by a few px -- or even a whole square --
+    must be pinned back onto the exact board. This is the regression for the
+    ghost-template failure: snap_to_startpos' integer occupancy score saturates,
+    the box it returns can be ~10 px off/short, and calibrating there smears
+    every averaged template."""
+    img, (l, t, r, b) = _paste_on_canvas(_render(chess.Board()))
+    seed = (l + dl, t + dt, r + dl + dsize, b + dt + dsize)
+    fl, ft, fr, fb = bv.refine_start_grid(img, seed)
+    assert abs(fl - l) <= 2 and abs(ft - t) <= 2
+    assert abs(fr - r) <= 2 and abs(fb - b) <= 2
+    # ... and calibrating on the refined box (untrimmed: it is already exact)
+    # yields a profile that reads the start position perfectly.
+    crop = img.crop((fl, ft, fr, fb))
+    prof = bv.calibrate_profile(crop, trim=False)
+    got = bv.recognize_board(crop, prof, white_bottom=prof.white_bottom, trim=False)
+    assert got.board_fen() == chess.Board().board_fen()
+
+
 def test_profile_save_load_roundtrip(profile, tmp_path):
     path = str(tmp_path / "sub" / "theme.pkl")
     bv.save_profile(profile, path)
@@ -166,3 +190,28 @@ def test_recognize_position_infers_castling(profile):
     pos2 = bv.recognize_position(_render(moved), profile, white_bottom=True)
     assert not pos2.has_kingside_castling_rights(chess.WHITE)
     assert pos2.has_kingside_castling_rights(chess.BLACK)
+
+
+def test_refine_start_grid_recovers_a_misframed_box():
+    """A seed box that is offset AND wrongly sized (the snap_to_startpos failure
+    that ghosted every calibrated template on wood themes) is pinned back onto
+    the exact board. The uniform background around the board is the trap: a grid
+    shifted by a whole cell into it stays self-consistent, so this also proves
+    the global anchoring."""
+    img, (l, t, r, b) = _paste_on_canvas(_render(chess.Board()))
+    for seed in [(l + 11, t - 9, r + 3, b - 17),     # offset + 5% short
+                 (l - 40, t + 6, r - 52, b - 6)]:    # nearly a whole cell off
+        fl, ft, fr, fb = bv.refine_start_grid(img, seed)
+        assert abs(fl - l) <= 2 and abs(ft - t) <= 2
+        assert abs(fr - r) <= 2 and abs(fb - b) <= 2
+
+
+def test_refine_start_grid_calibration_reads_cleanly():
+    """Calibrating on the refined box (trim=False, the exact-grid contract) must
+    read the start position perfectly."""
+    img, _ = _paste_on_canvas(_render(chess.Board()))
+    box = bv.refine_start_grid(img, bv.snap_to_startpos(img, bv.find_board(img)))
+    crop = img.crop(box)
+    prof = bv.calibrate_profile(crop, trim=False)
+    got = bv.recognize_board(crop, prof, white_bottom=prof.white_bottom, trim=False)
+    assert got.board_fen() == chess.Board().board_fen()
